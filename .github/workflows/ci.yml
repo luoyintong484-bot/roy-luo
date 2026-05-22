@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      node: ${{ steps.detect.outputs.node }}
+      python: ${{ steps.detect.outputs.python }}
+      docker: ${{ steps.detect.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect project type
+        id: detect
+        run: |
+          echo "node=false" >> $GITHUB_OUTPUT
+          echo "python=false" >> $GITHUB_OUTPUT
+          echo "docker=false" >> $GITHUB_OUTPUT
+          if [ -f package.json ]; then echo "node=true" >> $GITHUB_OUTPUT; fi
+          if [ -f requirements.txt ] || [ -f pyproject.toml ]; then echo "python=true" >> $GITHUB_OUTPUT; fi
+          if [ -f Dockerfile ]; then echo "docker=true" >> $GITHUB_OUTPUT; fi
+
+  node:
+    needs: prepare
+    if: needs.prepare.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+
+  python:
+    needs: prepare
+    if: needs.prepare.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install poetry && poetry install; fi
+      - name: Run tests
+        run: |
+          if command -v pytest >/dev/null 2>&1; then pytest -q; else echo "No pytest; skipping tests"; fi
+
+  docker:
+    needs: prepare
+    if: needs.prepare.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to DockerHub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/repo:${{ github.sha }}
+      - name: Save local image (optional)
+        if: ${{ secrets.DOCKERHUB_USERNAME == '' || secrets.DOCKERHUB_TOKEN == '' }}
+        run: docker image ls
