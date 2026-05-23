@@ -1,0 +1,54 @@
+name: Website CI (Frontend + Backend)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # 后端管理系统 CI
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci
+        # 如果你的后端代码在单独的文件夹（比如 /backend），可以用：
+        # run: cd backend && npm ci
+
+      - name: Run backend lint & tests
+        run: |
+          npm run lint
+          npm test
+
+  # 前端网站 CI（含后台管理面板）
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+        # 如果你的前端代码在单独的文件夹（比如 /frontend 或 /admin），可以用：
+        # run: cd frontend && npm ci
+
+      - name: Run frontend lint & build check
+        run: |
+          npm run lint
+          npm run build # 确保前端能正常打包（不报错）
