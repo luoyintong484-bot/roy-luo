@@ -4,25 +4,25 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
 import {
-  Heart, Star, ArrowLeft, Sparkles, Lock, Crown,
+  Heart, Star, ArrowLeft, Sparkles, Share2, Download,
   Flame, Droplets, Mountain, Wind, Loader2
 } from "lucide-react";
 
 const ELEMENT_CONFIG: Record<string, { icon: typeof Flame; color: string; label: string }> = {
-  "火": { icon: Flame, color: "text-red-400", label: "火" },
-  "水": { icon: Droplets, color: "text-blue-400", label: "水" },
-  "木": { icon: Wind, color: "text-green-400", label: "木" },
-  "金": { icon: Star, color: "text-yellow-400", label: "金" },
-  "土": { icon: Mountain, color: "text-amber-600", label: "土" },
+  "火": { icon: Flame, color: "text-red-400", label: "Fire" },
+  "水": { icon: Droplets, color: "text-blue-400", label: "Water" },
+  "木": { icon: Wind, color: "text-green-400", label: "Wood" },
+  "金": { icon: Star, color: "text-yellow-400", label: "Metal" },
+  "土": { icon: Mountain, color: "text-amber-600", label: "Earth" },
 };
 
 const MANSION_RELATIONS: Record<string, { label: string; desc: string; color: string }> = {
-  "安坏": { label: "安坏", desc: "一方安稳一方破坏，激情与冲突并存", color: "text-red-400" },
-  "荣亲": { label: "荣亲", desc: "荣耀与亲密，彼此滋养的荣贵关系", color: "text-pink-400" },
-  "友衰": { label: "友衰", desc: "朋友般轻松，也有疏离之感", color: "text-blue-400" },
-  "危成": { label: "危成", desc: "危险与成就，带有宿命的牵引", color: "text-purple-400" },
-  "业胎": { label: "业胎", desc: "业力纠缠，前世今生的深刻羁绊", color: "text-indigo-400" },
-  "命之星": { label: "命之星", desc: "命运之星，灵魂深处的共鸣", color: "text-[#d4a853]" },
+  "安坏": { label: "安坏", desc: "一方安稳一方破坏，激情与冲突并存。这是最极致的宿命牵引——注定相遇，注定纠缠，注定在彼此的命运里留下不可磨灭的印记。", color: "text-red-400" },
+  "荣亲": { label: "荣亲", desc: "荣耀与亲密，彼此滋养的荣贵关系。如同星辰与月光——相互映照，却从不争夺光芒。这是最温柔的守护，不需言语便能心领神会。", color: "text-pink-400" },
+  "友衰": { label: "友衰", desc: "朋友般的轻松惬意，也存在若即若离的疏离感。如同四季交替——有相聚的温暖，也有各自前行的空隙。关键在于：即使走远，也能回头。", color: "text-blue-400" },
+  "危成": { label: "危成", desc: "危险与成就并存，带有浓厚宿命色彩的牵引。两颗行星在危险的距离上共舞——稍有不慎便坠入深渊，但恰恰是这种危机感让双方迸发出最强的生命张力。", color: "text-purple-400" },
+  "业胎": { label: "业胎", desc: "业力纠缠，前世今生的深刻羁绊。你们曾在某个时空许下约定，今生注定要来完成一场修行。所有的相遇都不是偶然——是宇宙在还愿，也是宇宙在考验。", color: "text-indigo-400" },
+  "命之星": { label: "命之星", desc: "命运之星，灵魂深处最纯粹的共鸣。在茫茫宇宙中，找到与自己同频共振的另一颗星——这不是概率，是奇迹。你们是同一种灵魂材质的不同折射。", color: "text-[#d4a853]" },
 };
 
 const RELATION_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -38,13 +38,9 @@ export default function IdolCompatibilityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-
   const artistId = parseInt(id || "0");
   const state = location.state as any;
-
   const { data: artist, isLoading } = trpc.artist.getById.useQuery({ id: artistId });
-
-  // Use pre-calculated result from navigation state or show placeholder
   const result = state?.result;
 
   if (isLoading) {
@@ -59,9 +55,9 @@ export default function IdolCompatibilityDetailPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <Heart className="w-8 h-8 text-[#8a8aad22]" />
-        <p className="text-[#8a8aad]">请先前往合盘专区生成匹配结果</p>
+        <p className="text-[#8a8aad]">Please go to the compatibility zone to generate results first</p>
         <button onClick={() => navigate("/idol-compatibility")} className="text-[#d4a853] text-sm">
-          前往合盘专区
+          Go to Compatibility Zone
         </button>
       </div>
     );
@@ -77,28 +73,21 @@ export default function IdolCompatibilityDetailPage() {
       <Navbar />
       <main className="pt-20 pb-16">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
-          {/* Back */}
-          <button
-            onClick={() => navigate("/idol-compatibility")}
-            className="flex items-center gap-1 text-xs text-[#8a8aad] hover:text-[#d4a853] transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            返回合盘列表
+          <button onClick={() => navigate("/idol-compatibility")}
+            className="flex items-center gap-1 text-xs text-[#8a8aad] hover:text-[#d4a853] transition-colors mb-6">
+            <ArrowLeft className="w-4 h-4" /> Back to Compatibility List
           </button>
 
-          {/* Header: User + Artist */}
+          {/* Header Score Card */}
           <div className="glass rounded-2xl p-6 border border-[#d4a85310] mb-6">
             <div className="flex items-center justify-center gap-6">
-              {/* User */}
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-[#d4a85310] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2">
                   <Star className="w-6 h-6 text-[#d4a853]" />
                 </div>
-                <p className="text-xs text-[#f0e6d3] font-medium">你</p>
+                <p className="text-xs text-[#f0e6d3] font-medium">You</p>
                 <p className="text-[10px] text-[#8a8aad44]">{state.userPillar}</p>
               </div>
-
-              {/* Score */}
               <div className="text-center px-4">
                 <div className="text-3xl font-display font-bold text-[#d4a853]">{result.overallScore}</div>
                 <div className="h-0.5 w-12 bg-[#d4a85322] mx-auto my-1.5" />
@@ -106,134 +95,136 @@ export default function IdolCompatibilityDetailPage() {
                   {tagConfig.label}
                 </span>
               </div>
-
-              {/* Artist */}
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2 overflow-hidden">
-                  {result.artistAvatar ? (
-                    <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Heart className="w-6 h-6 text-[#d4a853]" />
-                  )}
+                  {result.artistAvatar ? <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" /> : <Heart className="w-6 h-6 text-[#d4a853]" />}
                 </div>
                 <p className="text-xs text-[#f0e6d3] font-medium truncate max-w-[80px]">{result.artistName}</p>
-                <p className="text-[10px] text-[#8a8aad44]">{artistEl}命</p>
+                <p className="text-[10px] text-[#8a8aad44]">{artistEl}</p>
               </div>
             </div>
           </div>
 
-          {/* 1. Western Synastry */}
-          <SectionCard
-            icon={<Sparkles className="w-4 h-4" />}
-            title="西方星盘合盘"
-            subtitle={result.synastryScore >= 70 ? "高度契合" : result.synastryScore >= 45 ? "潜力发展" : "磨合成长"}
-          >
+          {/* 1. Western Synastry — expanded */}
+          <SectionCard icon={<Sparkles className="w-4 h-4" />} title="Western Synastry"
+            subtitle={result.synastryScore >= 70 ? "High Compatibility" : result.synastryScore >= 45 ? "Growth Potential" : "Needs Understanding"}>
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-[#8a8aad]">星盘契合度</span>
+                <span className="text-xs text-[#8a8aad]">Synastry Score</span>
                 <span className="text-sm font-bold text-[#d4a853]">{result.synastryScore}</span>
               </div>
               <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-[#d4a85355] to-[#d4a853]" style={{ width: `${result.synastryScore}%` }} />
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {result.keywords?.map((k: string, i: number) => (
-                <span key={i} className="px-2 py-0.5 bg-[#d4a85306] text-[#d4a85355] text-[10px] rounded border border-[#d4a85308]">
-                  {k}
-                </span>
+                <span key={i} className="px-2 py-0.5 bg-[#d4a85306] text-[#d4a85355] text-[10px] rounded border border-[#d4a85308]">{k}</span>
               ))}
             </div>
+            <p className="text-xs text-[#8a8aad] leading-relaxed bg-[#0a0a0f] rounded-lg p-3">
+              {result.synastryScore >= 70
+                ? "Your Western zodiac signs form a harmonious trine aspect — the rarest and most effortless of cosmic alignments. Like two instruments tuned to the same key, your energies blend without friction. This is the kind of synastry that astrologers dream of discovering in composite charts."
+                : result.synastryScore >= 45
+                ? "Your signs sit at a sextile angle — close enough to understand each other, different enough to keep things interesting. There's a natural curiosity here, a willingness to bridge gaps. With conscious effort, this alignment can grow into something profoundly beautiful."
+                : "Your zodiac configurations create a square or opposition — challenging but far from hopeless. The tension between your signs is the universe's way of pushing you both to evolve. Some of the most legendary relationships in history were forged in this very crucible of cosmic friction."}
+            </p>
             {!state.userTime && (
-              <p className="text-[10px] text-[#8a8aad33] mt-2">* Time estimated · 未提供出生时间，结果为估算</p>
+              <p className="text-[10px] text-[#8a8aad33] mt-2">* Time estimated — birth time not provided, results are approximate</p>
             )}
           </SectionCard>
 
-          {/* 2. Bazi Five Elements */}
-          <SectionCard
-            icon={<Flame className="w-4 h-4" />}
-            title="四柱五行合盘"
-            subtitle={result.elementComplement || "五行分析"}
-          >
-            {/* Element comparison */}
+          {/* 2. Bazi Five Elements — expanded */}
+          <SectionCard icon={<Flame className="w-4 h-4" />} title="Bazi Five Elements"
+            subtitle={result.elementComplement || "Element Analysis"}>
             <div className="flex items-center justify-center gap-4 mb-4">
-              <ElementBadge element={userElement} label="你" />
+              <ElementBadge element={userElement} label="You" />
               <div className="text-center">
-                <div className="text-lg text-[#8a8aad22]">vs</div>
-                <div className="text-[10px] text-[#8a8aad33]">五行对比</div>
+                <div className="text-lg text-[#8a8aad22]">×</div>
+                <div className="text-[10px] text-[#8a8aad33]">Element Match</div>
               </div>
               <ElementBadge element={artistEl} label={result.artistName} />
             </div>
-
-            {/* Element Score */}
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-[#8a8aad]">五行契合度</span>
+                <span className="text-xs text-[#8a8aad]">Element Compatibility</span>
                 <span className="text-sm font-bold text-[#d4a853]">{result.baziScore}</span>
               </div>
               <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-[#d4a85355] to-[#d4a853]" style={{ width: `${result.baziScore}%` }} />
               </div>
             </div>
-
             <p className="text-xs text-[#8a8aad] leading-relaxed bg-[#0a0a0f] rounded-lg p-3">
               {result.elementComplement}
             </p>
+            <p className="text-[10px] text-[#8a8aad44] mt-2 leading-relaxed">
+              In the Five Elements cycle, some combinations generate abundance (Wood → Fire → Earth → Metal → Water), while others control excess (Wood restrains Earth, Fire tempers Metal). Your Bazi day pillars reveal how your elemental natures interact at the deepest level — not just personality compatibility, but energetic destiny alignment.
+            </p>
           </SectionCard>
 
-          {/* 3. Star Mansion Relation */}
-          <SectionCard
-            icon={<Star className="w-4 h-4" />}
-            title="星宿关系"
-            subtitle={relConfig.label}
-          >
+          {/* 3. Star Mansion — expanded */}
+          <SectionCard icon={<Star className="w-4 h-4" />} title="Star Mansion Relation"
+            subtitle={relConfig.label}>
             <div className="text-center mb-3">
-              <span className={`text-2xl font-display font-bold ${relConfig.color}`}>
-                {result.starMansionRelation}
-              </span>
+              <span className={`text-2xl font-display font-bold ${relConfig.color}`}>{result.starMansionRelation}</span>
             </div>
             <p className="text-xs text-[#8a8aad] text-center leading-relaxed bg-[#0a0a0f] rounded-lg p-3">
               {relConfig.desc}
             </p>
+            <p className="text-[10px] text-[#8a8aad44] mt-2 text-center leading-relaxed">
+              The 28 Star Mansions form an ancient lunar calendar system used for over 2,000 years. Each mansion carries its own spiritual signature — when two souls share a mansion connection, it speaks to recognition beyond this lifetime. These six relationship archetypes (安坏·荣亲·友衰·危成·业胎·命之星) represent the full spectrum of karmic entanglement.
+            </p>
           </SectionCard>
 
-          {/* 4. Overall Summary */}
-          <SectionCard
-            icon={<Heart className="w-4 h-4" />}
-            title="合盘总结"
-            subtitle={tagConfig.label}
-          >
-            <p className="text-sm text-[#f0e6d3] leading-relaxed mb-4">
-              {result.summary}
-            </p>
+          {/* 4. Overall Summary — expanded */}
+          <SectionCard icon={<Heart className="w-4 h-4" />} title="Compatibility Summary"
+            subtitle={tagConfig.label}>
+            <p className="text-sm text-[#f0e6d3] leading-relaxed mb-4">{result.summary}</p>
             <div className="flex flex-wrap gap-1.5">
               {result.keywords?.map((k: string, i: number) => (
-                <span key={i} className="px-2 py-1 bg-[#d4a85306] text-[#d4a853] text-[10px] rounded-full border border-[#d4a85315]">
-                  {k}
-                </span>
+                <span key={i} className="px-2 py-1 bg-[#d4a85306] text-[#d4a853] text-[10px] rounded-full border border-[#d4a85315]">{k}</span>
               ))}
             </div>
+            <p className="text-[10px] text-[#8a8aad44] mt-3 leading-relaxed">
+              This reading synthesizes Western synastry, Chinese Bazi Five Elements, and the 28 Star Mansion system — three ancient traditions spanning continents and millennia, all pointing toward the same cosmic truth: every connection carries meaning, every encounter holds a lesson, and every soul that touches yours leaves a trace in the stardust.
+            </p>
           </SectionCard>
 
-          {/* Ziwei Premium CTA */}
-          <button
-            onClick={() => {}}
-            className="w-full mt-4 p-4 glass rounded-xl border border-[#d4a85315] hover:border-[#d4a85330] transition-all flex items-center justify-between group opacity-60"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border border-[#d4a85315]">
-                <Crown className="w-5 h-5 text-[#d4a853]" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-semibold text-[#f0e6d3]">紫微斗数深度合盘</div>
-                <div className="text-[10px] text-[#8a8aad]">四化飞星 · 命宫对宫 · 更精准</div>
-              </div>
+          {/* ===== SOCIAL SHARE ROW ===== */}
+          <div className="glass rounded-xl p-4 border border-[#d4a85310] mt-4">
+            <p className="text-[10px] text-[#8a8aad] text-center mb-3 uppercase tracking-wider">Share This Reading</p>
+            <div className="flex justify-center gap-3 flex-wrap">
+              {[
+                { name: "Xiaohongshu", icon: "📕", color: "hover:bg-red-400/20 hover:text-red-400" },
+                { name: "TikTok", icon: "🎵", color: "hover:bg-gray-300/20 hover:text-gray-300" },
+                { name: "Instagram", icon: "📷", color: "hover:bg-pink-500/20 hover:text-pink-400" },
+                { name: "Facebook", icon: "📘", color: "hover:bg-blue-500/20 hover:text-blue-400" },
+                { name: "Twitter / X", icon: "🐦", color: "hover:bg-sky-400/20 hover:text-sky-400" },
+              ].map(p => (
+                <button key={p.name} onClick={async () => {
+                  const text = `🔮 Compatibility: ${result.artistName} | Score: ${result.overallScore} · ${tagConfig.label}\n` +
+                    `Synastry: ${result.synastryScore} | Bazi: ${result.baziScore} | Mansion: ${result.starMansionRelation}\n#R7Fortune #IdolCompatibility #DestinyReading`;
+                  try { await navigator.clipboard.writeText(text); } catch {}
+                }}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 glass rounded-xl border border-[#d4a85310] ${p.color} transition-all text-[#8a8aad] hover:scale-105`}>
+                  <span className="text-lg">{p.icon}</span>
+                  <span className="text-[8px]">{p.name}</span>
+                </button>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-[#d4a85355]" />
-              <span className="text-[10px] text-[#d4a853]">Premium</span>
-            </div>
-          </button>
+          </div>
+
+          {/* ===== SHARE POSTER PLACEHOLDER ===== */}
+          <div className="glass rounded-xl p-3 border border-[#d4a85306] mt-3 opacity-40">
+            <p className="text-[9px] text-[#8a8aad44] text-center">
+              📸 Share Poster · Coming Soon — dynamic personalized poster with your unique compatibility data
+            </p>
+          </div>
+
+          {/* Disclaimer */}
+          <p className="text-[9px] text-[#8a8aad33] text-center leading-relaxed mt-4">
+            * This compatibility reading is for entertainment and fan community recreational purposes only. All content is algorithmically generated and should not be interpreted as factual relationship analysis. Enjoy responsibly.
+          </p>
         </div>
       </main>
       <Footer />
@@ -248,9 +239,7 @@ function SectionCard({ icon, title, subtitle, children }: {
   return (
     <div className="glass rounded-xl p-5 border border-[#d4a85306] mb-4">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 rounded-lg bg-[#d4a85310] flex items-center justify-center text-[#d4a853]">
-          {icon}
-        </div>
+        <div className="w-8 h-8 rounded-lg bg-[#d4a85310] flex items-center justify-center text-[#d4a853]">{icon}</div>
         <div>
           <h3 className="text-sm font-semibold text-[#f0e6d3]">{title}</h3>
           <p className="text-[10px] text-[#8a8aad44]">{subtitle}</p>
@@ -266,11 +255,11 @@ function ElementBadge({ element, label }: { element: string; label: string }) {
   const Icon = cfg.icon;
   return (
     <div className="text-center">
-      <div className={`w-12 h-12 rounded-full bg-[#0a0a0f] flex items-center justify-center border border-[#d4a85308] mx-auto mb-1`}>
+      <div className="w-12 h-12 rounded-full bg-[#0a0a0f] flex items-center justify-center border border-[#d4a85308] mx-auto mb-1">
         <Icon className={`w-5 h-5 ${cfg.color}`} />
       </div>
       <p className="text-[10px] text-[#8a8aad]">{label}</p>
-      <p className={`text-xs font-medium ${cfg.color}`}>{element}</p>
+      <p className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</p>
     </div>
   );
 }
