@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { payments } from "@db/schema";
+import { payments, users } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export const paymentRouter = createRouter({
@@ -14,23 +14,60 @@ export const paymentRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const result = await db.insert(payments).values({
+      const [result] = await db.insert(payments).values({
         userId: ctx.user.id,
         readingId: input.readingId,
         type: input.type,
         amount: String(input.amount),
         description: input.description,
       }).$returningId();
-      return { id: result[0]?.id ?? 0, status: "pending" };
+      return { id: (result as any)?.id ?? 0, status: "pending" };
     }),
 
+  // Payment callback — unlock premium after successful payment
   complete: authedQuery
-    .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .input(z.object({
+      id: z.number().int().positive(),
+      reportType: z.enum(["tarot", "synastry", "natal", "cp", "idol"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      // Mark payment completed
       await db.update(payments)
         .set({ status: "completed" })
         .where(eq(payments.id, input.id));
+
+      // Unlock user: isPremium = true
+      await db.update(users)
+        .set({ isPremium: true })
+        .where(eq(users.id, ctx.user.id));
+
+      return { success: true, isPremium: true };
+    }),
+
+  // Webhook endpoint for 3rd-party payment callback
+  paymentWebhook: authedQuery
+    .input(z.object({
+      orderId: z.string(),
+      amount: z.number().positive(),
+      status: z.enum(["completed", "failed"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      if (input.status === "completed") {
+        // Record payment
+        await db.insert(payments).values({
+          userId: ctx.user.id,
+          type: "membership",
+          amount: String(input.amount),
+          status: "completed",
+          description: `Webhook: ${input.orderId}`,
+        });
+        // Unlock premium
+        await db.update(users)
+          .set({ isPremium: true, membershipType: "monthly" })
+          .where(eq(users.id, ctx.user.id));
+      }
       return { success: true };
     }),
 

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-/** Subtle pink shimmer background for all non-Home pages.
- *  Pure black base #000000 with sparse low-saturation pink sparkles.
- *  No orbits, no lines, no floating — only gentle twinkling. */
+/** Black starry-sky background for all non-Home pages.
+ *  Pure black base #000000 with silver + soft pink sparkles.
+ *  Gentle twinkle + slow drift — elegant, understated. */
 export default function SubtlePinkBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -21,46 +21,61 @@ export default function SubtlePinkBg() {
     canvas.style.height = h + "px";
     ctx.scale(dpr, dpr);
 
-    interface Spark { x: number; y: number; r: number; baseAlpha: number; phase: number }
-    const sparks: Spark[] = [];
-    // Sparse: ~80 particles total — fewer on mobile
-    const count = w < 768 ? 50 : 80;
+    interface Star { x: number; y: number; r: number; baseAlpha: number; phase: number; isPink: boolean; driftX: number; driftY: number }
+    const stars: Star[] = [];
+    const count = w < 768 ? 200 : 300;
     for (let i = 0; i < count; i++) {
-      sparks.push({
+      stars.push({
         x: Math.random() * w,
         y: Math.random() * h,
-        r: 0.4 + Math.random() * 1.2,
-        baseAlpha: 0.08 + Math.random() * 0.2,
+        r: 0.4 + Math.random() * 2.2,
+        baseAlpha: 0.12 + Math.random() * 0.35,
         phase: Math.random() * Math.PI * 2,
+        isPink: Math.random() > 0.55,
+        driftX: (Math.random() - 0.5) * 0.15,
+        driftY: (Math.random() - 0.5) * 0.15,
       });
     }
 
     let raf: number;
     const draw = () => {
       const t = Date.now() * 0.001;
-      // Pure black base
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, w, h);
 
-      for (const s of sparks) {
-        // Very subtle twinkling only — no drift, no orbit
-        const twinkle = 0.3 + 0.7 * Math.sin(t * 1.2 + s.phase);
+      for (const s of stars) {
+        // Gentle twinkle
+        const twinkle = 0.35 + 0.65 * Math.sin(t * 1.5 + s.phase);
         const alpha = s.baseAlpha * twinkle;
 
-        // Soft pink glow halo
-        const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 2.5);
-        grad.addColorStop(0, `rgba(255, 182, 193, ${alpha * 0.5})`);
-        grad.addColorStop(0.5, `rgba(255, 160, 180, ${alpha * 0.1})`);
-        grad.addColorStop(1, "rgba(255, 140, 160, 0)");
-        ctx.fillStyle = grad;
+        // Very slow drift for depth
+        const dx = Math.sin(t * 0.3 + s.phase) * s.driftX;
+        const dy = Math.cos(t * 0.3 + s.phase) * s.driftY;
+
+        if (s.isPink) {
+          const grad = ctx.createRadialGradient(s.x + dx, s.y + dy, 0, s.x + dx, s.y + dy, s.r * 3.5);
+          grad.addColorStop(0, `rgba(255, 182, 193, ${alpha * 0.7})`);
+          grad.addColorStop(0.3, `rgba(255, 160, 180, ${alpha * 0.2})`);
+          grad.addColorStop(1, "rgba(255, 140, 160, 0)");
+          ctx.fillStyle = grad;
+        } else {
+          const grad = ctx.createRadialGradient(s.x + dx, s.y + dy, 0, s.x + dx, s.y + dy, s.r * 2.5);
+          grad.addColorStop(0, `rgba(230, 230, 250, ${alpha * 0.65})`);
+          grad.addColorStop(0.4, `rgba(190, 190, 220, ${alpha * 0.18})`);
+          grad.addColorStop(1, "rgba(150, 150, 190, 0)");
+          ctx.fillStyle = grad;
+        }
+
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r * 2.5, 0, Math.PI * 2);
+        ctx.arc(s.x + dx, s.y + dy, s.r * (s.isPink ? 3 : 2.2), 0, Math.PI * 2);
         ctx.fill();
 
-        // Core dot
-        ctx.fillStyle = `rgba(255, 200, 210, ${alpha})`;
+        // Core spark — brighter
+        ctx.fillStyle = s.isPink
+          ? `rgba(255, 210, 225, ${Math.min(1, alpha * 1.3)})`
+          : `rgba(245, 245, 255, ${Math.min(1, alpha * 1.1)})`;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r * 0.5, 0, Math.PI * 2);
+        ctx.arc(s.x + dx, s.y + dy, s.r * 0.5, 0, Math.PI * 2);
         ctx.fill();
       }
 

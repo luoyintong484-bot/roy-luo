@@ -11,7 +11,7 @@ const HOT_BADGE = (
 
 export default function HeroSection() {
   const navigate = useNavigate()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const mouseRef = useRef({ x: 0, y: 0 })
   const timeRef = useRef(0)
@@ -183,23 +183,10 @@ export default function HeroSection() {
                 <Sparkles className="w-4 h-4 text-[#d4a853] group-hover:scale-110 transition-transform" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors">Idol Fortune</p>
-                <p className="text-[9px] text-[#8a8aad33] mt-0.5">Star charts · Fortune readings</p>
+                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors">{locale === "zh-TW" ? "愛豆玄學" : "Idol Fortune"}</p>
+                <p className="text-[9px] text-[#8a8aad33] mt-0.5">{locale === "zh-TW" ? "星盤密碼 · 專屬運勢解讀" : "Star charts · Fortune readings"}</p>
               </div>
               <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full">HOT</span>
-            </button>
-            <button
-              onClick={() => navigate("/destiny")}
-              className="flex-1 glass rounded-xl px-5 py-3.5 border border-[#d4a85312] hover:border-[#d4a85330] transition-all text-left group flex items-center gap-3"
-            >
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#d4a85318] to-[#d4a85305] flex items-center justify-center border border-[#d4a85312] flex-shrink-0">
-                <Heart className="w-4 h-4 text-[#d4a853] group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors">Idol Compatibility</p>
-                <p className="text-[9px] text-[#8a8aad33] mt-0.5">Synastry · Five Elements · Star Mansions</p>
-              </div>
-              <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full">NEW</span>
             </button>
           </div>
 
@@ -211,8 +198,8 @@ export default function HeroSection() {
                 <Heart className="w-4 h-4 text-[#FFB6C1] group-hover:scale-110 transition-transform" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#FFB6C1] transition-colors">CP Fate Report</p>
-                <p className="text-[9px] text-[#8a8aad33] mt-0.5">Cosmic Pair Reading · Two-Idol Destiny Chart</p>
+                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#FFB6C1] transition-colors">{locale === "zh-TW" ? "CP 宿命合盤" : "CP Fate Report"}</p>
+                <p className="text-[9px] text-[#8a8aad33] mt-0.5">{locale === "zh-TW" ? "宇宙雙人星盤 · 緣分解讀" : "Cosmic Pair Reading · Two-Idol Destiny Chart"}</p>
               </div>
               <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-rose-400 text-white text-[8px] font-bold rounded-full shadow-lg shadow-red-500/30 animate-pulse">HOT</span>
             </button>

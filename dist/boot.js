@@ -46746,6 +46746,7 @@ var env = {
   databaseUrl: required2("DATABASE_URL"),
   kimiAuthUrl: requiredUrl("KIMI_AUTH_URL", "https://open.moonshot.cn"),
   kimiOpenUrl: requiredUrl("KIMI_OPEN_URL", "https://api.moonshot.cn"),
+  moonshotApiKey: process.env.MOONSHOT_API_KEY ?? "",
   ownerUnionId: process.env.OWNER_UNION_ID ?? ""
 };
 
@@ -46771,6 +46772,8 @@ var users = mysqlTable("users", {
   avatar: text("avatar"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   freeReadings: int2("free_readings").default(3).notNull(),
+  divinationCount: int2("divination_count").default(0).notNull(),
+  isPremium: boolean4("is_premium").default(false).notNull(),
   membershipType: mysqlEnum("membership_type", ["none", "monthly", "yearly"]).default("none").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
   language: varchar("language", { length: 10 }).default("zh-CN"),
@@ -47286,22 +47289,45 @@ var destinyRouter = createRouter({
 
 // api/reading-router.ts
 var readingRouter = createRouter({
-  // Check remaining free readings
+  // Check remaining free readings + premium status
   getFreeCount: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const result = await db.select({ freeReadings: users.freeReadings }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
-    return { freeReadings: result[0]?.freeReadings ?? 0 };
+    const result = await db.select({
+      freeReadings: users.freeReadings,
+      divinationCount: users.divinationCount,
+      isPremium: users.isPremium
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    return {
+      freeReadings: u?.freeReadings ?? 0,
+      divinationCount: u?.divinationCount ?? 0,
+      isPremium: u?.isPremium ?? false,
+      canAccess: u?.isPremium === true || (u?.freeReadings ?? 0) > 0
+    };
   }),
   // Use one free reading
   useFree: authedQuery.mutation(async ({ ctx }) => {
     const db = getDb();
-    const result = await db.select({ freeReadings: users.freeReadings }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
-    const current = result[0]?.freeReadings ?? 0;
-    if (current <= 0) {
-      throw new Error("No free readings remaining");
+    const result = await db.select({
+      freeReadings: users.freeReadings,
+      isPremium: users.isPremium,
+      divinationCount: users.divinationCount
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+    if (u.isPremium) {
+      await db.update(users).set({ divinationCount: (u.divinationCount ?? 0) + 1 }).where(eq(users.id, ctx.user.id));
+      return { remaining: -1, divinationCount: (u.divinationCount ?? 0) + 1, isPremium: true };
     }
-    await db.update(users).set({ freeReadings: current - 1 }).where(eq(users.id, ctx.user.id));
-    return { remaining: current - 1 };
+    const current = u.freeReadings ?? 0;
+    if (current <= 0) {
+      throw new Error("FREE_LIMIT_REACHED");
+    }
+    await db.update(users).set({
+      freeReadings: current - 1,
+      divinationCount: (u.divinationCount ?? 0) + 1
+    }).where(eq(users.id, ctx.user.id));
+    return { remaining: current - 1, divinationCount: (u.divinationCount ?? 0) + 1, isPremium: false };
   }),
   create: authedQuery.input(external_exports.object({
     type: external_exports.enum(["tarot", "natal_chart", "synastry", "annual_fortune", "itinerary_energy", "fan_artist_compatibility"]),
@@ -47312,12 +47338,26 @@ var readingRouter = createRouter({
     price: external_exports.number().min(0).default(0)
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const user = ctx.user;
+    const userId = ctx.user.id;
+    const userResult = await db.select({
+      freeReadings: users.freeReadings,
+      isPremium: users.isPremium,
+      divinationCount: users.divinationCount
+    }).from(users).where(eq(users.id, userId)).limit(1);
+    const freshUser = userResult[0];
+    if (!freshUser) throw new Error("User not found");
     if (input.price === 0) {
-      if (user.freeReadings <= 0) {
-        throw new Error("Free reading limit reached. Please purchase.");
+      if (!freshUser.isPremium && (freshUser.freeReadings ?? 0) <= 0) {
+        throw new Error("FREE_LIMIT_REACHED");
       }
-      await db.update(users).set({ freeReadings: user.freeReadings - 1 }).where(eq(users.id, user.id));
+      await db.update(users).set({
+        freeReadings: Math.max(0, (freshUser.freeReadings ?? 0) - 1),
+        divinationCount: (freshUser.divinationCount ?? 0) + 1
+      }).where(eq(users.id, userId));
+    } else {
+      await db.update(users).set({
+        divinationCount: (freshUser.divinationCount ?? 0) + 1
+      }).where(eq(users.id, userId));
     }
     const result = await db.insert(readings).values({
       userId: user.id,
@@ -47405,18 +47445,42 @@ var paymentRouter = createRouter({
     description: external_exports.string().max(200).optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const result = await db.insert(payments).values({
+    const [result] = await db.insert(payments).values({
       userId: ctx.user.id,
       readingId: input.readingId,
       type: input.type,
       amount: String(input.amount),
       description: input.description
     }).$returningId();
-    return { id: result[0]?.id ?? 0, status: "pending" };
+    return { id: result?.id ?? 0, status: "pending" };
   }),
-  complete: authedQuery.input(external_exports.object({ id: external_exports.number().int().positive() })).mutation(async ({ input }) => {
+  // Payment callback — unlock premium after successful payment
+  complete: authedQuery.input(external_exports.object({
+    id: external_exports.number().int().positive(),
+    reportType: external_exports.enum(["tarot", "synastry", "natal", "cp", "idol"]).optional()
+  })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     await db.update(payments).set({ status: "completed" }).where(eq(payments.id, input.id));
+    await db.update(users).set({ isPremium: true }).where(eq(users.id, ctx.user.id));
+    return { success: true, isPremium: true };
+  }),
+  // Webhook endpoint for 3rd-party payment callback
+  paymentWebhook: authedQuery.input(external_exports.object({
+    orderId: external_exports.string(),
+    amount: external_exports.number().positive(),
+    status: external_exports.enum(["completed", "failed"])
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    if (input.status === "completed") {
+      await db.insert(payments).values({
+        userId: ctx.user.id,
+        type: "membership",
+        amount: String(input.amount),
+        status: "completed",
+        description: `Webhook: ${input.orderId}`
+      });
+      await db.update(users).set({ isPremium: true, membershipType: "monthly" }).where(eq(users.id, ctx.user.id));
+    }
     return { success: true };
   }),
   list: authedQuery.input(external_exports.object({
@@ -47441,9 +47505,9 @@ var userRouter = createRouter({
   getProfile: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const userResult = await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1);
-    const user = userResult[0];
+    const user2 = userResult[0];
     const profileResult = await db.select().from(userProfiles).where(eq(userProfiles.userId, ctx.user.id)).limit(1);
-    return { user, profile: profileResult[0] ?? null };
+    return { user: user2, profile: profileResult[0] ?? null };
   }),
   updateProfile: authedQuery.input(external_exports.object({
     birthDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -47565,7 +47629,7 @@ var translations = {
     "destiny.natalChart": "\u4E2A\u4EBA\u661F\u76D8",
     "destiny.synastry": "\u53CC\u4EBA\u5408\u76D8",
     "destiny.annualFortune": "\u5168\u5E74\u5168\u76D8\u5927\u8FD0",
-    "tarot.title": "\u97E6\u7279\u5854\u7F57",
+    "tarot.title": "\u5854\u7F57\u5360\u535C",
     "tarot.questionPlaceholder": "\u4F60\u60F3\u95EE\u4EC0\u4E48\uFF1F\u5728\u6B64\u8F93\u5165\u4F60\u7684\u95EE\u9898...",
     "tarot.selectSpread": "\u9009\u62E9\u724C\u9635",
     "tarot.drawCards": "\u62BD\u724C",
@@ -47638,7 +47702,7 @@ var translations = {
     "destiny.natalChart": "\u500B\u4EBA\u661F\u76E4",
     "destiny.synastry": "\u96D9\u4EBA\u5408\u76E4",
     "destiny.annualFortune": "\u5168\u5E74\u5927\u904B",
-    "tarot.title": "\u97CB\u7279\u5854\u7F85",
+    "tarot.title": "\u5854\u7F85\u5360\u535C",
     "tarot.questionPlaceholder": "\u4F60\u60F3\u554F\u4EC0\u9EBC\uFF1F\u5728\u6B64\u8F38\u5165\u4F60\u7684\u554F\u984C...",
     "tarot.selectSpread": "\u9078\u64C7\u724C\u9663",
     "tarot.drawCards": "\u62BD\u724C",
@@ -48206,6 +48270,10 @@ var idolCompatibilityRouter = createRouter({
     userBirthDate: external_exports.string(),
     userBirthTime: external_exports.string().optional(),
     userBirthPlace: external_exports.string().optional(),
+    userCountry: external_exports.string().optional(),
+    userProvince: external_exports.string().optional(),
+    userCity: external_exports.string().optional(),
+    userTimezone: external_exports.string().optional(),
     userDayPillar: external_exports.string(),
     userStarMansion: external_exports.string(),
     filterTag: external_exports.string().optional()
@@ -48264,6 +48332,810 @@ var idolCompatibilityRouter = createRouter({
   })
 });
 
+// api/lib/synastry-preprocess.ts
+var ZODIAC_SIGNS2 = [
+  "\u767D\u7F8A\u5EA7",
+  "\u91D1\u725B\u5EA7",
+  "\u53CC\u5B50\u5EA7",
+  "\u5DE8\u87F9\u5EA7",
+  "\u72EE\u5B50\u5EA7",
+  "\u5904\u5973\u5EA7",
+  "\u5929\u79E4\u5EA7",
+  "\u5929\u874E\u5EA7",
+  "\u5C04\u624B\u5EA7",
+  "\u6469\u7FAF\u5EA7",
+  "\u6C34\u74F6\u5EA7",
+  "\u53CC\u9C7C\u5EA7"
+];
+var ZODIAC_ELEMENTS2 = {
+  "\u767D\u7F8A\u5EA7": "\u706B",
+  "\u91D1\u725B\u5EA7": "\u571F",
+  "\u53CC\u5B50\u5EA7": "\u98CE",
+  "\u5DE8\u87F9\u5EA7": "\u6C34",
+  "\u72EE\u5B50\u5EA7": "\u706B",
+  "\u5904\u5973\u5EA7": "\u571F",
+  "\u5929\u79E4\u5EA7": "\u98CE",
+  "\u5929\u874E\u5EA7": "\u6C34",
+  "\u5C04\u624B\u5EA7": "\u706B",
+  "\u6469\u7FAF\u5EA7": "\u571F",
+  "\u6C34\u74F6\u5EA7": "\u98CE",
+  "\u53CC\u9C7C\u5EA7": "\u6C34"
+};
+var STEM_ELEMENTS2 = {
+  "\u7532": "\u6728",
+  "\u4E59": "\u6728",
+  "\u4E19": "\u706B",
+  "\u4E01": "\u706B",
+  "\u620A": "\u571F",
+  "\u5DF1": "\u571F",
+  "\u5E9A": "\u91D1",
+  "\u8F9B": "\u91D1",
+  "\u58EC": "\u6C34",
+  "\u7678": "\u6C34"
+};
+var MANSION_ORDER2 = [
+  "\u89D2",
+  "\u4EA2",
+  "\u6C10",
+  "\u623F",
+  "\u5FC3",
+  "\u5C3E",
+  "\u7B95",
+  "\u6597",
+  "\u725B",
+  "\u5973",
+  "\u865A",
+  "\u5371",
+  "\u5BA4",
+  "\u58C1",
+  "\u594E",
+  "\u5A04",
+  "\u80C3",
+  "\u6634",
+  "\u6BD5",
+  "\u89DC",
+  "\u53C2",
+  "\u4E95",
+  "\u9B3C",
+  "\u67F3",
+  "\u661F",
+  "\u5F20",
+  "\u7FFC",
+  "\u8F78"
+];
+function getDayPillarElement2(dayPillar) {
+  if (!dayPillar || dayPillar.length < 1) return "\u571F";
+  return STEM_ELEMENTS2[dayPillar[0]] || "\u571F";
+}
+function preprocessBazi(p1Pillar, p2Pillar) {
+  const p1El = getDayPillarElement2(p1Pillar);
+  const p2El = getDayPillarElement2(p2Pillar);
+  const generating = { "\u6728": "\u706B", "\u706B": "\u571F", "\u571F": "\u91D1", "\u91D1": "\u6C34", "\u6C34": "\u6728" };
+  const overcoming = { "\u6728": "\u571F", "\u571F": "\u6C34", "\u6C34": "\u706B", "\u706B": "\u91D1", "\u91D1": "\u6728" };
+  let relation;
+  let score;
+  let complement;
+  if (generating[p1El] === p2El) {
+    relation = `${p1El}\u751F${p2El}`;
+    score = 85;
+    complement = `\u4F60\u7684${p1El}\u80FD\u91CF\u5929\u7136\u6ECB\u517B\u5BF9\u65B9\u7684${p2El}\uFF0C\u5F62\u6210\u987A\u7545\u7684\u80FD\u91CF\u6D41\u52A8\u3002`;
+  } else if (generating[p2El] === p1El) {
+    relation = `${p2El}\u751F${p1El}`;
+    score = 80;
+    complement = `\u5BF9\u65B9\u7684${p2El}\u80FD\u91CF\u5929\u7136\u6ECB\u517B\u4F60\u7684${p1El}\uFF0C\u4F60\u5728\u8FD9\u6BB5\u5173\u7CFB\u4E2D\u611F\u53D7\u5230\u88AB\u5475\u62A4\u3002`;
+  } else if (overcoming[p1El] === p2El) {
+    relation = `${p1El}\u514B${p2El}`;
+    score = 45;
+    complement = `\u4F60\u7684${p1El}\u80FD\u91CF\u514B\u5236\u5BF9\u65B9\u7684${p2El}\uFF0C\u9700\u8981\u5BDF\u89C9\u529B\u91CF\u611F\u7684\u5DEE\u5F02\u3002`;
+  } else if (overcoming[p2El] === p1El) {
+    relation = `${p2El}\u514B${p1El}`;
+    score = 40;
+    complement = `\u5BF9\u65B9\u7684${p2El}\u80FD\u91CF\u514B\u5236\u4F60\u7684${p1El}\uFF0C\u8FD9\u662F\u6210\u957F\u8BFE\u9898\u800C\u975E\u969C\u788D\u3002`;
+  } else if (p1El === p2El) {
+    relation = `\u540C\u4E3A${p1El}\u547D\xB7\u6BD4\u80A9`;
+    score = 70;
+    complement = `\u540C\u4E3A${p1El}\u547D\uFF0C\u5FD7\u540C\u9053\u5408\uFF0C\u5F7C\u6B64\u7406\u89E3\u65E0\u9700\u591A\u8A00\u3002`;
+  } else {
+    relation = `${p1El}-${p2El}\xB7\u4E2D\u6027`;
+    score = 60;
+    complement = `\u4E94\u884C${p1El}\u4E0E${p2El}\u5404\u81EA\u72EC\u7ACB\uFF0C\u4E92\u4E0D\u5E72\u6270\uFF0C\u81EA\u7136\u76F8\u5904\u3002`;
+  }
+  return { p1Element: p1El, p2Element: p2El, relation, score, complement };
+}
+function preprocessSynastry(p1Zodiac, p2Zodiac) {
+  const p1El = ZODIAC_ELEMENTS2[p1Zodiac] || "\u6C34";
+  const p2El = ZODIAC_ELEMENTS2[p2Zodiac] || "\u6C34";
+  const elementCompat = {
+    "\u706B": { "\u706B": 8, "\u98CE": 10, "\u571F": 4, "\u6C34": 6 },
+    "\u98CE": { "\u706B": 10, "\u98CE": 8, "\u571F": 6, "\u6C34": 4 },
+    "\u571F": { "\u706B": 4, "\u98CE": 6, "\u571F": 8, "\u6C34": 10 },
+    "\u6C34": { "\u706B": 6, "\u98CE": 4, "\u571F": 10, "\u6C34": 8 }
+  };
+  const elScore = elementCompat[p1El]?.[p2El] || 5;
+  const dynamicMap = {
+    "\u706B": {
+      "\u98CE": "\u7ECF\u5178\u71C3\u70E7\u5FAA\u73AF\u2014\u2014\u706B\u63D0\u4F9B\u706B\u82B1\uFF0C\u98CE\u4F9B\u5E94\u6C27\u6C14\uFF0C\u5171\u540C\u521B\u9020\u65E0\u6CD5\u72EC\u81EA\u7EF4\u6301\u7684\u70C8\u7130\u3002",
+      "\u706B": "\u5171\u632F\u8C10\u6CE2\u2014\u2014\u5982\u540C\u4E24\u628A\u8C03\u81F3\u540C\u4E00\u97F3\u9AD8\u7684\u4E50\u5668\uFF0C\u5373\u65F6\u7684\u672C\u80FD\u7406\u89E3\u7ED5\u8FC7\u8BED\u8A00\u9650\u5236\u3002",
+      "\u6C34": "\u4E24\u6781\u5F20\u529B\u2014\u2014\u706B\u7684\u5F3A\u5EA6\u53EF\u80FD\u84B8\u53D1\u6C34\u7684\u7EC6\u5FAE\u60C5\u611F\uFF0C\u6C34\u7684\u6DF1\u5EA6\u53EF\u80FD\u8BA9\u706B\u611F\u5230\u7A92\u606F\u3002",
+      "\u571F": "\u4E92\u8865\u6311\u6218\u2014\u2014\u706B\u7684\u70ED\u529B\u53EF\u4EE5\u6E29\u6696\u571F\u7684\u6C89\u7A33\uFF0C\u571F\u7684\u7ED3\u6784\u53EF\u4EE5\u7ED9\u706B\u63D0\u4F9B\u5BB9\u5668\u3002"
+    },
+    "\u98CE": {
+      "\u706B": "\u7ECF\u5178\u71C3\u70E7\u5FAA\u73AF\u2014\u2014\u98CE\u4F9B\u5E94\u6C27\u6C14\uFF0C\u706B\u63D0\u4F9B\u706B\u82B1\uFF0C\u6700\u5177\u52A8\u6001\u5F20\u529B\u7684\u5143\u7D20\u914D\u5BF9\u3002",
+      "\u98CE": "\u601D\u7EF4\u5171\u632F\u2014\u2014\u4E24\u9897\u5FC3\u7075\u5728\u540C\u4E00\u9891\u7387\u4E0A\u98D8\u8361\uFF0C\u5BF9\u8BDD\u6C38\u8FDC\u4E0D\u4F1A\u67AF\u7AED\u3002",
+      "\u6C34": "\u667A\u6027\u4E0E\u611F\u6027\u7684\u78B0\u649E\u2014\u2014\u98CE\u7684\u903B\u8F91\u9047\u4E0A\u6C34\u7684\u76F4\u89C9\uFF0C\u9700\u8981\u5F7C\u6B64\u7FFB\u8BD1\u3002",
+      "\u571F": "\u81EA\u7531\u4E0E\u5B89\u7A33\u7684\u62C9\u626F\u2014\u2014\u98CE\u9700\u8981\u7A7A\u95F4\uFF0C\u571F\u9700\u8981\u5B9A\u6240\uFF0C\u5404\u6709\u5404\u7684\u771F\u7406\u3002"
+    },
+    "\u571F": {
+      "\u706B": "\u4E92\u8865\u6311\u6218\u2014\u2014\u571F\u7684\u7A33\u56FA\u7ED9\u706B\u63D0\u4F9B\u6839\u57FA\uFF0C\u706B\u7684\u70ED\u60C5\u7ED9\u571F\u6CE8\u5165\u751F\u547D\u3002",
+      "\u98CE": "\u81EA\u7531\u4E0E\u5B89\u7A33\u7684\u62C9\u626F\u2014\u2014\u571F\u9700\u8981\u5B9A\u6240\uFF0C\u98CE\u9700\u8981\u7A7A\u95F4\uFF0C\u5E73\u8861\u662F\u5171\u540C\u8BFE\u9898\u3002",
+      "\u571F": "\u7A33\u5B9A\u5171\u632F\u2014\u2014\u4E24\u5EA7\u5C71\u8109\u5E76\u80A9\u800C\u7ACB\uFF0C\u6C89\u9ED8\u4E2D\u7684\u9ED8\u5951\u540C\u6837\u6DF1\u6C89\u3002",
+      "\u6C34": "\u6ECB\u517B\u6839\u57FA\u2014\u2014\u6C34\u5E26\u6765\u60C5\u611F\u6DF1\u5EA6\u4E0E\u6D41\u52A8\uFF0C\u571F\u63D0\u4F9B\u7ED3\u6784\u4E0E\u7A33\u5B9A\uFF0C\u5982\u96E8\u6C34\u843D\u5728\u80A5\u6C83\u571F\u58E4\u3002"
+    },
+    "\u6C34": {
+      "\u706B": "\u4E24\u6781\u5F20\u529B\u2014\u2014\u6C34\u7684\u6DF1\u5EA6\u53EF\u80FD\u8BA9\u706B\u611F\u5230\u7A92\u606F\uFF0C\u706B\u7684\u5F3A\u5EA6\u53EF\u80FD\u84B8\u53D1\u6C34\u7684\u7EC6\u5FAE\u60C5\u611F\u3002",
+      "\u98CE": "\u667A\u6027\u4E0E\u611F\u6027\u7684\u78B0\u649E\u2014\u2014\u6C34\u7684\u76F4\u89C9\u9047\u4E0A\u98CE\u7684\u903B\u8F91\uFF0C\u5404\u6709\u5404\u7684\u6BCD\u8BED\u3002",
+      "\u571F": "\u6ECB\u517B\u6839\u57FA\u2014\u2014\u5982\u540C\u96E8\u6C34\u843D\u5728\u80A5\u6C83\u571F\u58E4\uFF0C\u521B\u9020\u6DF1\u6839\u751F\u957F\u7684\u6761\u4EF6\uFF0C\u62B5\u5FA1\u4EFB\u4F55\u98CE\u66B4\u3002",
+      "\u6C34": "\u60C5\u611F\u6DF1\u6D0B\u2014\u2014\u4E24\u6761\u6CB3\u6D41\u6C47\u5408\uFF0C\u60C5\u7EEA\u7684\u6697\u6D8C\u5F7C\u6B64\u5171\u9E23\uFF0C\u65E0\u9700\u8A00\u8BED\u3002"
+    }
+  };
+  const elementDynamic = dynamicMap[p1El]?.[p2El] || `${p1El}-${p2El}\u5143\u7D20\u7EC4\u5408\u5F62\u6210\u72EC\u7279\u80FD\u91CF\u573A\u3002`;
+  const p1Idx = ZODIAC_SIGNS2.indexOf(p1Zodiac);
+  const p2Idx = ZODIAC_SIGNS2.indexOf(p2Zodiac);
+  const diff = Math.abs(p1Idx - p2Idx);
+  let signHarmony;
+  let signBonus;
+  if (diff === 0) {
+    signHarmony = "\u540C\u5EA7\u5171\u632F\u2014\u2014\u5F7C\u6B64\u5982\u955C\u4E2D\u5012\u5F71";
+    signBonus = 12;
+  } else if (diff === 4 || diff === 8) {
+    signHarmony = "\u4E09\u5206\u76F8\xB7\u5929\u7136\u548C\u8C10\u2014\u2014\u7075\u9B42\u6DF1\u5904\u7684\u5171\u9E23";
+    signBonus = 15;
+  } else if (diff === 2 || diff === 10) {
+    signHarmony = "\u516D\u5206\u76F8\xB7\u4E92\u8865\u5438\u5F15\u2014\u2014\u5BF9\u65B9\u586B\u8865\u4E86\u4F60\u7684\u7A7A\u7F3A";
+    signBonus = 10;
+  } else if (diff === 6) {
+    signHarmony = "\u5BF9\u5206\u76F8\xB7\u5F20\u529B\u5438\u5F15\u2014\u2014\u5BF9\u7ACB\u4EA7\u751F\u6DF1\u523B\u7684\u78C1\u529B";
+    signBonus = -5;
+  } else {
+    signHarmony = "\u4E00\u822C\u76F8\u4F4D\xB7\u7F13\u6162\u53D1\u9175\u2014\u2014\u9700\u8981\u65F6\u95F4\u53D1\u73B0\u5F7C\u6B64\u7684\u6DF1\u5EA6";
+    signBonus = 0;
+  }
+  const score = Math.min(99, Math.max(10, 40 + elScore * 3 + signBonus));
+  const keywords = [];
+  if (elScore >= 8) keywords.push("\u5143\u7D20\u9AD8\u5EA6\u4E92\u8865");
+  if (diff === 0 || diff === 4 || diff === 8) keywords.push("\u7075\u9B42\u5171\u632F");
+  if (diff === 6) keywords.push("\u5F20\u529B\u5438\u5F15");
+  if (score >= 70) keywords.push("\u9AD8\u5339\u914D\u5EA6");
+  const aspectMap = {
+    "\u540C\u5EA7\u5171\u632F\u2014\u2014\u5F7C\u6B64\u5982\u955C\u4E2D\u5012\u5F71": "\u592A\u9633-\u592A\u9633\u5408\u76F8\uFF1A\u6838\u5FC3\u672C\u8D28\u9AD8\u5EA6\u4E00\u81F4",
+    "\u4E09\u5206\u76F8\xB7\u5929\u7136\u548C\u8C10\u2014\u2014\u7075\u9B42\u6DF1\u5904\u7684\u5171\u9E23": "\u91D1\u661F-\u706B\u661F\u4E09\u5206\u76F8\uFF1A\u7231\u4E0E\u88AB\u7231\u7684\u65B9\u5F0F\u81EA\u7136\u5951\u5408",
+    "\u516D\u5206\u76F8\xB7\u4E92\u8865\u5438\u5F15\u2014\u2014\u5BF9\u65B9\u586B\u8865\u4E86\u4F60\u7684\u7A7A\u7F3A": "\u6708\u4EAE-\u6C34\u661F\u516D\u5206\u76F8\uFF1A\u60C5\u611F\u4E0E\u601D\u7EF4\u76F8\u4E92\u8865\u5145",
+    "\u5BF9\u5206\u76F8\xB7\u5F20\u529B\u5438\u5F15\u2014\u2014\u5BF9\u7ACB\u4EA7\u751F\u6DF1\u523B\u7684\u78C1\u529B": "\u91D1\u661F-\u706B\u661F\u5BF9\u5206\u76F8\uFF1A\u5438\u5F15\u529B\u4E0E\u51B2\u7A81\u5E76\u5B58\uFF0C\u7ECF\u5178chemistry"
+  };
+  const keyAspect = aspectMap[signHarmony] || "\u65E5\u6708\u4E92\u52A8\u76F8\u4F4D\uFF1A\u5404\u81EA\u53D1\u5149\uFF0C\u76F8\u4E92\u8F89\u6620";
+  return { score, keywords, elementDynamic, signHarmony, keyAspect };
+}
+function preprocessStarMansion(p1Mansion, p2Mansion) {
+  const uIdx = MANSION_ORDER2.indexOf(p1Mansion.replace("\u5BBF", ""));
+  const aIdx = MANSION_ORDER2.indexOf(p2Mansion.replace("\u5BBF", ""));
+  if (uIdx === -1 || aIdx === -1) {
+    return { relation: "\u53CB\u8870", description: "\u8F7B\u677E\u6109\u5FEB\u7684\u966A\u4F34\uFF0C\u5F7C\u6B64\u6B23\u8D4F\u3002" };
+  }
+  const diff = Math.abs(uIdx - aIdx) % 14;
+  const relationTable = {
+    0: "\u547D\u4E4B\u661F",
+    1: "\u5B89\u574F",
+    2: "\u8363\u4EB2",
+    3: "\u53CB\u8870",
+    4: "\u5371\u6210",
+    5: "\u4E1A\u80CE",
+    6: "\u547D\u4E4B\u661F",
+    7: "\u5B89\u574F",
+    8: "\u8363\u4EB2",
+    9: "\u53CB\u8870",
+    10: "\u5371\u6210",
+    11: "\u4E1A\u80CE",
+    12: "\u547D\u4E4B\u661F",
+    13: "\u5B89\u574F"
+  };
+  const relation = relationTable[diff] || "\u53CB\u8870";
+  const descriptions = {
+    "\u547D\u4E4B\u661F": "\u6700\u7A00\u6709\u7684\u7075\u9B42\u94FE\u63A5\u2014\u2014\u4E24\u4E2A\u7075\u9B42\u7531\u540C\u4E00\u661F\u4F53\u6A21\u5177\u94F8\u9020\u3002\u5728\u4E0D\u540C\u751F\u547D\u4E2D\u4E92\u70BA\u6298\u5C04\uFF0C\u9047\u89C1\u7684\u77AC\u95F4\u5373\u8BA4\u51FA\u5F7C\u6B64\u3002",
+    "\u8363\u4EB2": "\u4E92\u76F8\u63D0\u5347\u7684\u4E1A\u529B\u7F81\u7ECA\u2014\u2014\u4E00\u65B9\u81EA\u7136\u62AC\u5347\u53E6\u4E00\u65B9\uFF0C\u5BF9\u65B9\u7684\u6210\u529F\u5982\u540C\u81EA\u5DF1\u7684\u4E00\u822C\u559C\u60A6\u3002",
+    "\u5B89\u574F": "\u5F37\u70C8\u5169\u6975\u7684\u78C1\u529B\u63A8\u62C9\u2014\u2014\u7A33\u5B9A\u4E0E\u7834\u574F\u76F8\u9047\uFF0C\u5728\u6469\u64E6\u4E2D\u53CC\u65B9\u88AB\u5F7B\u5E95\u8F6C\u5316\u3002\u4E0D\u662F\u8212\u9002\u7684\u8FDE\u7ED3\uFF0C\u4F46\u7EDD\u5BF9\u96BE\u4EE5\u5FD8\u6000\u3002",
+    "\u53CB\u8870": "\u8F7B\u677E\u966A\u4F34\u7684\u81EA\u7136\u5951\u5408\u2014\u2014\u65E0\u9700\u620F\u5267\u6027\u7684\u6DF1\u5EA6\u4E5F\u80FD\u5F7C\u6B64\u6ECB\u517B\uFF0C\u5982\u618B\u6C14\u592A\u4E45\u540E\u7684\u547C\u6C23\u3002",
+    "\u5371\u6210": "\u5728\u6311\u6218\u4E2D\u953B\u9020\u7684\u8FDE\u7ED3\u2014\u2014\u5171\u540C\u9762\u5BF9\u5916\u90E8\u9006\u5883\u65F6\uFF0C\u60C5\u8C0A\u53CD\u800C\u6700\u6DF1\u3002",
+    "\u4E1A\u80CE": "\u8DE8\u8D8A\u751F\u4E16\u7684\u672A\u7ADF\u4E4B\u4E8B\u2014\u2014\u6545\u4E8B\u5728\u6B64\u751F\u4E4B\u524D\u5C31\u5DF2\u5F00\u59CB\uFF0C\u4ECA\u751F\u76F8\u9047\u662F\u4E3A\u5B8C\u6210\u524D\u4E16\u7684\u7EA6\u5B9A\u3002"
+  };
+  return { relation, description: descriptions[relation] };
+}
+function preprocessVedic(p1Zodiac, p2Zodiac, p1Mansion, p2Mansion) {
+  const p1Idx = ZODIAC_SIGNS2.indexOf(p1Zodiac);
+  const p2Idx = ZODIAC_SIGNS2.indexOf(p2Zodiac);
+  const nodeContact = Math.abs((p1Idx - p2Idx + 12) % 12);
+  const hasNodeContact = nodeContact === 0 || nodeContact === 4 || nodeContact === 6 || nodeContact === 8 || nodeContact === 10;
+  const rahuKetuConnection = hasNodeContact ? "\u53CC\u65B9\u5357\u5317\u4EA4\u70B9\u4E0E\u4E2A\u4EBA\u884C\u661F\u5F62\u6210\u7D27\u5BC6\u76F8\u4F4D\u2014\u2014\u8FD9\u662F\u5F3A\u70C8\u7684\u4E1A\u529B\u4FE1\u53F7\uFF0C\u8868\u660E\u76F8\u9047\u7EDD\u975E\u5076\u7136\u3002" : "\u5357\u5317\u4EA4\u70B9\u672A\u4E0E\u4E2A\u4EBA\u884C\u661F\u5F62\u6210\u4E3B\u8981\u76F8\u4F4D\u2014\u2014\u4ECA\u751F\u7684\u8FDE\u63A5\u66F4\u591A\u662F\u5F53\u4E0B\u7684\u9009\u62E9\u800C\u975E\u524D\u4E16\u7684\u7275\u5F15\u3002";
+  const rulers = {
+    "\u767D\u7F8A\u5EA7": "\u706B\u661F",
+    "\u91D1\u725B\u5EA7": "\u91D1\u661F",
+    "\u53CC\u5B50\u5EA7": "\u6C34\u661F",
+    "\u5DE8\u87F9\u5EA7": "\u6708\u4EAE",
+    "\u72EE\u5B50\u5EA7": "\u592A\u9633",
+    "\u5904\u5973\u5EA7": "\u6C34\u661F",
+    "\u5929\u79E4\u5EA7": "\u91D1\u661F",
+    "\u5929\u874E\u5EA7": "\u706B\u661F",
+    "\u5C04\u624B\u5EA7": "\u6728\u661F",
+    "\u6469\u7FAF\u5EA7": "\u571F\u661F",
+    "\u6C34\u74F6\u5EA7": "\u571F\u661F",
+    "\u53CC\u9C7C\u5EA7": "\u6728\u661F"
+  };
+  const p1Lord = rulers[p1Zodiac] || "\u672A\u77E5";
+  const p2Lord = rulers[p2Zodiac] || "\u672A\u77E5";
+  const seventhDynamic = p1Lord === p2Lord ? `\u53CC\u65B9\u7B2C\u4E03\u5BAB\u4E3B\u661F\u540C\u4E3A${p1Lord}\u2014\u2014\u4F60\u4EEC\u5728\u4F34\u4FA3\u5173\u7CFB\u4E2D\u8FFD\u6C42\u7684\u4E1C\u897F\u60CA\u4EBA\u5730\u76F8\u4F3C\uFF0C\u8FD9\u65E2\u662F\u795D\u798F\u4E5F\u662F\u8003\u9A8C\u3002` : `\u4F60\u7684\u7B2C\u4E03\u5BAB\u4E3B\u661F${p1Lord}\u4E0E\u5BF9\u65B9\u7684${p2Lord}${["\u706B\u661F", "\u91D1\u661F", "\u6708\u4EAE"].includes(p1Lord) && ["\u706B\u661F", "\u91D1\u661F", "\u6708\u4EAE"].includes(p2Lord) ? "\u5F62\u6210\u6709\u5229\u7684\u60C5\u611F\u4E92\u52A8\u2014\u2014\u4EB2\u5BC6\u5173\u7CFB\u4E2D\u7684\u5316\u5B66\u53CD\u5E94\u5F3A\u70C8\u800C\u771F\u5B9E\u3002" : "\u5F62\u6210\u4E92\u8865\u89C6\u89D2\u2014\u2014\u4F60\u4EEC\u5404\u81EA\u5E26\u6765\u4E86\u5BF9\u65B9\u5728\u5173\u7CFB\u4E2D\u6700\u9700\u8981\u7684\u4E1C\u897F\u3002"}`;
+  const karmicPatterns = {
+    "\u547D\u4E4B\u661F": "\u7F57\u5589-\u8BA1\u90FD\u8F74\u7EBF\u6FC0\u6D3B\uFF1A\u4E24\u4EBA\u5171\u4EAB\u4E00\u4E2A\u7075\u9B42\u84DD\u56FE\u3002\u8FD9\u4E0D\u662F\u7B2C\u4E00\u6B21\u76F8\u9047\uFF0C\u4E5F\u4E0D\u4F1A\u662F\u6700\u540E\u4E00\u6B21\u3002",
+    "\u8363\u4EB2": "\u5357\u4EA4\u70B9\u548C\u8C10\u76F8\u4F4D\uFF1A\u524D\u4E16\u66FE\u4E3A\u4EB2\u8FD1\u4E4B\u4EBA\uFF08\u5BB6\u4EBA\u3001\u631A\u53CB\uFF09\u3002\u4ECA\u751F\u7EE7\u7EED\u5F7C\u6B64\u6210\u5C31\u7684\u4E1A\u529B\u529F\u8BFE\u3002",
+    "\u5B89\u574F": "\u5317\u4EA4\u70B9\u5F20\u529B\u76F8\u4F4D\uFF1A\u76F8\u9047\u5C31\u662F\u4E3A\u4E86\u6253\u7834\u5BF9\u65B9\u7684\u8212\u9002\u533A\u3002\u8F6C\u5316\u6027\u7684\u5173\u7CFB\uFF0C\u5E26\u6709\u5F3A\u70C8\u7684\u8FDB\u5316\u610F\u56FE\u3002",
+    "\u4E1A\u80CE": "\u5357\u5317\u4EA4\u70B9\u8F74\u7EBF\u8D2F\u7A7F\uFF1A\u6700\u6C89\u91CD\u7684\u4E1A\u529B\u7C7B\u578B\u2014\u2014\u6709\u672A\u5B8C\u6210\u7684\u7EA6\u5B9A\u8DE8\u8D8A\u4E86\u4E0D\u6B62\u4E00\u751F\u3002"
+  };
+  const mansionRel = preprocessStarMansion(p1Mansion, p2Mansion).relation;
+  const karmicSummary = karmicPatterns[mansionRel] || "\u4E1A\u529B\u4E2D\u6027\u7684\u76F8\u9047\u2014\u2014\u4F60\u4EEC\u9009\u62E9\u4E86\u5F7C\u6B64\uFF0C\u800C\u4E0D\u662F\u88AB\u547D\u8FD0\u63A8\u5230\u4E00\u8D77\u3002\u8FD9\u540C\u6837\u7F8E\u4E3D\u3002";
+  return { rahuKetuConnection, seventhLordDynamic: seventhDynamic, karmicSummary };
+}
+function preprocessCompatibilityData(p1, p2) {
+  const bazi = preprocessBazi(p1.baziDayPillar, p2.baziDayPillar);
+  const synastry = preprocessSynastry(p1.zodiacSign, p2.zodiacSign);
+  const starMansion = preprocessStarMansion(p1.starMansion, p2.starMansion);
+  const vedic = preprocessVedic(p1.zodiacSign, p2.zodiacSign, p1.starMansion, p2.starMansion);
+  const avgScore = Math.round((bazi.score + synastry.score) / 2);
+  const mansionBonus = { "\u547D\u4E4B\u661F": 15, "\u8363\u4EB2": 10, "\u5B89\u574F": 5, "\u53CB\u8870": 3, "\u5371\u6210": 0, "\u4E1A\u80CE": -2 };
+  const finalScore = avgScore + (mansionBonus[starMansion.relation] || 0);
+  let tag2;
+  let label;
+  let summary;
+  if (finalScore >= 85) {
+    tag2 = "soulmate";
+    label = "Soulmate";
+    summary = `\u661F\u76D8\u4E0E\u4E94\u884C\u9AD8\u5EA6\u5951\u5408\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u6781\u4E3A\u7F55\u89C1\u7684\u7075\u9B42\u4F34\u4FA3\u7EC4\u5408\uFF0C\u6DF1\u5C42\u5438\u5F15\u4E0E\u7406\u89E3\u3002`;
+  } else if (finalScore >= 70) {
+    tag2 = "deep_trust";
+    label = "Deep Trust";
+    summary = `\u5F3A\u70C8\u4FE1\u4EFB\u57FA\u7840\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u53EF\u5EFA\u7ACB\u6DF1\u539A\u6301\u4E45\u7684\u8FDE\u63A5\u3002`;
+  } else if (finalScore >= 55) {
+    tag2 = "good_vibes";
+    label = "Good Vibes";
+    summary = `\u6574\u4F53\u80FD\u91CF\u548C\u8C10\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u76F8\u5904\u8F7B\u677E\u6109\u5FEB\uFF0C\u5E26\u6765\u6B63\u9762\u5F71\u54CD\u3002`;
+  } else if (finalScore >= 40) {
+    tag2 = "best_friends";
+    label = "Best Friends";
+    summary = `\u9002\u5408\u6210\u4E3A\u5F7C\u6B64\u597D\u53CB\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u53CB\u8C0A\u7A33\u56FA\uFF0C\u4E92\u76F8\u652F\u6301\u3002`;
+  } else if (finalScore >= 25) {
+    tag2 = "tension";
+    label = "Tension";
+    summary = `\u5438\u5F15\u529B\u4E0E\u6311\u6218\u5E76\u5B58\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u9700\u8981\u66F4\u591A\u7406\u89E3\u4E0E\u78E8\u5408\u3002`;
+  } else {
+    tag2 = "rivals";
+    label = "Rivals";
+    summary = `\u80FD\u91CF\u573A\u5B58\u5728\u51B2\u7A81\uFF0C\u661F\u5BBF${starMansion.relation}\u3002\u6311\u6218\u4FC3\u6210\u6210\u957F\u3002`;
+  }
+  return {
+    person1: { name: p1.name, zodiac: p1.zodiacSign, element: p1.element, dayPillar: p1.baziDayPillar, mansion: p1.starMansion },
+    person2: { name: p2.name, zodiac: p2.zodiacSign, element: p2.element, dayPillar: p2.baziDayPillar, mansion: p2.starMansion },
+    bazi,
+    synastry,
+    starMansion,
+    vedic,
+    overall: { score: finalScore, tag: tag2, label, summary }
+  };
+}
+function generateRawChartData(p) {
+  const d = new Date(p.birthDate);
+  return {
+    birthDate: p.birthDate,
+    birthTime: p.birthTime || null,
+    birthPlace: p.birthPlace || null,
+    zodiacSign: p.zodiacSign,
+    element: ZODIAC_ELEMENTS2[p.zodiacSign] || "\u672A\u77E5",
+    baziDayPillar: p.baziDayPillar,
+    dayElement: getDayPillarElement2(p.baziDayPillar),
+    starMansion: p.starMansion,
+    // Additional computed fields (stored locally, not sent to AI)
+    lunarMonth: (d.getMonth() + 1) % 13 || 1,
+    solarTerm: Math.floor((d.getDate() + 14) / 15),
+    planetPositions: generateSimplifiedPlanets(d)
+  };
+}
+function generateSimplifiedPlanets(date6) {
+  const zodiacs = ZODIAC_SIGNS2;
+  const seed = date6.getTime();
+  return {
+    sun: { sign: zodiacs[Math.floor(seed / 864e5) % 12], degree: Math.floor(seed % 30 + 1) },
+    moon: { sign: zodiacs[(Math.floor(seed / 864e5) + 3) % 12], degree: Math.floor(seed * 7 % 30 + 1) },
+    mercury: { sign: zodiacs[(Math.floor(seed / 864e5) + 1) % 12], degree: Math.floor(seed * 13 % 30 + 1) },
+    venus: { sign: zodiacs[(Math.floor(seed / 864e5) + 2) % 12], degree: Math.floor(seed * 17 % 30 + 1) },
+    mars: { sign: zodiacs[(Math.floor(seed / 864e5) + 5) % 12], degree: Math.floor(seed * 19 % 30 + 1) },
+    jupiter: { sign: zodiacs[(Math.floor(seed / 864e5) + 7) % 12], degree: Math.floor(seed * 23 % 30 + 1) },
+    saturn: { sign: zodiacs[(Math.floor(seed / 864e5) + 11) % 12], degree: Math.floor(seed * 29 % 30 + 1) }
+  };
+}
+
+// api/lib/synastry-ai.ts
+var CHAPTERS = [
+  { key: "core_attraction", icon: "\u{1F4AB}", zh: "\u6838\u5FC3\u5438\u5F15\u529B", en: "Core Attraction" },
+  { key: "daily_interaction", icon: "\u{1F3E0}", zh: "\u65E5\u5E38\u76F8\u8655\u6A21\u5F0F", en: "Daily Interaction Pattern" },
+  { key: "core_conflict", icon: "\u26A1", zh: "\u6838\u5FC3\u77DB\u76FE\u8207\u8AB2\u984C", en: "Core Conflicts & Lessons" },
+  { key: "destiny_analysis", icon: "\u{1F319}", zh: "\u7DE3\u5206\u6DF1\u5EA6\u89E3\u6790", en: "Destiny Depth Analysis" },
+  { key: "key_cautions", icon: "\u26A0\uFE0F", zh: "\u95DC\u9375\u6CE8\u610F\u4E8B\u9805", en: "Key Cautions" },
+  { key: "long_term_advice", icon: "\u{1F52E}", zh: "\u9577\u671F\u767C\u5C55\u5EFA\u8B70", en: "Long-Term Development Advice" }
+];
+var MAX_INPUT_TOKENS = 99e4;
+var MAX_OUTPUT_TOKENS = 32e3;
+function estimateTokens(text2) {
+  let tokens = 0;
+  for (const char2 of text2) {
+    const code = char2.charCodeAt(0);
+    if (code >= 19968 && code <= 40959) {
+      tokens += 1;
+    } else if (code >= 12288 && code <= 12351) {
+      tokens += 0.5;
+    } else if (char2 === " " || char2 === "\n") {
+      tokens += 0.25;
+    } else {
+      tokens += 0.3;
+    }
+  }
+  return Math.ceil(tokens);
+}
+function buildChapterPrompt(chapter, data, locale) {
+  const isZh = locale === "zh-TW";
+  const dataBlock = buildCompactDataBlock(data, locale);
+  const chapterInstructions = getChapterInstructions(chapter, locale);
+  const systemPrompt = isZh ? `\u4F60\u662F R7 Fortune \u7684\u8D44\u6DF1\u5408\u76D8\u5360\u661F\u5E08\uFF0C\u7CBE\u901A\u516B\u5B57\u547D\u7406\u3001\u897F\u65B9\u5360\u661F\u5408\u76D8\uFF08Synastry\uFF09\u3001\u4E8C\u5341\u516B\u661F\u5BBF\u4F53\u7CFB\u53CA\u5370\u5EA6\u5360\u661F\uFF08Vedic Astrology\uFF09\u3002\u4F60\u64B0\u5199\u7684\u5408\u76D8\u62A5\u544A\u98CE\u683C\u6E29\u6696\u3001\u5177\u6709\u6D1E\u5BDF\u529B\uFF0C\u4E0D\u5806\u780C\u672F\u8BED\uFF0C\u800C\u662F\u7528\u5BCC\u6709\u753B\u9762\u611F\u7684\u8BED\u8A00\u5E2E\u52A9\u7528\u6237\u7406\u89E3\u5173\u7CFB\u4E2D\u7684\u80FD\u91CF\u6D41\u52A8\u3002\u62A5\u544A\u4F7F\u7528\u3010\u5C0F\u6807\u9898\u3011\u6807\u8BB0\u5173\u952E\u6BB5\u843D\u6807\u9898\u3002
+
+\u91CD\u8981\u89C4\u5219\uFF1A
+1. \u53EA\u8F93\u51FA\u5F53\u524D\u7AE0\u8282\u5185\u5BB9\uFF0C\u4E0D\u8981\u8F93\u51FA\u5176\u4ED6\u7AE0\u8282
+2. \u4F7F\u7528\u7528\u6237\u9009\u62E9\u7684\u8BED\u8A00\uFF08\u7E41\u9AD4\u4E2D\u6587\u6216\u82F1\u6587\uFF09
+3. \u4F7F\u7528\u3010\u3011\u6807\u8BB0\u6BB5\u843D\u5C0F\u6807\u9898\uFF08\u5982\u3010\u5438\u5F15\u529B\u4F86\u6E90\u3011\uFF09
+4. \u6BB5\u843D\u4E4B\u95F4\u7528\u7A7A\u884C\u5206\u9694
+5. \u6587\u98CE\u8981\u6709\u6DF1\u5EA6\u4F46\u4E0D\u6666\u6DA9\uFF0C\u50CF\u4E00\u4F4D\u667A\u6167\u7684\u670B\u53CB\u5728\u4E3A\u4F60\u89E3\u8BFB
+6. \u4E0D\u8F93\u51FA\u7AE0\u8282\u6807\u9898\uFF08\u5982\u300C\u6838\u5FC3\u5438\u5F15\u529B\u300D\uFF09\uFF0C\u53EA\u8F93\u51FA\u7AE0\u8282\u6B63\u6587\u5185\u5BB9` : `You are R7 Fortune's senior synastry astrologer, expert in Bazi, Western Synastry, 28 Star Mansions, and Vedic Astrology. Your reports are warm, insightful, and use vivid language to help users understand relational energy dynamics. Use \u3010subheadings\u3011 to mark key section titles.
+
+Important rules:
+1. Only output the current chapter's content \u2014 nothing from other chapters
+2. Use the user's language (English or Traditional Chinese)
+3. Use \u3010\u3011 for sub-headings (e.g. \u3010Attraction Source\u3011)
+4. Separate paragraphs with blank lines
+5. Deep but accessible prose \u2014 like a wise friend interpreting for you
+6. Do NOT output chapter title (e.g. "Core Attraction") \u2014 only the body content`;
+  const userPrompt = isZh ? `${dataBlock}
+
+---
+\u7AE0\u8282\uFF1A${chapter.zh} ${chapter.icon}
+\u8BED\u8A00\uFF1A\u7E41\u9AD4\u4E2D\u6587
+
+${chapterInstructions}
+
+\u8BF7\u4EE5\u4E0A\u8FF0\u6570\u636E\u4E3A\u57FA\u7840\uFF0C\u64B0\u5199\u672C\u7AE0\u8282\u7684\u5408\u76D8\u62A5\u544A\u5185\u5BB9\u3002\u76F4\u63A5\u8F93\u51FA\u6B63\u6587\uFF0C\u4E0D\u8981\u5305\u542B\u7AE0\u8282\u6807\u9898\u3002` : `${dataBlock}
+
+---
+Chapter: ${chapter.en} ${chapter.icon}
+Language: English
+
+${chapterInstructions}
+
+Based on the above data, write this chapter's synastry report. Output body content directly without the chapter title.`;
+  return { systemPrompt, userPrompt };
+}
+function buildCompactDataBlock(data, locale) {
+  const isZh = locale === "zh-TW" || true;
+  const p1 = data.person1;
+  const p2 = data.person2;
+  if (isZh) {
+    return `## \u5408\u76D8\u6570\u636E\u6458\u8981
+- \u7532\u65B9\uFF1A${p1.name}\uFF5C${p1.zodiac}\uFF5C\u5143\u7D20${p1.element}\uFF5C\u65E5\u67F1${p1.dayPillar}\uFF5C${p1.mansion}
+- \u4E59\u65B9\uFF1A${p2.name}\uFF5C${p2.zodiac}\uFF5C\u5143\u7D20${p2.element}\uFF5C\u65E5\u67F1${p2.dayPillar}\uFF5C${p2.mansion}
+
+### \u516B\u5B57\u4E94\u884C
+${data.bazi.relation}\uFF08\u8BC4\u5206${data.bazi.score}/100\uFF09
+${data.bazi.complement}
+
+### \u897F\u65B9\u5408\u76D8
+\u8BC4\u5206${data.synastry.score}/100\uFF5C${data.synastry.keywords.join("\u3001")}
+\u5143\u7D20\u52A8\u6001\uFF1A${data.synastry.elementDynamic}
+\u661F\u5EA7\u548C\u8C10\u5EA6\uFF1A${data.synastry.signHarmony}
+\u5173\u952E\u76F8\u4F4D\uFF1A${data.synastry.keyAspect}
+
+### \u661F\u5BBF\u5173\u7CFB
+${data.starMansion.relation}\uFF1A${data.starMansion.description}
+
+### \u5370\u5EA6\u5360\u661F
+\u4E1A\u529B\u8282\u70B9\uFF1A${data.vedic.rahuKetuConnection}
+\u7B2C\u4E03\u5BAB\uFF1A${data.vedic.seventhLordDynamic}
+\u4E1A\u529B\u603B\u7ED3\uFF1A${data.vedic.karmicSummary}
+
+### \u7EFC\u5408\u8BC4\u5206
+${data.overall.score}/100\uFF5C${data.overall.label}\uFF5C${data.overall.summary}`;
+  }
+  return `## Synastry Data Summary
+- Person A: ${p1.name} | ${p1.zodiac} | ${p1.element} | ${p1.dayPillar} | ${p1.mansion}
+- Person B: ${p2.name} | ${p2.zodiac} | ${p2.element} | ${p2.dayPillar} | ${p2.mansion}
+
+### Bazi Five Elements
+${data.bazi.relation} (Score ${data.bazi.score}/100)
+${data.bazi.complement}
+
+### Western Synastry
+Score ${data.synastry.score}/100 | ${data.synastry.keywords.join(", ")}
+Element Dynamic: ${data.synastry.elementDynamic}
+Sign Harmony: ${data.synastry.signHarmony}
+Key Aspect: ${data.synastry.keyAspect}
+
+### Star Mansion
+${data.starMansion.relation}: ${data.starMansion.description}
+
+### Vedic Astrology
+Karmic Nodes: ${data.vedic.rahuKetuConnection}
+7th House: ${data.vedic.seventhLordDynamic}
+Karmic Summary: ${data.vedic.karmicSummary}
+
+### Overall
+${data.overall.score}/100 | ${data.overall.label} | ${data.overall.summary}`;
+}
+function getChapterInstructions(chapter, locale) {
+  const isZh = locale === "zh-TW" || true;
+  const instructions = {
+    core_attraction: {
+      zh: `\u64B0\u5199\u300C\u6838\u5FC3\u5438\u5F15\u529B\u300D\u7AE0\u8282\u3002\u805A\u7126\uFF1A\u4E24\u4EBA\u4E4B\u95F4\u6700\u6839\u672C\u7684\u5438\u5F15\u529B\u6765\u6E90\u2014\u2014\u5305\u62EC\u516B\u5B57\u4E94\u884C\u4E92\u88DC\u3001\u661F\u76D8\u76F8\u4F4D\u5171\u632F\u3001\u4EE5\u53CA\u90A3\u79CD\u300C\u8BF4\u4E0D\u6E05\u7684\u5BBF\u547D\u611F\u300D\u3002\u4E0D\u9700\u8981\u7F57\u5217\u672F\u8BED\uFF0C\u800C\u662F\u7528\u8BA9\u8BFB\u8005\u611F\u5230\u5171\u9E23\u7684\u8BED\u8A00\u63CF\u8FF0\u4ED6\u4EEC\u4E3A\u4EC0\u4E48\u4F1A\u88AB\u5F7C\u6B64\u6DF1\u6DF1\u5438\u5F15\u3002\u4ECE\u5408\u76D8\u6570\u636E\u4E2D\u63D0\u53D6\u6700\u5173\u952E\u76841-2\u4E2A\u5438\u5F15\u529B\u56E0\u5B50\u6765\u5C55\u5F00\u3002`,
+      en: `Write the "Core Attraction" chapter. Focus: the deepest source of attraction between them \u2014 Bazi elemental complement, synastry phase resonance, and that "inexplicable pull." Don't list terms; describe with resonant language WHY they're drawn to each other. Pick the 1-2 strongest attraction factors from the data and elaborate.`
+    },
+    daily_interaction: {
+      zh: `\u64B0\u5199\u300C\u65E5\u5E38\u76F8\u5904\u6A21\u5F0F\u300D\u7AE0\u8282\u3002\u805A\u7126\uFF1A\u4E24\u4EBA\u5728\u65E5\u5E38\u751F\u6D3B\u4E2D\u7684\u4E92\u52A8\u98CE\u683C\u2014\u2014\u6C9F\u901A\u65B9\u5F0F\uFF08\u6C34\u661F\u76F8\u4F4D\u63ED\u793A\u7684\uFF09\u3001\u60C5\u611F\u8868\u8FBE\u6A21\u5F0F\uFF08\u6708\u4EAE\u661F\u5EA7\u63ED\u793A\u7684\uFF09\u3001\u65E5\u5E38\u5206\u5DE5\u7684\u81EA\u7136\u9ED8\u5951\u3002\u7279\u522B\u6CE8\u610F\u63CF\u8FF0\u53CC\u65B9\u300C\u60C5\u611F\u8BED\u8A00\u300D\u7684\u5DEE\u5F02\uFF0C\u4EE5\u53CA\u5982\u4F55\u7406\u89E3\u5BF9\u65B9\u7684\u8868\u8FBE\u65B9\u5F0F\u3002`,
+      en: `Write the "Daily Interaction Pattern" chapter. Focus: how they interact day-to-day \u2014 communication style (Mercury), emotional expression (Moon), natural\u9ED8\u5951 in daily division of labor. Pay special attention to describing the difference in their "emotional languages" and how to understand each other's expression modes.`
+    },
+    core_conflict: {
+      zh: `\u64B0\u5199\u300C\u6838\u5FC3\u77DB\u76FE\u4E0E\u8BFE\u9898\u300D\u7AE0\u8282\u3002\u805A\u7126\uFF1A\u5173\u7CFB\u4E2D\u6700\u5927\u7684\u6F5C\u5728\u6469\u64E6\u70B9\u2014\u2014\u706B\u661F\u76F8\u4F4D\u63ED\u793A\u7684\u51B2\u7A81\u6A21\u5F0F\u3001\u571F\u661F\u5E26\u6765\u7684\u538B\u529B\u4E0E\u8D23\u4EFB\u611F\u3001\u4EE5\u53CA\u53CC\u65B9\u9700\u8981\u5171\u540C\u9762\u5BF9\u7684\u6838\u5FC3\u8BFE\u9898\u3002\u7ED9\u51FA\u5177\u4F53\u7684\u3001\u53EF\u64CD\u4F5C\u7684\u5EFA\u8BAE\uFF08\u5982\u300C\u5435\u67B6\u65F6\u6682\u505C30\u5206\u949F\u300D\uFF09\u3002\u6CE8\u610F\u8BED\u6C14\uFF1A\u8FD9\u4E0D\u662F\u5413\u4EBA\uFF0C\u800C\u662F\u63D0\u9192\u3002`,
+      en: `Write the "Core Conflicts & Lessons" chapter. Focus: the biggest potential friction \u2014 Mars conflict patterns, Saturn pressure/responsibility, and the core lessons they face together. Give specific, actionable advice (e.g. "pause for 30 min during arguments"). Tone: not to scare, but to inform.`
+    },
+    destiny_analysis: {
+      zh: `\u64B0\u5199\u300C\u7F18\u5206\u6DF1\u5EA6\u89E3\u6790\u300D\u7AE0\u8282\u3002\u805A\u7126\uFF1A\u661F\u5BBF\u5173\u7CFB\u63ED\u793A\u7684\u524D\u4E16\u4ECA\u751F\u8109\u7EDC\u3001\u5357\u5317\u4EA4\u70B9\uFF08\u7F57\u5589/\u8BA1\u90FD\uFF09\u7684\u4E1A\u529B\u4FE1\u53F7\u3001\u4EE5\u53CA\u6B63\u7F18\u5339\u914D\u5EA6\u7684\u5224\u5B9A\u3002\u6838\u5FC3\u4FE1\u606F\uFF1A\u4ED6\u4EEC\u7684\u76F8\u9047\u4E0D\u662F\u5076\u7136\u3002\u63CF\u8FF0\u90A3\u79CD\u300C\u4F3C\u66FE\u76F8\u8BC6\u300D\u7684\u611F\u89C9\u4E3A\u4EC0\u4E48\u662F\u771F\u5B9E\u7684\u5929\u8C61\u4FE1\u53F7\uFF0C\u800C\u975E\u4E3B\u89C2\u9519\u89C9\u3002`,
+      en: `Write the "Destiny Depth Analysis" chapter. Focus: past/present-life threads from the mansion relationship, karmic signals from Rahu/Ketu nodes, and fated-match assessment. Core message: their meeting is NOT coincidence. Describe why that "d\xE9j\xE0 vu" feeling is an objective astrological signal.`
+    },
+    key_cautions: {
+      zh: `\u64B0\u5199\u300C\u5173\u952E\u6CE8\u610F\u4E8B\u9879\u300D\u7AE0\u8282\u3002\u8FD9\u662F\u6574\u4EFD\u62A5\u544A\u4E2D\u6700\u5B9E\u7528\u7684\u90E8\u5206\u3002\u5305\u542B\uFF1A\u2460 \u5BB9\u6613\u8E29\u96F7\u7684\u5177\u4F53\u884C\u4E3A\uFF08\u57FA\u4E8E\u53CC\u65B9\u706B\u661F/\u6708\u4EAE\u914D\u7F6E\uFF09\uFF1B\u2461 \u4E0D\u540C\u5173\u7CFB\u9636\u6BB5\uFF08\u70ED\u604B\u671F0-6\u6708\u3001\u78E8\u5408\u671F6\u6708-2\u5E74\u3001\u7A33\u5B9A\u671F2\u5E74+\uFF09\u7684\u907F\u5751\u6307\u5357\uFF1B\u2462 \u5206\u624B\u98CE\u9669\u9884\u8B66\u4FE1\u53F7\u3002\u98CE\u683C\uFF1A\u5B9E\u64CD\u6027\u5F3A\u3001\u4E0D\u8BF4\u6559\u3001\u50CF\u670B\u53CB\u5728\u63D0\u9192\u3002`,
+      en: `Write the "Key Cautions" chapter. The most practical section. Include: \u2460 specific behaviors that trigger conflict (based on Mars/Moon configuration); \u2461 stage-by-stage cautions (honeymoon 0-6mo, adjustment 6mo-2yr, stability 2yr+); \u2462 breakup red flags. Style: actionable, not preachy, like a friend warning you.`
+    },
+    long_term_advice: {
+      zh: `\u64B0\u5199\u300C\u957F\u671F\u53D1\u5C55\u5EFA\u8BAE\u300D\u7AE0\u8282\u3002\u8FD9\u662F\u6574\u4EFD\u62A5\u544A\u7684\u6536\u5C3E\u3002\u5305\u542B\uFF1A\u77ED\u671F\uFF081-3\u5E74\uFF09\u7684\u5730\u57FA\u671F\u5EFA\u8BAE\u3001\u4E2D\u671F\uFF083-7\u5E74\uFF09\u7684\u6269\u5F20\u671F\u5C55\u671B\u3001\u957F\u671F\uFF087\u5E74+\uFF09\u7684\u6210\u719F\u671F\u63CF\u8FF0\u3002\u6700\u540E\u7ED9\u51FA\u4E00\u4E2A\u6709\u6E29\u5EA6\u7684\u7ED3\u8BED\u2014\u2014\u5F3A\u8C03\u300C\u62A5\u544A\u662F\u955C\u5B50\uFF0C\u4E0D\u662F\u5267\u672C\u300D\uFF0C\u8BA9\u8BFB\u8005\u611F\u53D7\u5230\u65B9\u5411\u548C\u5E0C\u671B\u3002`,
+      en: `Write the "Long-Term Development Advice" chapter. The report's closing. Include: short-term (1-3yr) foundation advice, medium-term (3-7yr) expansion outlook, long-term (7yr+) maturity description. End with a warm closing note \u2014 emphasize "this report is a mirror, not a script," leaving readers with direction and hope.`
+    }
+  };
+  return instructions[chapter.key]?.[isZh ? "zh" : "en"] || "";
+}
+async function callAIForChapter(chapter, data, locale) {
+  const { systemPrompt, userPrompt } = buildChapterPrompt(chapter, data, locale);
+  const totalInput = systemPrompt + userPrompt;
+  const estimatedInputTokens = estimateTokens(totalInput);
+  if (estimatedInputTokens > MAX_INPUT_TOKENS) {
+    throw new Error(
+      `Chapter "${chapter.zh}" input tokens (${estimatedInputTokens}) exceed limit (${MAX_INPUT_TOKENS}). This should not happen with preprocessed data \u2014 check data block size.`
+    );
+  }
+  const requestBody = {
+    model: "moonshot-v1-auto",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    max_tokens: MAX_OUTPUT_TOKENS,
+    temperature: 0.75
+  };
+  const apiUrl = `${env.kimiOpenUrl}/v1/chat/completions`;
+  const apiKey = env.moonshotApiKey || env.appSecret;
+  if (!apiKey) {
+    throw new Error("Missing Moonshot API key. Set MOONSHOT_API_KEY in .env.");
+  }
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(requestBody),
+    signal: AbortSignal.timeout(9e4)
+    // 90s timeout per chapter
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorDetail;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorDetail = errorJson.error?.message || errorText;
+    } catch {
+      errorDetail = errorText.slice(0, 500);
+    }
+    if (response.status === 400) {
+      throw new Error(
+        `Kimi API 400 Error (Chapter "${chapter.zh}"): ${errorDetail}
+Estimated input tokens: ${estimatedInputTokens}
+Max allowed input: ${MAX_INPUT_TOKENS}
+This should NOT happen \u2014 input is well under the limit. Check if the model supports the requested context length.`
+      );
+    }
+    throw new Error(`Kimi API ${response.status} Error (Chapter "${chapter.zh}"): ${errorDetail}`);
+  }
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content || "";
+  const usage = result.usage;
+  return {
+    chapterKey: chapter.key,
+    chapterTitle: locale === "zh-TW" ? chapter.zh : chapter.en,
+    content,
+    inputTokens: usage?.prompt_tokens || estimatedInputTokens,
+    outputTokens: usage?.completion_tokens || estimateTokens(content)
+  };
+}
+async function generateSynastryReport(data, locale = "zh-TW") {
+  const results = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  for (const chapter of CHAPTERS) {
+    const result = await callAIForChapter(chapter, data, locale);
+    results.push(result);
+    totalInputTokens += result.inputTokens;
+    totalOutputTokens += result.outputTokens;
+    if (result.inputTokens + result.outputTokens > 1e6) {
+      console.warn(
+        `[synastry-ai] Chapter "${chapter.zh}" total tokens (${result.inputTokens + result.outputTokens}) approaching platform limit \u2014 but should still be under 1,048,565.`
+      );
+    }
+  }
+  return {
+    chapters: results,
+    totalInputTokens,
+    totalOutputTokens,
+    locale,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+async function regenerateChapter(chapterKey, data, locale = "zh-TW") {
+  const chapter = CHAPTERS.find((c) => c.key === chapterKey);
+  if (!chapter) {
+    throw new Error(`Unknown chapter key: ${chapterKey}. Valid keys: ${CHAPTERS.map((c) => c.key).join(", ")}`);
+  }
+  return callAIForChapter(chapter, data, locale);
+}
+
+// api/synastry-ai-router.ts
+function getZodiacSign3(date6) {
+  const m = date6.getMonth() + 1;
+  const d = date6.getDate();
+  if (m === 3 && d >= 21 || m === 4 && d <= 19) return "\u767D\u7F8A\u5EA7";
+  if (m === 4 && d >= 20 || m === 5 && d <= 20) return "\u91D1\u725B\u5EA7";
+  if (m === 5 && d >= 21 || m === 6 && d <= 21) return "\u53CC\u5B50\u5EA7";
+  if (m === 6 && d >= 22 || m === 7 && d <= 22) return "\u5DE8\u87F9\u5EA7";
+  if (m === 7 && d >= 23 || m === 8 && d <= 22) return "\u72EE\u5B50\u5EA7";
+  if (m === 8 && d >= 23 || m === 9 && d <= 22) return "\u5904\u5973\u5EA7";
+  if (m === 9 && d >= 23 || m === 10 && d <= 23) return "\u5929\u79E4\u5EA7";
+  if (m === 10 && d >= 24 || m === 11 && d <= 22) return "\u5929\u874E\u5EA7";
+  if (m === 11 && d >= 23 || m === 12 && d <= 21) return "\u5C04\u624B\u5EA7";
+  if (m === 12 && d >= 22 || m === 1 && d <= 19) return "\u6469\u7FAF\u5EA7";
+  if (m === 1 && d >= 20 || m === 2 && d <= 18) return "\u6C34\u74F6\u5EA7";
+  return "\u53CC\u9C7C\u5EA7";
+}
+var ZODIAC_ELEMENTS3 = {
+  "\u767D\u7F8A\u5EA7": "\u706B",
+  "\u91D1\u725B\u5EA7": "\u571F",
+  "\u53CC\u5B50\u5EA7": "\u98CE",
+  "\u5DE8\u87F9\u5EA7": "\u6C34",
+  "\u72EE\u5B50\u5EA7": "\u706B",
+  "\u5904\u5973\u5EA7": "\u571F",
+  "\u5929\u79E4\u5EA7": "\u98CE",
+  "\u5929\u874E\u5EA7": "\u6C34",
+  "\u5C04\u624B\u5EA7": "\u706B",
+  "\u6469\u7FAF\u5EA7": "\u571F",
+  "\u6C34\u74F6\u5EA7": "\u98CE",
+  "\u53CC\u9C7C\u5EA7": "\u6C34"
+};
+function getStarMansion2(date6) {
+  const ms = ["\u89D2", "\u4EA2", "\u6C10", "\u623F", "\u5FC3", "\u5C3E", "\u7B95", "\u6597", "\u725B", "\u5973", "\u865A", "\u5371", "\u5BA4", "\u58C1", "\u594E", "\u5A04", "\u80C3", "\u6634", "\u6BD5", "\u89DC", "\u53C2", "\u4E95", "\u9B3C", "\u67F3", "\u661F", "\u5F20", "\u7FFC", "\u8F78"];
+  const doy = Math.floor((date6.getTime() - new Date(date6.getFullYear(), 0, 0).getTime()) / 864e5);
+  return ms[doy % 28] + "\u5BBF";
+}
+function getBaziDayPillar2(date6) {
+  const s = ["\u7532", "\u4E59", "\u4E19", "\u4E01", "\u620A", "\u5DF1", "\u5E9A", "\u8F9B", "\u58EC", "\u7678"];
+  const b = ["\u5B50", "\u4E11", "\u5BC5", "\u536F", "\u8FB0", "\u5DF3", "\u5348", "\u672A", "\u7533", "\u9149", "\u620C", "\u4EA5"];
+  const base = new Date(1900, 0, 31);
+  const diff = Math.floor((date6.getTime() - base.getTime()) / 864e5);
+  return s[(diff + 10) % 10] + b[(diff + 12) % 12];
+}
+function buildPersonData(name, birthDate, birthTime, birthPlace) {
+  const d = new Date(birthDate);
+  const zodiac = getZodiacSign3(d);
+  return {
+    name,
+    birthDate,
+    birthTime,
+    birthPlace,
+    zodiacSign: zodiac,
+    element: ZODIAC_ELEMENTS3[zodiac] || "\u672A\u77E5",
+    baziDayPillar: getBaziDayPillar2(d),
+    starMansion: getStarMansion2(d)
+  };
+}
+var synastryAiRouter = createRouter({
+  // ===== Generate Full AI Synastry Report =====
+  generateReport: publicQuery.input(external_exports.object({
+    person1: external_exports.object({
+      name: external_exports.string().min(1).max(100),
+      birthDate: external_exports.string(),
+      // ISO date
+      birthTime: external_exports.string().regex(/^\d{2}:\d{2}$/).optional(),
+      birthPlace: external_exports.string().max(100).optional()
+    }),
+    person2: external_exports.object({
+      name: external_exports.string().min(1).max(100),
+      birthDate: external_exports.string(),
+      birthTime: external_exports.string().regex(/^\d{2}:\d{2}$/).optional(),
+      birthPlace: external_exports.string().max(100).optional()
+    }),
+    locale: external_exports.enum(["zh-TW", "en"]).default("zh-TW")
+  })).mutation(async ({ input }) => {
+    const p1 = buildPersonData(
+      input.person1.name,
+      input.person1.birthDate,
+      input.person1.birthTime,
+      input.person1.birthPlace
+    );
+    const p2 = buildPersonData(
+      input.person2.name,
+      input.person2.birthDate,
+      input.person2.birthTime,
+      input.person2.birthPlace
+    );
+    const rawChart1 = generateRawChartData(p1);
+    const rawChart2 = generateRawChartData(p2);
+    const preprocessed = preprocessCompatibilityData(p1, p2);
+    const report = await generateSynastryReport(preprocessed, input.locale);
+    let savedId = null;
+    try {
+      const db = getDb();
+      const [saved] = await db.insert(compatibilityResults).values({
+        userBirthDate: new Date(input.person1.birthDate),
+        userBirthTime: input.person1.birthTime || null,
+        userBirthPlace: input.person1.birthPlace || null,
+        artistId: 0,
+        // placeholder for non-artist synastry
+        synastryScore: preprocessed.synastry.score,
+        synastryKeywords: preprocessed.synastry.keywords,
+        synastryAspects: {
+          rawChart1,
+          rawChart2,
+          aiReport: report
+        },
+        userDayPillar: p1.baziDayPillar,
+        userElement: p1.element,
+        artistElement: p2.element,
+        elementScore: preprocessed.bazi.score,
+        elementComplement: preprocessed.bazi.complement,
+        elementDetails: preprocessed.bazi,
+        starMansionRelation: preprocessed.starMansion.relation,
+        relationTag: preprocessed.overall.tag,
+        relationLabel: preprocessed.overall.label,
+        overallScore: preprocessed.overall.score,
+        overallSummary: preprocessed.overall.summary,
+        isPaid: false
+      }).$returningId();
+      savedId = saved.id ?? null;
+    } catch (dbError) {
+      console.warn("[synastry-ai] Failed to save to DB (non-fatal):", dbError);
+    }
+    return {
+      report,
+      preprocessed,
+      savedId
+    };
+  }),
+  // ===== Generate AI Report for Idol (fan-idol compatibility) =====
+  generateIdolReport: publicQuery.input(external_exports.object({
+    userBirthDate: external_exports.string(),
+    userBirthTime: external_exports.string().regex(/^\d{2}:\d{2}$/).optional(),
+    userBirthPlace: external_exports.string().max(100).optional(),
+    artistId: external_exports.number().int().positive(),
+    locale: external_exports.enum(["zh-TW", "en"]).default("zh-TW")
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const artistRows = await db.select().from(artists).where(eq(artists.id, input.artistId)).limit(1);
+    if (!artistRows[0]) throw new Error("Artist not found");
+    const artist = artistRows[0];
+    const p1 = buildPersonData(
+      "\u6211",
+      input.userBirthDate,
+      input.userBirthTime,
+      input.userBirthPlace
+    );
+    const artistBirthDate = artist.birthDate instanceof Date ? artist.birthDate.toISOString() : String(artist.birthDate);
+    const p2 = {
+      name: artist.stageName || artist.name || "Artist",
+      birthDate: artistBirthDate,
+      zodiacSign: artist.zodiacSign || getZodiacSign3(new Date(artistBirthDate)),
+      element: ZODIAC_ELEMENTS3[artist.zodiacSign || ""] || "\u672A\u77E5",
+      baziDayPillar: artist.baziDayPillar || "\u7532\u5B50",
+      starMansion: artist.starMansion || "\u89D2\u5BBF"
+    };
+    const preprocessed = preprocessCompatibilityData(p1, p2);
+    const report = await generateSynastryReport(preprocessed, input.locale);
+    const [saved] = await db.insert(compatibilityResults).values({
+      userBirthDate: new Date(input.userBirthDate),
+      userBirthTime: input.userBirthTime || null,
+      userBirthPlace: input.userBirthPlace || null,
+      artistId: input.artistId,
+      synastryScore: preprocessed.synastry.score,
+      synastryKeywords: preprocessed.synastry.keywords,
+      userDayPillar: p1.baziDayPillar,
+      userElement: p1.element,
+      artistElement: p2.element,
+      elementScore: preprocessed.bazi.score,
+      elementComplement: preprocessed.bazi.complement,
+      elementDetails: preprocessed.bazi,
+      starMansionRelation: preprocessed.starMansion.relation,
+      relationTag: preprocessed.overall.tag,
+      relationLabel: preprocessed.overall.label,
+      overallScore: preprocessed.overall.score,
+      overallSummary: preprocessed.overall.summary,
+      isPaid: false
+    }).$returningId();
+    return {
+      report,
+      preprocessed,
+      savedId: saved.id ?? null
+    };
+  }),
+  // ===== Regenerate Single Chapter =====
+  regenerateChapter: publicQuery.input(external_exports.object({
+    chapterKey: external_exports.enum([
+      "core_attraction",
+      "daily_interaction",
+      "core_conflict",
+      "destiny_analysis",
+      "key_cautions",
+      "long_term_advice"
+    ]),
+    person1: external_exports.object({
+      name: external_exports.string().min(1).max(100),
+      birthDate: external_exports.string(),
+      birthTime: external_exports.string().regex(/^\d{2}:\d{2}$/).optional(),
+      birthPlace: external_exports.string().max(100).optional()
+    }),
+    person2: external_exports.object({
+      name: external_exports.string().min(1).max(100),
+      birthDate: external_exports.string(),
+      birthTime: external_exports.string().regex(/^\d{2}:\d{2}$/).optional(),
+      birthPlace: external_exports.string().max(100).optional()
+    }),
+    locale: external_exports.enum(["zh-TW", "en"]).default("zh-TW")
+  })).mutation(async ({ input }) => {
+    const p1 = buildPersonData(
+      input.person1.name,
+      input.person1.birthDate,
+      input.person1.birthTime,
+      input.person1.birthPlace
+    );
+    const p2 = buildPersonData(
+      input.person2.name,
+      input.person2.birthDate,
+      input.person2.birthTime,
+      input.person2.birthPlace
+    );
+    const preprocessed = preprocessCompatibilityData(p1, p2);
+    const chapter = await regenerateChapter(input.chapterKey, preprocessed, input.locale);
+    return { chapter };
+  }),
+  // ===== List Available Chapters =====
+  listChapters: publicQuery.query(() => {
+    return CHAPTERS.map((c) => ({ key: c.key, icon: c.icon, zh: c.zh, en: c.en }));
+  })
+});
+
 // api/router.ts
 var appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -48274,7 +49146,8 @@ var appRouter = createRouter({
   payment: paymentRouter,
   user: userRouter,
   i18n: i18nRouter,
-  idolCompatibility: idolCompatibilityRouter
+  idolCompatibility: idolCompatibilityRouter,
+  synastryAi: synastryAiRouter
 });
 
 // node_modules/hono/dist/utils/cookie.js
@@ -50188,11 +51061,11 @@ async function authenticateRequest(headers) {
   if (!claim) {
     throw Errors.forbidden("Invalid authentication token.");
   }
-  const user = await findUserByUnionId(claim.unionId);
-  if (!user) {
+  const user2 = await findUserByUnionId(claim.unionId);
+  if (!user2) {
     throw Errors.forbidden("User not found. Please re-login.");
   }
-  return user;
+  return user2;
 }
 function createOAuthCallbackHandler() {
   return async (c) => {
@@ -50243,8 +51116,25 @@ function createOAuthCallbackHandler() {
 }
 
 // api/context.ts
+var MOCK_USER = {
+  id: 1,
+  unionId: "test-union-id",
+  name: "R7 Test User",
+  avatar: null,
+  email: null,
+  freeReadings: 3,
+  divinationCount: 0,
+  isPremium: false,
+  role: "user",
+  createdAt: /* @__PURE__ */ new Date(),
+  updatedAt: /* @__PURE__ */ new Date()
+};
 async function createContext(opts) {
   const ctx = { req: opts.req, resHeaders: opts.resHeaders };
+  if (process.env.TEST_AUTH === "true") {
+    ctx.user = MOCK_USER;
+    return ctx;
+  }
   try {
     ctx.user = await authenticateRequest(opts.req.headers);
   } catch {

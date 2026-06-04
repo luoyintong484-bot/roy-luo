@@ -83,7 +83,7 @@ export default function IdolSection() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#d4a85310] border border-[#d4a85320] rounded-full mb-4">
               <Sparkles className="w-3 h-3 text-[#d4a853]" />
-              <span className="text-[10px] text-[#d4a853] uppercase tracking-wider">Idol Fortune</span>
+              <span className="text-[10px] text-[#d4a853] uppercase tracking-wider">{locale === "zh-TW" ? "愛豆玄學" : "Idol Fortune"}</span>
               {HOT_BADGE}
             </div>
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#f0e6d3]">{t("idol.title")}</h2>
@@ -109,13 +109,14 @@ export default function IdolSection() {
                   </button>
                 )}
               </div>
-              <Button
+              <button
+                type="button"
                 onClick={handleSearch}
-                className="bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] hover:from-[#e0b860] hover:to-[#d4a853] font-bold px-5"
+                className="bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] hover:from-[#e0b860] hover:to-[#d4a853] font-bold px-5 rounded-lg flex items-center"
               >
                 <Search className="w-4 h-4 mr-1" />
                 {t("idol.searchBtn")}
-              </Button>
+              </button>
             </div>
 
             {/* Idol Match Entry */}
@@ -126,10 +127,10 @@ export default function IdolSection() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#FFB6C1] transition-colors">
-                  {locale === "zh" ? "偶像配对合盘 · Idol Match" : "Idol Match · Cosmic Connection"}
+                  {locale === "zh-TW" ? "偶像配对合盘 · Idol Match" : "Idol Match · Cosmic Connection"}
                 </p>
                 <p className="text-[9px] text-[#8a8aad33] mt-0.5">
-                  {locale === "zh" ? "输入四柱信息 → 选择爱豆 → 解锁宇宙缘分图谱" : "Enter Saju → Pick Idols → Unlock Cosmic Connection Map"}
+                  {locale === "zh-TW" ? "输入四柱信息 → 选择爱豆 → 解锁宇宙缘分图谱" : "Enter Saju → Pick Idols → Unlock Cosmic Connection Map"}
                 </p>
               </div>
               <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full">NEW</span>
@@ -138,10 +139,10 @@ export default function IdolSection() {
             {/* Category filter tabs */}
             <div className="flex gap-1.5 justify-center">
               {[
-                { key: "all", label: locale === "zh" ? "全部" : locale === "zh-TW" ? "全部" : "All" },
+                { key: "all", label: locale === "zh-TW" ? "全部" : "All" },
                 { key: "korea", label: "K-Pop" },
-                { key: "tf", label: locale === "zh" ? "时代峰峻" : locale === "zh-TW" ? "時代峰峻" : "TF Ent." },
-                { key: "other", label: locale === "zh" ? "其他" : locale === "zh-TW" ? "其他" : "Other" },
+                { key: "tf", label: locale === "zh-TW" ? "內娛" : "C-Ent" },
+                { key: "other", label: locale === "zh-TW" ? "其他" : locale === "zh-TW" ? "其他" : "Other" },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -258,41 +259,6 @@ export default function IdolSection() {
                 </div>
               )
             })}
-          </div>
-
-          {/* Idol Destiny Pack Banner */}
-          <div className="mt-12">
-            <div className="glass rounded-2xl p-6 border border-[#d4a85320] bg-gradient-to-r from-[#d4a85308] to-transparent">
-              <div className="flex flex-col sm:flex-row items-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#d4a85330] to-[#d4a85305] flex items-center justify-center border border-[#d4a85320] flex-shrink-0">
-                  <Sparkles className="w-8 h-8 text-[#d4a853]" />
-                </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <h3 className="text-lg font-display font-bold text-[#f0e6d3]">
-                    {locale === "zh" ? "Idol Destiny Pack · 爱豆命理包" : "Idol Destiny Pack"}
-                  </h3>
-                  <p className="text-xs text-[#8a8aad] mt-1">
-                    {locale === "zh"
-                      ? "解锁爱豆公开生辰对应的星盘、八字与专属运势解读包 — 一键跳转塔罗占卜 & 命理合盘"
-                      : "Unlock star charts, bazi readings & exclusive fortune packs based on idol public birth data — instant access to Tarot & Destiny"}
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
-                    <button onClick={() => navigate("/tarot")}
-                      className="px-4 py-2 bg-[#d4a853] text-[#0a0a0f] rounded-full text-xs font-bold hover:bg-[#e0b860] transition-colors flex items-center gap-1">
-                      ✨ {locale === "zh" ? "塔罗占卜" : "Tarot Reading"}
-                    </button>
-                    <button onClick={() => navigate("/destiny")}
-                      className="px-4 py-2 glass rounded-full text-xs font-semibold text-[#d4a853] border border-[#d4a85330] hover:border-[#d4a85360] transition-colors flex items-center gap-1">
-                      🔮 {locale === "zh" ? "命理合盘" : "Destiny Compatibility"}
-                    </button>
-                    <button onClick={() => navigate("/idol-compatibility")}
-                      className="px-4 py-2 glass rounded-full text-xs font-semibold text-[#d4a853] border border-[#d4a85330] hover:border-[#d4a85360] transition-colors flex items-center gap-1">
-                      💫 {locale === "zh" ? "爱豆合盘" : "Idol Compatibility"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {grouped.length === 0 && (

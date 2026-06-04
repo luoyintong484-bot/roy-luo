@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
+import { login, register } from "@/hooks/useAuth";
 import { Sparkles, Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 export default function Login() {
@@ -18,12 +19,22 @@ export default function Login() {
     if (!email || !password) return;
     if (mode === "register" && !name) return;
     setLoading(true);
-    // Simulate auth — replace with real backend later
     setTimeout(() => {
       setLoading(false);
-      localStorage.setItem("r7_user", JSON.stringify({ email, name: name || email.split("@")[0] }));
-      navigate("/profile");
-    }, 800);
+      if (mode === "register") {
+        register(email, password, name);
+      } else {
+        login(email, password);
+      }
+      // Redirect back to payment flow if coming from paywall
+      const returnPath = localStorage.getItem("r7_pay_return");
+      if (returnPath) {
+        localStorage.removeItem("r7_pay_return");
+        navigate(returnPath);
+      } else {
+        navigate("/profile");
+      }
+    }, 500);
   };
 
   const labels = {
@@ -47,7 +58,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       {/* Subtle pink bg is handled by global SubtlePinkBg */}
-      <Link to="/" className="absolute top-6 left-6 flex items-center gap-1.5 text-xs text-[#8a8aad] hover:text-[#d4a853] transition-colors z-20">
+      <Link to="/" className="absolute top-6 left-6 flex items-center gap-1.5 text-xs text-[#8a8aad] hover:text-[#FFB6C1] transition-colors z-20">
         <ArrowLeft className="w-4 h-4" /> {labels.back}
       </Link>
 
@@ -55,7 +66,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
-            <Sparkles className="w-5 h-5 text-[#d4a853]" />
+            <Sparkles className="w-5 h-5 text-[#FFB6C1]" />
             <span className="font-display text-lg font-bold text-[#f0e6d3] tracking-wide">R7 Fortune</span>
           </div>
           <h2 className="font-display text-2xl font-bold text-[#f0e6d3]">
@@ -67,7 +78,7 @@ export default function Login() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 border border-[#d4a85315] space-y-4">
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 border border-[#FFB6C115] space-y-4">
           {mode === "register" && (
             <div>
               <label className="block text-[10px] text-[#8a8aad] mb-1.5 uppercase tracking-wider">{labels.name}</label>
@@ -75,7 +86,7 @@ export default function Login() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8aad44]" />
                 <input type="text" value={name} onChange={e => setName(e.target.value)}
                   placeholder={labels.namePlaceholder}
-                  className="w-full bg-[#0a0a0f] border border-[#d4a85322] rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366] transition-colors" />
+                  className="w-full bg-[#0a0a0f] border border-[#FFB6C122] rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#FFB6C166] transition-colors" />
               </div>
             </div>
           )}
@@ -86,7 +97,7 @@ export default function Login() {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8aad44]" />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={labels.emailPlaceholder}
-                className="w-full bg-[#0a0a0f] border border-[#d4a85322] rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366] transition-colors" />
+                className="w-full bg-[#0a0a0f] border border-[#FFB6C122] rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#FFB6C166] transition-colors" />
             </div>
           </div>
 
@@ -96,7 +107,7 @@ export default function Login() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a8aad44]" />
               <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                 placeholder={labels.passwordPlaceholder}
-                className="w-full bg-[#0a0a0f] border border-[#d4a85322] rounded-lg pl-10 pr-10 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366] transition-colors" />
+                className="w-full bg-[#0a0a0f] border border-[#FFB6C122] rounded-lg pl-10 pr-10 py-3 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#FFB6C166] transition-colors" />
               <button type="button" onClick={() => setShowPw(!showPw)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a8aad44] hover:text-[#8a8aad]">
                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -105,7 +116,7 @@ export default function Login() {
           </div>
 
           <button type="submit" disabled={loading || !email || !password}
-            className="w-full py-3.5 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-lg text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            className="w-full py-3.5 bg-gradient-to-r from-[#FFB6C1] to-[#c9953a] text-[#0a0a0f] rounded-lg text-sm font-bold hover:from-[#e0b860] hover:to-[#FFB6C1] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
             {loading ? (
               <span className="w-4 h-4 border-2 border-[#0a0a0f]/30 border-t-[#0a0a0f] rounded-full animate-spin" />
             ) : null}
@@ -114,7 +125,7 @@ export default function Login() {
 
           <div className="text-center">
             <button type="button" onClick={() => setMode(mode === "login" ? "register" : "login")}
-              className="text-xs text-[#d4a853] hover:text-[#e0b860] transition-colors">
+              className="text-xs text-[#FFB6C1] hover:text-[#e0b860] transition-colors">
               {mode === "login" ? labels.switchToReg : labels.switchToLogin}
             </button>
           </div>

@@ -19,7 +19,7 @@ const zodiacEmojis: Record<string, string> = {
 export default function ArtistReading() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const artistId = parseInt(id ?? "0");
 
   // Try server data first, fall back to static data
@@ -40,7 +40,7 @@ export default function ArtistReading() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-[#8a8aad]">Artist not found</p>
         <button onClick={() => navigate("/idol")} className="text-[#d4a853] text-sm flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" /> Back to Idol Library
+          <ArrowLeft className="w-4 h-4" /> {locale === "zh-TW" ? "返回愛豆庫" : "Back to Idol Library"}
         </button>
       </div>
     );
@@ -49,7 +49,7 @@ export default function ArtistReading() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <main className="pt-20 pb-12">
+      <main className="pt-16 sm:pt-20 pb-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           {/* Back Button */}
           <button

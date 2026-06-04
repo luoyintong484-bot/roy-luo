@@ -59,7 +59,7 @@ export default function ArtistDetail() {
 
   return (
     <InnerPageLayout>
-      <main className="pt-20 pb-16">
+      <main className="pt-16 sm:pt-20 pb-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           {/* Back */}
           <div className="mb-6">

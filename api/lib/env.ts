@@ -30,5 +30,6 @@ export const env = {
   databaseUrl: required("DATABASE_URL"),
   kimiAuthUrl: requiredUrl("KIMI_AUTH_URL", "https://open.moonshot.cn"),
   kimiOpenUrl: requiredUrl("KIMI_OPEN_URL", "https://api.moonshot.cn"),
+  moonshotApiKey: process.env.MOONSHOT_API_KEY ?? "",
   ownerUnionId: process.env.OWNER_UNION_ID ?? "",
 };

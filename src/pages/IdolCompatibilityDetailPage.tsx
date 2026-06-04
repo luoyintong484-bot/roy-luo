@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router";
+import { useI18n } from "@/contexts/I18nContext";
 import { trpc } from "@/providers/trpc";
+import ShareModal from "@/components/ShareModal";
 import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
 import {
-  Heart, Star, ArrowLeft, Sparkles, Share2, Download,
+  Heart, Star, ArrowLeft, Sparkles, Share2, Download, Crown,
   Flame, Droplets, Mountain, Wind, Loader2
 } from "lucide-react";
 
@@ -37,7 +40,9 @@ const RELATION_LABELS: Record<string, { label: string; color: string; bg: string
 export default function IdolCompatibilityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { locale } = useI18n();
   const navigate = useNavigate();
+  const [showShare, setShowShare] = useState(false);
   const artistId = parseInt(id || "0");
   const state = location.state as any;
   const { data: artist, isLoading } = trpc.artist.getById.useQuery({ id: artistId });
@@ -71,11 +76,11 @@ export default function IdolCompatibilityDetailPage() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <main className="pt-20 pb-16">
+      <main className="pt-16 sm:pt-20 pb-16">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <button onClick={() => navigate("/idol-compatibility")}
             className="flex items-center gap-1 text-xs text-[#8a8aad] hover:text-[#d4a853] transition-colors mb-6">
-            <ArrowLeft className="w-4 h-4" /> Back to Compatibility List
+            <ArrowLeft className="w-4 h-4" /> {locale === "zh-TW" ? "返回合盤列表" : "Back to Compatibility List"}
           </button>
 
           {/* Header Score Card */}
@@ -225,6 +230,21 @@ export default function IdolCompatibilityDetailPage() {
           <p className="text-[9px] text-[#8a8aad33] text-center leading-relaxed mt-4">
             * This compatibility reading is for entertainment and fan community recreational purposes only. All content is algorithmically generated and should not be interpreted as factual relationship analysis. Enjoy responsibly.
           </p>
+
+          {/* Floating share button */}
+          <button onClick={() => setShowShare(true)}
+            className="fixed bottom-20 right-4 z-40 w-12 h-12 bg-[#d4a853] text-[#0a0a0f] rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform shadow-[#d4a85330]">
+            <Share2 className="w-5 h-5" />
+          </button>
+
+          <ShareModal
+            open={showShare}
+            onClose={() => setShowShare(false)}
+            title={`${result.artistName} Compatibility`}
+            score={String(result.overallScore)}
+            tag={tagConfig.label}
+            subtitle={`Synastry: ${result.synastryScore} · Bazi: ${result.baziScore}`}
+          />
         </div>
       </main>
       <Footer />

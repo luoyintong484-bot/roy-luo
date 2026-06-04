@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { trpc } from "@/providers/trpc";
+import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ } from "@/lib/location-data";
 import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
 import {
   Heart, Sparkles, Search, Crown,
   Star, Users,
-  ChevronRight, Lock
+  ChevronRight, Lock, MapPin, Clock, ChevronDown
 } from "lucide-react";
 
 const RELATION_TAGS = [
@@ -28,6 +29,11 @@ export default function IdolCompatibilityPage() {
   // User birth info
   const [birthDate, setBirthDate] = useState("");
   const [birthTime, setBirthTime] = useState("");
+  const [country, setCountry] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [timezone, setTimezone] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
   const [dayPillar, setDayPillar] = useState("");
   const [starMansion, setStarMansion] = useState("角宿");
@@ -35,6 +41,20 @@ export default function IdolCompatibilityPage() {
   const [activeTag, setActiveTag] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showZiweiModal, setShowZiweiModal] = useState(false);
+
+  // Location cascade computed values & handlers (matching DestinySection)
+  const selectedCountry = COUNTRIES.find((c) => c.name === country);
+  const selectedProvince = selectedCountry?.subdivisions.find((s) => s.name === province);
+  const cityOptions = selectedProvince?.cities || [];
+  const autoDetectedTz = country ? (COUNTRY_DEFAULT_TZ[country] || "") : "";
+  const composedBirthPlace = [country, province, city || cityInput].filter(Boolean).join(" · ") || birthPlace;
+
+  const handleCountryChange = (val: string) => {
+    setCountry(val); setProvince(""); setCity(""); setCityInput("");
+    setTimezone(COUNTRY_DEFAULT_TZ[val] || "");
+  };
+  const handleProvinceChange = (val: string) => { setProvince(val); setCity(""); setCityInput(""); };
+  const handleCitySelect = (cityName: string) => { setCity(cityName); setCityInput(cityName); };
 
   // Batch calculate mutation
   const batchCalc = trpc.idolCompatibility.batchCalculate.useMutation({
@@ -50,10 +70,14 @@ export default function IdolCompatibilityPage() {
     batchCalc.mutate({
       userBirthDate: birthDate,
       userBirthTime: birthTime || undefined,
-      userBirthPlace: birthPlace || undefined,
+      userBirthPlace: composedBirthPlace || undefined,
       userDayPillar: dayPillar,
       userStarMansion: starMansion,
-    });
+      userCountry: country || undefined,
+      userProvince: province || undefined,
+      userCity: city || cityInput || undefined,
+      userTimezone: timezone || undefined,
+    } as any);
   };
 
   const results = batchCalc.data?.results || [];
@@ -133,15 +157,64 @@ export default function IdolCompatibilityPage() {
                     className="w-full bg-[#0a0a0f] border border-[#d4a85333] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85388]"
                   />
                 </div>
+
+                {/* 出生地：国家 / 省份 / 城市 / 时区 四级联动 */}
                 <div>
-                  <label className="block text-xs text-[#8a8aad] mb-1.5">出生地（选填）</label>
-                  <input
-                    type="text"
-                    value={birthPlace}
-                    onChange={(e) => setBirthPlace(e.target.value)}
-                    placeholder="如：北京市"
-                    className="w-full bg-[#0a0a0f] border border-[#d4a85333] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] placeholder-[#8a8aad55] focus:outline-none focus:border-[#d4a85388]"
-                  />
+                  <label className="block text-[10px] text-[#8a8aad] mb-1.5 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />出生地与時區
+                  </label>
+                  {/* Country / Province */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <select value={country} onChange={(e) => handleCountryChange(e.target.value)}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                        <option value="">国家 / 地区</option>
+                        {COUNTRIES.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                      <select value={province} onChange={(e) => handleProvinceChange(e.target.value)} disabled={!country}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer disabled:opacity-30 pr-8">
+                        <option value="">{country ? "省份 / 州" : "请先选择国家"}</option>
+                        {selectedCountry?.subdivisions.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
+                  </div>
+                  {/* City / Timezone */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    {province && cityOptions.length > 0 ? (
+                      <div className="relative">
+                        <select value={city} onChange={(e) => handleCitySelect(e.target.value)}
+                          className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                          <option value="">选择城市</option>
+                          {cityOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                      </div>
+                    ) : (
+                      <input type="text" value={cityInput} onChange={(e) => handleCitySelect(e.target.value)}
+                        placeholder="输入出生城市"
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366] transition-colors" />
+                    )}
+                    <div className="relative">
+                      <select value={timezone} onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#d4a853] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                        <option value="">时区（自动检测）</option>
+                        {TIMEZONES.map((tz) => (
+                          <option key={tz.value} value={tz.value}>{tz.labelZh}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
+                  </div>
+                  {autoDetectedTz && !timezone && (
+                    <p className="text-[9px] text-[#8a8aad44] mt-1">
+                      检测到: {autoDetectedTz}
+                      <button onClick={() => setTimezone(autoDetectedTz)} className="ml-1 text-[#d4a853] hover:underline">点击应用</button>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-[#8a8aad] mb-1.5">八字日柱 <span className="text-red-400">*</span> <span className="text-[#8a8aad44]">（如：甲子）</span></label>
@@ -203,7 +276,7 @@ export default function IdolCompatibilityPage() {
                   </div>
                   <div>
                     <p className="text-xs text-[#8a8aad]">你的日柱：{dayPillar} · 星宿：{starMansion}</p>
-                    <p className="text-[10px] text-[#8a8aad44]">{birthDate} {birthTime || "12:00"} {birthPlace}</p>
+                    <p className="text-[10px] text-[#8a8aad44]">{birthDate} {birthTime || "12:00"} {timezone && `(${timezone})`} {composedBirthPlace || birthPlace}</p>
                   </div>
                 </div>
                 <button
@@ -255,7 +328,7 @@ export default function IdolCompatibilityPage() {
                   <button
                     key={result.artistId}
                     onClick={() => navigate(`/idol-compatibility/${result.artistId}`, {
-                      state: { userBirth: birthDate, userTime: birthTime, userPlace: birthPlace, userPillar: dayPillar, userMansion: starMansion, result }
+                      state: { userBirth: birthDate, userTime: birthTime, userPlace: composedBirthPlace || birthPlace, userPillar: dayPillar, userMansion: starMansion, userCountry: country, userProvince: province, userCity: city || cityInput, userTimezone: timezone, result }
                     })}
                     className="glass rounded-xl p-4 border border-[#d4a85306] hover:border-[#d4a85320] transition-all text-left group"
                   >

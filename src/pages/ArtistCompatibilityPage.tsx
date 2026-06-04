@@ -3,88 +3,13 @@ import { useParams, useNavigate, Link } from "react-router";
 import InnerPageLayout from "@/components/InnerPageLayout";
 import { getArtistById, ZODIAC_EMOJIS } from "@/data/artists";
 import { calculateCompatibility } from "@/lib/compatibility-algo";
+import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ } from "@/lib/location-data";
 import {
   ArrowLeft, Heart, Star, Sparkles, Flame,
-  Lock, Crown, Calendar, MapPin, Clock
+  Lock, Crown, Calendar, MapPin, Clock, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-
-// ===== Country/City/Timezone data =====
-const COUNTRIES = [
-  { name: "中国", code: "CN", cities: [
-    { name: "北京市", tz: "UTC+8" }, { name: "上海市", tz: "UTC+8" }, { name: "广州市", tz: "UTC+8" },
-    { name: "深圳市", tz: "UTC+8" }, { name: "成都市", tz: "UTC+8" }, { name: "杭州市", tz: "UTC+8" },
-    { name: "武汉市", tz: "UTC+8" }, { name: "南京市", tz: "UTC+8" }, { name: "重庆市", tz: "UTC+8" },
-    { name: "西安市", tz: "UTC+8" }, { name: "天津市", tz: "UTC+8" }, { name: "苏州市", tz: "UTC+8" },
-    { name: "长沙市", tz: "UTC+8" }, { name: "郑州市", tz: "UTC+8" }, { name: "沈阳市", tz: "UTC+8" },
-    { name: "青岛市", tz: "UTC+8" }, { name: "宁波市", tz: "UTC+8" }, { name: "东莞市", tz: "UTC+8" },
-    { name: "昆明市", tz: "UTC+8" }, { name: "哈尔滨市", tz: "UTC+8" }, { name: "大连市", tz: "UTC+8" },
-    { name: "厦门市", tz: "UTC+8" }, { name: "济南市", tz: "UTC+8" }, { name: "长春市", tz: "UTC+8" },
-    { name: "福州市", tz: "UTC+8" }, { name: "合肥市", tz: "UTC+8" }, { name: "石家庄市", tz: "UTC+8" },
-    { name: "贵阳市", tz: "UTC+8" }, { name: "兰州市", tz: "UTC+8" }, { name: "南宁市", tz: "UTC+8" },
-    { name: "拉萨市", tz: "UTC+8" }, { name: "乌鲁木齐市", tz: "UTC+6" }, { name: "银川市", tz: "UTC+8" },
-    { name: "呼和浩特市", tz: "UTC+8" }, { name: "太原市", tz: "UTC+8" }, { name: "南昌市", tz: "UTC+8" },
-    { name: "海口市", tz: "UTC+8" }, { name: "西宁市", tz: "UTC+8" }, { name: "台北市", tz: "UTC+8" },
-    { name: "香港", tz: "UTC+8" }, { name: "澳门", tz: "UTC+8" },
-  ]},
-  { name: "韩国", code: "KR", cities: [
-    { name: "首尔特别市", tz: "UTC+9" }, { name: "釜山广域市", tz: "UTC+9" }, { name: "仁川广域市", tz: "UTC+9" },
-    { name: "大邱广域市", tz: "UTC+9" }, { name: "大田广域市", tz: "UTC+9" }, { name: "光州市", tz: "UTC+9" },
-    { name: "蔚山广域市", tz: "UTC+9" }, { name: "世宗特别自治市", tz: "UTC+9" }, { name: "京畿道", tz: "UTC+9" },
-    { name: "江原道", tz: "UTC+9" }, { name: "忠清北道", tz: "UTC+9" }, { name: "忠清南道", tz: "UTC+9" },
-    { name: "全罗北道", tz: "UTC+9" }, { name: "全罗南道", tz: "UTC+9" }, { name: "庆尚北道", tz: "UTC+9" },
-    { name: "庆尚南道", tz: "UTC+9" }, { name: "济州特别自治道", tz: "UTC+9" },
-  ]},
-  { name: "日本", code: "JP", cities: [
-    { name: "东京都", tz: "UTC+9" }, { name: "大阪府", tz: "UTC+9" }, { name: "京都府", tz: "UTC+9" },
-    { name: "福冈县", tz: "UTC+9" }, { name: "北海道", tz: "UTC+9" }, { name: "爱知县", tz: "UTC+9" },
-    { name: "神奈川县", tz: "UTC+9" }, { name: "埼玉县", tz: "UTC+9" }, { name: "千叶县", tz: "UTC+9" },
-    { name: "兵库县", tz: "UTC+9" }, { name: "冲绳县", tz: "UTC+9" }, { name: "鹿儿岛县", tz: "UTC+9" },
-  ]},
-  { name: "泰国", code: "TH", cities: [
-    { name: "曼谷", tz: "UTC+7" }, { name: "清迈", tz: "UTC+7" }, { name: "普吉", tz: "UTC+7" },
-    { name: "芭提雅", tz: "UTC+7" }, { name: "孔敬", tz: "UTC+7" },
-  ]},
-  { name: "美国", code: "US", cities: [
-    { name: "洛杉矶", tz: "UTC-8" }, { name: "纽约", tz: "UTC-5" }, { name: "旧金山", tz: "UTC-8" },
-    { name: "芝加哥", tz: "UTC-6" }, { name: "迈阿密", tz: "UTC-5" }, { name: "西雅图", tz: "UTC-8" },
-    { name: "拉斯维加斯", tz: "UTC-8" }, { name: "波士顿", tz: "UTC-5" }, { name: "华盛顿", tz: "UTC-5" },
-  ]},
-  { name: "英国", code: "GB", cities: [
-    { name: "伦敦", tz: "UTC+0" }, { name: "曼彻斯特", tz: "UTC+0" }, { name: "爱丁堡", tz: "UTC+0" },
-    { name: "伯明翰", tz: "UTC+0" }, { name: "利物浦", tz: "UTC+0" },
-  ]},
-  { name: "加拿大", code: "CA", cities: [
-    { name: "多伦多", tz: "UTC-5" }, { name: "温哥华", tz: "UTC-8" }, { name: "蒙特利尔", tz: "UTC-5" },
-    { name: "卡尔加里", tz: "UTC-7" },
-  ]},
-  { name: "澳大利亚", code: "AU", cities: [
-    { name: "悉尼", tz: "UTC+10" }, { name: "墨尔本", tz: "UTC+10" }, { name: "布里斯班", tz: "UTC+10" },
-    { name: "珀斯", tz: "UTC+8" }, { name: "阿德莱德", tz: "UTC+9.5" },
-  ]},
-  { name: "越南", code: "VN", cities: [
-    { name: "河内", tz: "UTC+7" }, { name: "胡志明市", tz: "UTC+7" }, { name: "岘港", tz: "UTC+7" },
-  ]},
-  { name: "菲律宾", code: "PH", cities: [
-    { name: "马尼拉", tz: "UTC+8" }, { name: "宿务", tz: "UTC+8" }, { name: "达沃", tz: "UTC+8" },
-  ]},
-  { name: "新加坡", code: "SG", cities: [
-    { name: "新加坡", tz: "UTC+8" },
-  ]},
-  { name: "马来西亚", code: "MY", cities: [
-    { name: "吉隆坡", tz: "UTC+8" }, { name: "槟城", tz: "UTC+8" }, { name: "马六甲", tz: "UTC+8" },
-  ]},
-  { name: "印度尼西亚", code: "ID", cities: [
-    { name: "雅加达", tz: "UTC+7" }, { name: "巴厘岛", tz: "UTC+8" }, { name: "泗水", tz: "UTC+7" },
-  ]},
-  { name: "新西兰", code: "NZ", cities: [
-    { name: "奥克兰", tz: "UTC+12" }, { name: "惠灵顿", tz: "UTC+12" }, { name: "基督城", tz: "UTC+12" },
-  ]},
-  { name: "瑞士", code: "CH", cities: [
-    { name: "苏黎世", tz: "UTC+1" }, { name: "日内瓦", tz: "UTC+1" }, { name: "伯尔尼", tz: "UTC+1" },
-  ]},
-];
 
 // Lunar date converter (simplified)
 function solarToLunar(year: number, month: number, day: number): string {
@@ -133,12 +58,28 @@ export default function ArtistCompatibilityPage() {
   const [birthDay, setBirthDay] = useState("1");
   const [birthTime, setBirthTime] = useState("12:00");
   const [calendarType, setCalendarType] = useState<"solar" | "lunar">("solar");
-  const [country, setCountry] = useState("中国");
-  const [city, setCity] = useState("北京市");
+  const [country, setCountry] = useState("中国大陆");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [timezone, setTimezone] = useState("");
   const [starMansion, setStarMansion] = useState("角宿");
   const [step, setStep] = useState<"input" | "loading" | "result">("input");
   const [result, setResult] = useState<any>(null);
   const [showZiwei, setShowZiwei] = useState(false);
+
+  // Location cascade computed values
+  const selectedCountry = COUNTRIES.find((c) => c.name === country);
+  const selectedProvince = selectedCountry?.subdivisions.find((s) => s.name === province);
+  const cityOptions = selectedProvince?.cities || [];
+  const autoDetectedTz = country ? (COUNTRY_DEFAULT_TZ[country] || "") : "";
+
+  const handleCountryChange = (val: string) => {
+    setCountry(val); setProvince(""); setCity(""); setCityInput("");
+    setTimezone(COUNTRY_DEFAULT_TZ[val] || "");
+  };
+  const handleProvinceChange = (val: string) => { setProvince(val); setCity(""); setCityInput(""); };
+  const handleCitySelect = (cityName: string) => { setCity(cityName); setCityInput(cityName); };
 
   if (!artist) {
     return (
@@ -150,9 +91,6 @@ export default function ArtistCompatibilityPage() {
       </InnerPageLayout>
     );
   }
-
-  const countryData = COUNTRIES.find(c => c.name === country);
-  const timezone = countryData?.cities.find(c => c.name === city)?.tz || "UTC+8";
 
   // Generate year/month/day options
   const years = Array.from({ length: 80 }, (_, i) => 1950 + i);
@@ -291,32 +229,63 @@ export default function ArtistCompatibilityPage() {
                   <p className="text-[10px] text-[#8a8aad22] mt-1">默认 12:00（如不清楚可选默认值）</p>
                 </div>
 
-                {/* Birth Place: Country / City dropdowns */}
+                {/* Birth Place: Country / Province / City / Timezone cascade */}
                 <div>
-                  <label className="block text-[10px] text-[#8a8aad] mb-1.5 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />出生地
+                  <label className="block text-[10px] text-[#8a8aad] mb-1.5 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />出生地与時區
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select value={country} onChange={e => { setCountry(e.target.value); setCity(""); }}
-                      className="bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-2 py-2 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85355]">
-                      {COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <select value={city} onChange={e => setCity(e.target.value)}
-                      className="bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-2 py-2 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85355]">
-                      <option value="">选择城市</option>
-                      {countryData?.cities.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
+                  {/* Country / Province */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <select value={country} onChange={(e) => handleCountryChange(e.target.value)}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                        <option value="">国家 / 地区</option>
+                        {COUNTRIES.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                      <select value={province} onChange={(e) => handleProvinceChange(e.target.value)} disabled={!country}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer disabled:opacity-30 pr-8">
+                        <option value="">{country ? "省份 / 州" : "请先选择国家"}</option>
+                        {selectedCountry?.subdivisions.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
                   </div>
-                </div>
-
-                {/* Timezone (auto-sync, read-only) */}
-                <div>
-                  <label className="block text-[10px] text-[#8a8aad] mb-1.5">时区（自动同步）</label>
-                  <div className="bg-[#0a0a0f] border border-[#d4a85308] rounded-lg px-3 py-2 text-sm text-[#d4a85355] flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-[#d4a85333]" />
-                    <span>{timezone}</span>
-                    <span className="text-[10px] text-[#8a8aad22] ml-auto">根据城市自动计算</span>
+                  {/* City / Timezone */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    {province && cityOptions.length > 0 ? (
+                      <div className="relative">
+                        <select value={city} onChange={(e) => handleCitySelect(e.target.value)}
+                          className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                          <option value="">选择城市</option>
+                          {cityOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                      </div>
+                    ) : (
+                      <input type="text" value={cityInput} onChange={(e) => handleCitySelect(e.target.value)}
+                        placeholder="输入出生城市"
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366] transition-colors" />
+                    )}
+                    <div className="relative">
+                      <select value={timezone} onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full bg-[#151520] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#d4a853] focus:outline-none focus:border-[#d4a85366] appearance-none cursor-pointer pr-8">
+                        <option value="">时区（自动检测）</option>
+                        {TIMEZONES.map((tz) => (
+                          <option key={tz.value} value={tz.value}>{tz.labelZh}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
+                    </div>
                   </div>
+                  {autoDetectedTz && !timezone && (
+                    <p className="text-[9px] text-[#8a8aad44] mt-1">
+                      检测到: {autoDetectedTz}
+                      <button onClick={() => setTimezone(autoDetectedTz)} className="ml-1 text-[#d4a853] hover:underline">点击应用</button>
+                    </p>
+                  )}
                 </div>
 
                 {/* Star Mansion */}

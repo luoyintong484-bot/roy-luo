@@ -1,5 +1,5 @@
 import { trpc } from "@/providers/trpc";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { LOGIN_PATH } from "@/const";
 
@@ -8,51 +8,85 @@ type UseAuthOptions = {
   redirectPath?: string;
 };
 
+const AUTH_KEY = "r7_auth_user";
+const MOCK_USER = {
+  id: 1,
+  email: "test@r7fortune.com",
+  name: "R7 Test User",
+  avatar: null as string | null,
+  freeReadings: 3,
+  isPremium: false,
+  membershipType: "monthly" as const,
+};
+
+function getStoredUser() {
+  try {
+    const stored = localStorage.getItem(AUTH_KEY);
+    if (stored === "logged_in") return MOCK_USER;
+  } catch {}
+  return null;
+}
+
+export function login(email?: string, password?: string): boolean {
+  // Test login: accept any email/password
+  localStorage.setItem(AUTH_KEY, "logged_in");
+  window.dispatchEvent(new Event("r7-auth-change"));
+  return true;
+}
+
+export function register(email?: string, password?: string, name?: string): boolean {
+  // Test register: accept any input
+  localStorage.setItem(AUTH_KEY, "logged_in");
+  if (name) {
+    MOCK_USER.name = name;
+  }
+  window.dispatchEvent(new Event("r7-auth-change"));
+  return true;
+}
+
+export function logoutUser(): void {
+  localStorage.removeItem(AUTH_KEY);
+  window.dispatchEvent(new Event("r7-auth-change"));
+}
+
 export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = LOGIN_PATH } =
     options ?? {};
 
   const navigate = useNavigate();
-
   const utils = trpc.useUtils();
 
-  const {
-    data: user,
-    isLoading,
-    error,
-    refetch,
-  } = trpc.auth.me.useQuery(undefined, {
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-  });
+  const [user, setUser] = useState<typeof MOCK_USER | null>(getStoredUser);
 
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: async () => {
-      await utils.invalidate();
-      navigate(redirectPath);
-    },
-  });
+  // Listen for auth changes from other components
+  useEffect(() => {
+    const handler = () => setUser(getStoredUser());
+    window.addEventListener("r7-auth-change", handler);
+    return () => window.removeEventListener("r7-auth-change", handler);
+  }, []);
 
-  const logout = useCallback(() => logoutMutation.mutate(), [logoutMutation]);
+  const logout = useCallback(() => {
+    logoutUser();
+  }, []);
 
   useEffect(() => {
-    if (redirectOnUnauthenticated && !isLoading && !user) {
+    if (redirectOnUnauthenticated && !user) {
       const currentPath = window.location.pathname;
       if (currentPath !== redirectPath) {
         navigate(redirectPath);
       }
     }
-  }, [redirectOnUnauthenticated, isLoading, user, navigate, redirectPath]);
+  }, [redirectOnUnauthenticated, user, navigate, redirectPath]);
 
   return useMemo(
     () => ({
-      user: user ?? null,
+      user,
       isAuthenticated: !!user,
-      isLoading: isLoading || logoutMutation.isPending,
-      error,
+      isLoading: false,
+      error: null,
       logout,
-      refresh: refetch,
+      refresh: () => {},
     }),
-    [user, isLoading, logoutMutation.isPending, error, logout, refetch],
+    [user, logout],
   );
 }

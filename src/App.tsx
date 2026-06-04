@@ -17,7 +17,10 @@ import ArtistCompatibilityPage from './pages/ArtistCompatibilityPage'
 import IdolMatchPage from './pages/IdolMatchPage'
 import CpReportPage from './pages/CpReportPage'
 import DestinyDetail from './pages/DestinyDetail'
+import DestinyFullReport from './pages/DestinyFullReport'
+import SynastryFullReport from './pages/SynastryFullReport'
 import PaymentPage from './pages/PaymentPage'
+import AdminPage from './pages/AdminPage'
 import NotFound from './pages/NotFound'
 
 function PageTransition({ children }: { children: React.ReactNode }) {
@@ -72,7 +75,10 @@ export default function App() {
         <Route path="/cp-report" element={<PageTransition><CpReportPage /></PageTransition>} />
         <Route path="/idol-compatibility/:id" element={<PageTransition><IdolCompatibilityDetailPage /></PageTransition>} />
         <Route path="/destiny-result" element={<PageTransition><DestinyDetail /></PageTransition>} />
+        <Route path="/destiny-full-report" element={<PageTransition><DestinyFullReport /></PageTransition>} />
+        <Route path="/synastry-full-report" element={<PageTransition><SynastryFullReport /></PageTransition>} />
         <Route path="/payment" element={<PageTransition><PaymentPage /></PageTransition>} />
+        <Route path="/admin" element={<PageTransition><AdminPage /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </I18nProvider>

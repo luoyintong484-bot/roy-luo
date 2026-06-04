@@ -1,20 +1,116 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { ALL_ARTISTS, getArtistById, ZODIAC_EMOJIS } from "@/data/artists";
 import { calculateCompatibility, generateCosmicAnswer, RELATION_CONFIG } from "@/lib/compatibility-algo";
+import { generateCpData } from "@/lib/cp-copywriting";
+import { renderPosterToCanvas, getShareText } from "@/lib/share-utils";
 import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
-import { Sparkles, Heart, Share2, Download, Crown, Loader2, ArrowLeft } from "lucide-react";
+import SharePoster from "@/components/SharePoster";
+import type { PosterData } from "@/components/SharePoster";
+// PayModal temporarily disabled for testing
+import { Sparkles, Heart, Share2, Download, Crown, Loader2, ArrowLeft, Star, TrendingUp, Zap } from "lucide-react";
 import SearchableSelect from "@/components/SearchableSelect";
 
 type Step = "input" | "loading" | "report";
+
+// ===== CP 星辰應援榜 Component =====
+function CpStarRanking({ cpKey, cpName, locale }: { cpKey: string; cpName: string; locale: string }) {
+  const isZh = locale === "zh-TW";
+  const storageKey = `r7_cp_support_${cpKey}`;
+  const [count, setCount] = useState(() => {
+    try { return parseInt(localStorage.getItem(storageKey) || "0"); } catch { return 0; }
+  });
+  const [userSupported, setUserSupported] = useState(() => {
+    try { return localStorage.getItem(`${storageKey}_user`) === "true"; } catch { return false; }
+  });
+  const [animating, setAnimating] = useState(false);
+
+  // Simulated global ranking (randomized per CP for demo)
+  const [globalRank] = useState(() => Math.floor(Math.random() * 50) + 1);
+  const [totalStars] = useState(() => Math.floor(Math.random() * 5000) + 500);
+
+  const handleSupport = () => {
+    if (userSupported) return;
+    const newCount = count + 1;
+    setCount(newCount);
+    setUserSupported(true);
+    setAnimating(true);
+    localStorage.setItem(storageKey, String(newCount));
+    localStorage.setItem(`${storageKey}_user`, "true");
+    setTimeout(() => setAnimating(false), 1500);
+  };
+
+  return (
+    <div className="glass rounded-2xl p-5 border border-[#FFB6C120] text-center space-y-3">
+      <div className="flex items-center justify-center gap-2">
+        <Star className="w-4 h-4 text-[#FFB6C1]" />
+        <h3 className="text-sm font-semibold text-[#f0e6d3]">
+          {isZh ? "星辰應援榜" : "Star Support Ranking"}
+        </h3>
+        <Star className="w-4 h-4 text-[#FFB6C1]" />
+      </div>
+
+      <p className="text-xs text-[#8a8aad]">
+        {isZh
+          ? `已有 ${totalStars.toLocaleString()} 位粉絲為 ${cpName} 解鎖星辰應援`
+          : `${totalStars.toLocaleString()} fans have unlocked Star Support for ${cpName}`}
+      </p>
+
+      {/* Mini ranking bar */}
+      <div className="flex items-center justify-center gap-4 text-[10px]">
+        <span className="text-[#FFB6C1] font-bold">
+          🏆 {isZh ? "CP 榜" : "CP Rank"} #{globalRank}
+        </span>
+        <span className="text-[#8a8aad44]">|</span>
+        <span className="text-[#8a8aad]">
+          ⭐ {count.toLocaleString()} {isZh ? "次應援" : "supports"}
+        </span>
+        <span className="text-[#8a8aad44]">|</span>
+        <span className="text-[#FFB6C1]">
+          <TrendingUp className="w-3 h-3 inline mr-0.5" />
+          {isZh ? "上升中" : "Rising"}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-2 bg-[#151520] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] rounded-full transition-all duration-700"
+          style={{ width: `${Math.min(100, (count / 20) * 100)}%` }}
+        />
+      </div>
+
+      {/* Support button */}
+      {!userSupported ? (
+        <button
+          onClick={handleSupport}
+          className="w-full py-3 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-sm font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all flex items-center justify-center gap-2 active:scale-95"
+        >
+          <Zap className="w-4 h-4" />
+          {isZh ? `解鎖星辰應援 · $0.99` : `Unlock Star Support · $0.99`}
+        </button>
+      ) : (
+        <div className={`text-center py-2 ${animating ? "animate-pulse" : ""}`}>
+          <p className="text-sm font-bold text-[#FFB6C1]">
+            {isZh ? "✨ 應援成功！你已為這對 CP 點亮一顆星辰" : "✨ Support sent! You lit a star for this CP"}
+          </p>
+          <p className="text-[10px] text-[#8a8aad44] mt-1">
+            {isZh ? "分享這份合盤，邀請更多人一起應援" : "Share this report to invite more supporters"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CpReportPage() {
   const { locale } = useI18n();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("input");
+  const [showShare, setShowShare] = useState(false);
 
   const [userName, setUserName] = useState("");
   const [birthYear, setBirthYear] = useState("");
@@ -25,26 +121,46 @@ export default function CpReportPage() {
 
   const [artist1Id, setArtist1Id] = useState<number | null>(null);
   const [artist2Id, setArtist2Id] = useState<number | null>(null);
-  const [showPaid] = useState(true); // Paywall temporarily disabled — full content visible
 
-  const [result, setResult] = useState<any>(null);
+  // artist1/artist2 MUST be declared before cpKey which references them
   const artist1 = artist1Id ? getArtistById(artist1Id) : null;
   const artist2 = artist2Id ? getArtistById(artist2Id) : null;
+  const cpKey = artist1?.stageName && artist2?.stageName
+    ? `cp_${artist1.stageName}_${artist2.stageName}`
+    : "";
+
+  const [isPaid, setIsPaid] = useState(true); // TEMP: force unlock for testing
+  const [showPoster, setShowPoster] = useState(false);
+  const [sharePosterData, setSharePosterData] = useState<PosterData | null>(null);
+  const [shareMsg, setShareMsg] = useState("");
+
+  const [result, setResult] = useState<any>(null);
 
   const t = (en: string, zh: string, tw: string) => locale === "zh" ? zh : locale === "zh-TW" ? tw : en;
 
   const handleGenerate = () => {
-    if (!userName || !birthYear || !birthMonth || !birthDay || !artist1Id || !artist2Id) return;
+    if (!artist1Id || !artist2Id) return;
     setStep("loading");
     setTimeout(() => {
       const a1 = getArtistById(artist1Id); const a2 = getArtistById(artist2Id);
       if (!a1 || !a2) return;
       const calc = calculateCompatibility(
-        `${birthYear}-${birthMonth.padStart(2, "0")}-${birthDay.padStart(2, "0")}`,
-        a2.birthDate, undefined, a1.baziDayPillar, a2.baziDayPillar, a1.starMansion, a2.starMansion,
+        a1.birthDate, a2.birthDate, undefined, a1.baziDayPillar, a2.baziDayPillar, a1.starMansion, a2.starMansion,
       );
       setResult({ artist1: a1, artist2: a2, calc });
       setStep("report");
+      // Auto-save to localStorage
+      try {
+        const record = {
+          title: `CP: ${a1.stageName} × ${a2.stageName}`,
+          type: "cp",
+          date: new Date().toLocaleDateString("zh-CN"),
+          preview: `缘分评分 ${calc.overallScore} · ${calc.overallTag.label} · ${calc.starMansionRelation}`,
+        };
+        const existing = JSON.parse(localStorage.getItem("r7_reports") || "[]");
+        existing.unshift(record);
+        localStorage.setItem("r7_reports", JSON.stringify(existing.slice(0, 50)));
+      } catch {}
     }, 2000);
   };
 
@@ -57,7 +173,7 @@ export default function CpReportPage() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <main className="pt-20 pb-16">
+      <main className="pt-16 sm:pt-20 pb-16">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FFB6C110] border border-[#FFB6C120] rounded-full mb-4 relative">
@@ -75,29 +191,10 @@ export default function CpReportPage() {
           {step === "input" && (
             <div className="glass rounded-2xl p-6 border border-[#d4a85315] space-y-5">
               <div>
-                <h3 className="text-sm font-semibold text-[#f0e6d3] mb-3">{t("Your Info", "你的信息", "你的資訊")}</h3>
-                <div className="space-y-3">
-                  <input type="text" value={userName} onChange={e => setUserName(e.target.value)}
-                    placeholder={t("Your name", "你的名字", "你的名字")}
-                    className="w-full bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-3 py-2.5 text-sm text-[#f0e6d3] placeholder-[#8a8aad33] focus:outline-none focus:border-[#d4a85366]" />
-                  <div className="grid grid-cols-3 gap-2">
-                    <select value={birthYear} onChange={e => setBirthYear(e.target.value)} className="bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-2 py-2.5 text-sm text-[#f0e6d3] appearance-none cursor-pointer">
-                      <option value="">{t("Year", "年", "年")}</option>
-                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                    <select value={birthMonth} onChange={e => setBirthMonth(e.target.value)} className="bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-2 py-2.5 text-sm text-[#f0e6d3] appearance-none cursor-pointer">
-                      <option value="">{t("Month", "月", "月")}</option>
-                      {MONTHS.map(m => <option key={m} value={m}>{String(m).padStart(2, "0")}</option>)}
-                    </select>
-                    <select value={birthDay} onChange={e => setBirthDay(e.target.value)} className="bg-[#0a0a0f] border border-[#d4a85322] rounded-lg px-2 py-2.5 text-sm text-[#f0e6d3] appearance-none cursor-pointer">
-                      <option value="">{t("Day", "日", "日")}</option>
-                      {DAYS.map(d => <option key={d} value={d}>{String(d).padStart(2, "0")}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div>
                 <h3 className="text-sm font-semibold text-[#f0e6d3] mb-3">{t("Select Two Idols", "选择两位爱豆", "選擇兩位愛豆")}</h3>
+                <p className="text-[10px] text-[#8a8aad44] mb-3">
+                  {t("Pick two idols to generate their cosmic CP compatibility report", "选择两位爱豆，生成 CP 缘分合盘报告", "選擇兩位愛豆，生成 CP 緣分合盤報告")}
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                   {[artist1Id, artist2Id].map((selId, idx) => (
                     <SearchableSelect key={idx}
@@ -109,7 +206,7 @@ export default function CpReportPage() {
                   ))}
                 </div>
               </div>
-              <button onClick={handleGenerate} disabled={!userName || !birthYear || !artist1Id || !artist2Id}
+              <button onClick={handleGenerate} disabled={!artist1Id || !artist2Id}
                 className="w-full py-3.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-sm font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                 <Heart className="w-4 h-4" />
                 {t("Generate CP Report", "生成 CP 缘分报告", "生成 CP 緣分報告")}
@@ -125,108 +222,123 @@ export default function CpReportPage() {
           )}
 
           {step === "report" && result && (
-            <div className="space-y-5 animate-fade-in">
+            <div className="space-y-4 animate-fade-in">
               <button onClick={() => { setStep("input"); setResult(null); }}
                 className="flex items-center gap-1 text-xs text-[#8a8aad] hover:text-[#d4a853]">
                 <ArrowLeft className="w-3.5 h-3.5" /> {t("Back", "返回重选", "返回重選")}
               </button>
 
-              {/* Hero Score */}
-              <div className="glass rounded-2xl p-6 border border-[#FFB6C120] text-center">
-                <div className="flex items-center justify-center gap-6 mb-4">
+              {/* Hero Score — restructured hierarchy */}
+              <div className="glass rounded-2xl p-4 sm:p-5 border border-[#FFB6C120] text-center space-y-2.5">
+                {/* Logo — high-res gold, clickable to home */}
+                <Link to="/" className="inline-flex items-center gap-2 group">
+                  <Sparkles className="w-5 h-5 text-white group-hover:scale-110 transition-transform" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.6))' }} />
+                  <span className="font-display text-sm font-bold text-white tracking-widest" style={{ textShadow: '0 0 4px rgba(255,255,255,0.6)' }}>R7 Fortune</span>
+                </Link>
+
+                {/* Layer 1: Main title */}
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#FFB6C1] -mt-2.5" style={{ transform: 'translateY(-12px)' }}>
+                  {t("CP Fate Report", "CP 缘分合盘报告", "CP 緣分合盤報告")}
+                </h2>
+
+                {/* Layer 2: CP names */}
+                <div className="flex items-center justify-center gap-4">
                   <div>
-                    <span className="text-4xl">{ZODIAC_EMOJIS[artist1?.zodiacSign || ""] || "✨"}</span>
-                    <p className="text-sm font-semibold text-[#f0e6d3] mt-1">{artist1?.stageName}</p>
+                    <span className="text-3xl">{ZODIAC_EMOJIS[artist1?.zodiacSign || ""] || "✨"}</span>
+                    <p className="text-sm font-semibold text-[#f0e6d3] mt-0.5">{artist1?.stageName}</p>
                   </div>
-                  <Heart className="w-8 h-8 text-[#FFB6C1]" />
+                  <Heart className="w-6 h-6 text-[#FFB6C1]" />
                   <div>
-                    <span className="text-4xl">{ZODIAC_EMOJIS[artist2?.zodiacSign || ""] || "✨"}</span>
-                    <p className="text-sm font-semibold text-[#f0e6d3] mt-1">{artist2?.stageName}</p>
+                    <span className="text-3xl">{ZODIAC_EMOJIS[artist2?.zodiacSign || ""] || "✨"}</span>
+                    <p className="text-sm font-semibold text-[#f0e6d3] mt-0.5">{artist2?.stageName}</p>
                   </div>
                 </div>
+
+                {/* Layer 3: Destiny Tag */}
                 {(() => { const cfg = RELATION_CONFIG[result.calc.overallTag.tag]; return (
-                  <>
-                    <span className="text-4xl">{cfg?.emoji}</span>
-                    <p className="text-3xl font-bold mt-2" style={{ color: cfg?.color }}>{result.calc.overallScore}</p>
-                    <p className="text-sm font-semibold mt-1" style={{ color: cfg?.color }}>{cfg?.label}</p>
-                  </>
+                  <p className="text-xl font-bold" style={{ color: cfg?.color }}>{cfg?.emoji} {cfg?.label}</p>
                 );})()}
-                <p className="text-[10px] text-[#8a8aad44] mt-2">
-                  {t("Comprehensive Fate Score · Higher scores indicate stronger cosmic resonance", "综合缘分评分 · 分数越高代表宇宙共振越强", "綜合緣分評分 · 分數越高代表宇宙共振越強")}
-                </p>
               </div>
 
-              {/* ===== FULL REPORT SECTIONS (paywall disabled — all visible) ===== */}
+              {/* ===== ⭐ CP 星辰應援榜 ===== */}
+              <CpStarRanking
+                cpKey={`${artist1?.stageName}_${artist2?.stageName}`}
+                cpName={`${artist1?.stageName} × ${artist2?.stageName}`}
+                locale={locale}
+              />
+
+              {/* ===== FREE PREVIEW ===== */}
+{/* ===== FULL REPORT SECTIONS ===== */}
               <div className="glass rounded-2xl p-5 border border-[#d4a85310] space-y-4">
                 {/* 1. Magnetic Attraction */}
                 <Section title={t("Innate Magnetic Attraction", "先天磁场契合度", "先天磁場契合度")} icon="🫧">
                   {t(
-                    `${artist1?.stageName} and ${artist2?.stageName} exist on the same cosmic frequency — an invisible thread woven through their birth charts pulls them into each other's orbit. Their elemental signatures (${artist1?.element} and ${artist2?.element}) create a unique vibrational field where even silence feels charged with meaning.`,
-                    `${artist1?.stageName}与${artist2?.stageName}存在于同一宇宙频率之上——一条贯穿他们出生星盘的隐形丝线，将两人拉入彼此的轨道。他们的元素印记（${artist1?.element}与${artist2?.element}）创造出一种独特的振动场域，连沉默都充满了意义的电荷。这种磁场并非肉眼可见，却真实地环绕着他们——如同两颗恒星共享同一引力中心，各自旋转却又永不分离。`,
-                    `${artist1?.stageName}與${artist2?.stageName}存在於同一宇宙頻率之上——一條貫穿他們出生星盤的隱形絲線，將兩人拉入彼此的軌道。他們的元素印記（${artist1?.element}與${artist2?.element}）創造出一種獨特的振動場域，連沉默都充滿了意義的電荷。這種磁場並非肉眼可見，卻真實地環繞著他們——如同兩顆恆星共享同一引力中心，各自旋轉卻又永不分離。`
+                    `${artist1?.stageName} and ${artist2?.stageName} exist on the same cosmic frequency — an invisible thread woven through their birth charts pulls them into each other's orbit. Their elemental signatures (${artist1?.element} and ${artist2?.element}) create a unique vibrational field where even silence feels charged with meaning.\n\nFrom an astrological perspective, the ${artist1?.element}-${artist2?.element} dynamic forms ${artist1?.element === artist2?.element ? "a resonant harmonic — like two instruments tuned to the same key. When same-element pairs connect, there's an immediate, instinctive understanding that bypasses language entirely. This is not surface-level compatibility; it's a fundamental alignment of energetic blueprints." : artist1?.element === "火" && artist2?.element === "风" || artist1?.element === "风" && artist2?.element === "火" ? "a classic combustion cycle — Fire provides the spark, Air supplies the oxygen. Together they create something neither could sustain alone: a blaze that illuminates everything around them. This is the most dynamically charged elemental pairing in the zodiac." : artist1?.element === "水" && artist2?.element === "土" || artist1?.element === "土" && artist2?.element === "水" ? "a nourishing foundation — Water brings emotional depth and flow, Earth provides structure and stability. Like rain falling on fertile soil, their interaction creates the conditions for deep-rooted growth that withstands any storm." : "a complementary polarity — their elemental differences create a magnetic tension that, when consciously navigated, produces the most profound growth. The friction between their natures isn't a flaw; it's the very source of their chemistry."}\n\nThe ${result.calc.starMansionRelation} mansion connection adds another layer: this is not merely a personality match, but a karmic arrangement. In the 28-mansion system, ${result.calc.starMansionRelation} represents ${result.calc.starMansionRelation === "命之星" ? "the rarest of bonds — two souls cast from the same stellar mold. They don't just understand each other; they ARE each other, refracted through different lifetimes." : result.calc.starMansionRelation === "荣亲" ? "a bond of mutual elevation — one naturally uplifts the other, creating a cycle of shared growth and genuine pride in each other's becoming." : result.calc.starMansionRelation === "安坏" ? "a bond of intense polarity — stability meets disruption, and in that friction, both are transformed. This is not a comfortable connection, but it is an unforgettable one." : result.calc.starMansionRelation === "危成" ? "a bond forged in challenge — their connection thrives under pressure, revealing strengths neither knew they possessed. Together, they can weather what would break others." : result.calc.starMansionRelation === "业胎" ? "a bond spanning lifetimes — there is unfinished business between these souls, a story that began long before this life and will continue long after." : "a bond of easy companionship — not all profound connections need to be dramatic. Some are simply... right."}`,
+                    `${artist1?.stageName}與${artist2?.stageName}存在於同一宇宙頻率之上——一條貫穿他們出生星盤的隱形絲線，將兩人拉入彼此的軌道。他們的元素印記（${artist1?.element}與${artist2?.element}）創造出一種獨特的振動場域，連沉默都充滿了意義的電荷。\n\n從占星學角度深入分析，${artist1?.element}-${artist2?.element}的五行動態形成了${artist1?.element === artist2?.element ? "一種共鳴諧波——如同兩把調至同一音高的樂器。當相同元素的能量相遇，會產生一種即時的、本能的理解，完全繞過了語言的限制。這不是表面的合拍，而是能量藍圖的根本對齊。" : artist1?.element === "火" && artist2?.element === "风" || artist1?.element === "风" && artist2?.element === "火" ? "經典的燃燒循環——火提供火花，風供應氧氣。兩者共同創造出任何一方都無法獨自維持的烈焰，照亮周圍的一切。這是十二星座中最具動態張力的元素配對。" : artist1?.element === "水" && artist2?.element === "土" || artist1?.element === "土" && artist2?.element === "水" ? "一種滋養的根基——水帶來情感的深度與流動，土提供結構與穩定。如同雨水落在肥沃的土壤上，他們的互動創造了深根生長的條件，能夠抵禦任何風暴。" : "一種互補的兩極——他們的元素差異創造了一種磁性的張力，當有意識地導航時，會產生最深刻的成長。他們本質之間的摩擦不是缺陷，恰恰是化學反應的源頭。"}\n\n${result.calc.starMansionRelation}星宿連接為這一切增添了另一個維度：這不僅是性格的匹配，而是一種業力安排。在二十八星宿體系中，${result.calc.starMansionRelation}代表${result.calc.starMansionRelation === "命之星" ? "最稀有的連結——兩個靈魂由同一星體模具鑄造。他們不僅理解彼此，他們在不同生命中互為對方的折射。" : result.calc.starMansionRelation === "荣亲" ? "互相提升的羈絆——一方自然而然地抬升另一方，創造出共享成長與真誠驕傲的循環。" : result.calc.starMansionRelation === "安坏" ? "強烈兩極的連結——穩定與破壞相遇，在那摩擦中，雙方都被徹底轉化。這不是舒適的連結，但絕對是難以忘懷的。" : result.calc.starMansionRelation === "危成" ? "在挑戰中鍛造的連結——他們的連結在壓力下蓬勃發展，顯露出雙方都不知道自己擁有的力量。" : result.calc.starMansionRelation === "业胎" ? "跨越生世的羈絆——這些靈魂之間有未完成的事，一個在此生之前就已開始的故事。" : "一種輕鬆陪伴的連結——並非所有深刻的連結都需要戲劇性。有些只是⋯⋯剛剛好。"}`,
+                    `${artist1?.stageName}與${artist2?.stageName}存在於同一宇宙頻率之上——一條貫穿他們出生星盤的隱形絲線，將兩人拉入彼此的軌道。他們的元素印記（${artist1?.element}與${artist2?.element}）創造出一種獨特的振動場域，連沉默都充滿了意義的電荷。\n\n從占星學角度深入分析，${artist1?.element}-${artist2?.element}的五行動態形成了${artist1?.element === artist2?.element ? "一種共鳴諧波——如同兩把調至同一音高的樂器。當相同元素的能量相遇，會產生一種即時的、本能的理解，完全繞過了語言的限制。這不是表面的合拍，而是能量藍圖的根本對齊。" : artist1?.element === "火" && artist2?.element === "风" || artist1?.element === "风" && artist2?.element === "火" ? "經典的燃燒循環——火提供火花，風供應氧氣。兩者共同創造出任何一方都無法獨自維持的烈焰，照亮周圍的一切。這是十二星座中最具動態張力的元素配對。" : artist1?.element === "水" && artist2?.element === "土" || artist1?.element === "土" && artist2?.element === "水" ? "一種滋養的根基——水帶來情感的深度與流動，土提供結構與穩定。如同雨水落在肥沃的土壤上，他們的互動創造了深根生長的條件，能夠抵禦任何風暴。" : "一種互補的兩極——他們的元素差異創造了一種磁性的張力，當有意識地導航時，會產生最深刻的成長。他們本質之間的摩擦不是缺陷，恰恰是化學反應的源頭。"}\n\n${result.calc.starMansionRelation}星宿連接為這一切增添了另一個維度：這不僅是性格的匹配，而是一種業力安排。在二十八星宿體系中，${result.calc.starMansionRelation}代表${result.calc.starMansionRelation === "命之星" ? "最稀有的連結——兩個靈魂由同一星體模具鑄造。他們不僅理解彼此，他們在不同生命中互為對方的折射。" : result.calc.starMansionRelation === "荣亲" ? "互相提升的羈絆——一方自然而然地抬升另一方，創造出共享成長與真誠驕傲的循環。" : result.calc.starMansionRelation === "安坏" ? "強烈兩極的連結——穩定與破壞相遇，在那摩擦中，雙方都被徹底轉化。這不是舒適的連結，但絕對是難以忘懷的。" : result.calc.starMansionRelation === "危成" ? "在挑戰中鍛造的連結——他們的連結在壓力下蓬勃發展，顯露出雙方都不知道自己擁有的力量。" : result.calc.starMansionRelation === "业胎" ? "跨越生世的羈絆——這些靈魂之間有未完成的事，一個在此生之前就已開始的故事。" : "一種輕鬆陪伴的連結——並非所有深刻的連結都需要戲劇性。有些只是⋯⋯剛剛好。"}`
                   )}
                 </Section>
 
                 {/* 2. Venus Character Complement */}
                 <Section title={t("Venus Character Complement", "金星性格互补", "金星性格互補")} icon="💫">
                   {t(
-                    `${artist1?.stageName}'s ${artist1?.zodiacSign} Venus radiates ${artist1?.element === "火" || artist1?.element === "风" ? "warmth and spontaneity" : "depth and sensitivity"}, while ${artist2?.stageName}'s ${artist2?.zodiacSign} energy brings ${artist2?.element === "水" || artist2?.element === "土" ? "grounded stability and quiet strength" : "curiosity and intellectual spark"}. Together, they form a yin-yang dance of complementary temperaments — one fills the spaces the other leaves open, like two puzzle pieces carved from the same nebula.`,
-                    `${artist1?.stageName}的${artist1?.zodiacSign}金星散发着${artist1?.element === "火" || artist1?.element === "风" ? "热烈而率真的光芒" : "深邃而敏感的温柔"}，而${artist2?.stageName}的${artist2?.zodiacSign}能量则带来了${artist2?.element === "水" || artist2?.element === "土" ? "沉稳的安定与静默的力量" : "灵动的好奇与智慧的火花"}。两人形成了阴阳交织的互补之舞——一方填补了另一方留下的空白，如同从同一片星云中切割而成的两块拼图，天衣无缝。`,
-                    `${artist1?.stageName}的${artist1?.zodiacSign}金星散發著${artist1?.element === "火" || artist1?.element === "风" ? "熱烈而率真的光芒" : "深邃而敏感的溫柔"}，而${artist2?.stageName}的${artist2?.zodiacSign}能量則帶來了${artist2?.element === "水" || artist2?.element === "土" ? "沉穩的安定與靜默的力量" : "靈動的好奇與智慧的火花"}。兩人形成了陰陽交織的互補之舞——一方填補了另一方留下的空白，如同從同一片星雲中切割而成的兩塊拼圖，天衣無縫。`
+                    `${artist1?.stageName}'s ${artist1?.zodiacSign} Venus radiates ${artist1?.element === "火" || artist1?.element === "风" ? "warmth and spontaneity — a love language spoken through action, through presence, through the sheer force of being fully alive in the moment" : "depth and sensitivity — a love language whispered in silences, in gestures too subtle for words, in the quiet knowing that needs no explanation"}, while ${artist2?.stageName}'s ${artist2?.zodiacSign} energy brings ${artist2?.element === "水" || artist2?.element === "土" ? "grounded stability and quiet strength — the kind of love that shows up, that stays, that builds foundations when others are still chasing sparks" : "curiosity and intellectual spark — a love that engages the mind as much as the heart, that finds romance in conversation and intimacy in shared ideas"}.\n\nIn the Venus synastry overlay, ${artist1?.stageName}'s approach to love ${artist1?.element === "火" ? "burns bright and direct — there is no guessing, no games, just the raw honesty of desire" : artist1?.element === "水" ? "flows like a deep current — emotions run beneath the surface, carrying profound meaning in every gesture" : artist1?.element === "木" ? "grows organically — love is not rushed but cultivated, deepening over time like roots anchoring a tree" : artist1?.element === "金" ? "seeks refinement and clarity — love should be beautiful, intentional, worthy of the standards they hold" : "anchors with purpose — love is built, stone by stone, into something that can withstand any season"}. ${artist2?.stageName}'s Venus, meanwhile, ${artist2?.element === "火" ? "responds to this with equal intensity — two flames don't compete; they merge into something greater" : artist2?.element === "水" ? "mirrors this depth with intuitive understanding — they don't need to be told; they already feel it" : artist2?.element === "木" ? "nurtures this growth with patient care — they know that the most beautiful gardens take time" : artist2?.element === "金" ? "matches this standard with their own — together they elevate each other's expectations of what love can be" : "provides the unwavering ground — no matter how high the other reaches, there is always a place to land"}.\n\nTogether, they form a yin-yang dance of complementary temperaments — one fills the spaces the other leaves open, like two puzzle pieces carved from the same nebula.`,
+                    `${artist1?.stageName}的${artist1?.zodiacSign}金星散發著${artist1?.element === "火" || artist1?.element === "风" ? "熱烈而率真的光芒——一種用行動、用存在、用純粹的生命力來表達的愛情語言" : "深邃而敏感的溫柔——一種在沉默中、在過於細膩以至於無法言說的姿態中、在不需要解釋的安靜默契中低語的愛情語言"}，而${artist2?.stageName}的${artist2?.zodiacSign}能量則帶來了${artist2?.element === "水" || artist2?.element === "土" ? "沉穩的安定與靜默的力量——那種會留下來、會堅守、會在別人還在追逐火花時默默建造根基的愛情" : "靈動的好奇與智慧的火花——一種同時觸動心靈與思想的愛情，在對話中發現浪漫，在共享的想法中感受親密"}。\n\n在金星合盤疊圖中，${artist1?.stageName}的愛情方式${artist1?.element === "火" ? "燃燒得明亮而直接——沒有猜測、沒有遊戲，只有慾望的赤裸坦誠" : artist1?.element === "水" ? "像一股深流般流動——情感在表面之下運行，每一個姿態都攜帶著深邃的意義" : artist1?.element === "木" ? "自然地生長——愛情不急於求成，而是被悉心培育，如同樹根錨定大地般隨著時間加深" : artist1?.element === "金" ? "追求精緻與清晰——愛情應該是美麗的、有意識的、值得他們所堅持的標準" : "以目標為錨點——愛情是一磚一瓦建造的，足以抵禦任何季節的考驗"}。而${artist2?.stageName}的金星則${artist2?.element === "火" ? "以同等的強度回應——兩團火焰不會競爭，它們融合成更偉大的東西" : artist2?.element === "水" ? "以直覺的理解映照這份深度——不需要被告知，他們早已感受到" : artist2?.element === "木" ? "以耐心的呵護滋養這份成長——他們知道最美的花園需要時間" : artist2?.element === "金" ? "以自身的標準匹配——他們一起提升了彼此對愛情可能性的期待" : "提供了不動搖的根基——無論對方飛得多高，總有一個可以降落的地方"}。\n\n兩人形成了陰陽交織的互補之舞——一方填補了另一方留下的空白，如同從同一片星雲中切割而成的兩塊拼圖，天衣無縫。`,
+                    `${artist1?.stageName}的${artist1?.zodiacSign}金星散發著${artist1?.element === "火" || artist1?.element === "风" ? "熱烈而率真的光芒——一種用行動、用存在、用純粹的生命力來表達的愛情語言" : "深邃而敏感的溫柔——一種在沉默中、在過於細膩以至於無法言說的姿態中、在不需要解釋的安靜默契中低語的愛情語言"}，而${artist2?.stageName}的${artist2?.zodiacSign}能量則帶來了${artist2?.element === "水" || artist2?.element === "土" ? "沉穩的安定與靜默的力量——那種會留下來、會堅守、會在別人還在追逐火花時默默建造根基的愛情" : "靈動的好奇與智慧的火花——一種同時觸動心靈與思想的愛情，在對話中發現浪漫，在共享的想法中感受親密"}。\n\n在金星合盤疊圖中，${artist1?.stageName}的愛情方式${artist1?.element === "火" ? "燃燒得明亮而直接——沒有猜測、沒有遊戲，只有慾望的赤裸坦誠" : artist1?.element === "水" ? "像一股深流般流動——情感在表面之下運行，每一個姿態都攜帶著深邃的意義" : artist1?.element === "木" ? "自然地生長——愛情不急於求成，而是被悉心培育，如同樹根錨定大地般隨著時間加深" : artist1?.element === "金" ? "追求精緻與清晰——愛情應該是美麗的、有意識的、值得他們所堅持的標準" : "以目標為錨點——愛情是一磚一瓦建造的，足以抵禦任何季節的考驗"}。而${artist2?.stageName}的金星則${artist2?.element === "火" ? "以同等的強度回應——兩團火焰不會競爭，它們融合成更偉大的東西" : artist2?.element === "水" ? "以直覺的理解映照這份深度——不需要被告知，他們早已感受到" : artist2?.element === "木" ? "以耐心的呵護滋養這份成長——他們知道最美的花園需要時間" : artist2?.element === "金" ? "以自身的標準匹配——他們一起提升了彼此對愛情可能性的期待" : "提供了不動搖的根基——無論對方飛得多高，總有一個可以降落的地方"}。\n\n兩人形成了陰陽交織的互補之舞——一方填補了另一方留下的空白，如同從同一片星雲中切割而成的兩塊拼圖，天衣無縫。`
                   )}
                 </Section>
 
                 {/* 3. First Impression */}
                 <Section title={t("First Subconscious Impression", "彼此第一眼潜意识印象", "彼此第一眼潛意識印象")} icon="👁️">
                   {t(
-                    `Before a single word passed between them, their souls had already completed an entire conversation. ${artist1?.stageName}'s subconscious registered ${artist2?.stageName} as ${artist2?.element === "火" ? "a blazing presence impossible to ignore" : artist2?.element === "水" ? "a deep, still ocean hiding unfathomable worlds" : artist2?.element === "木" ? "a gentle spring breeze carrying the scent of new beginnings" : artist2?.element === "金" ? "a polished gem reflecting light in unexpected directions" : "a mountain — immovable, commanding quiet respect"}. ${artist2?.stageName}, in turn, sensed in ${artist1?.stageName} ${artist1?.element === "火" ? "a warmth that felt inexplicably familiar" : artist1?.element === "水" ? "an emotional depth that whispered of shared past lives" : artist1?.element === "木" ? "a nurturing presence that promised growth and safety" : artist1?.element === "金" ? "an elegance and clarity that cut through the noise" : "a grounding force that made the chaotic world feel manageable"}.`,
-                    `在两人交换第一个字之前，他们的灵魂已经完成了一整场对话。${artist1?.stageName}的潜意识中，${artist2?.stageName}是${artist2?.element === "火" ? "一团无法忽视的炽热火焰" : artist2?.element === "水" ? "一片静谧深邃、藏着无尽世界的海洋" : artist2?.element === "木" ? "一缕携带着新生气息的春日微风" : artist2?.element === "金" ? "一颗折射出意外光芒的精致宝石" : "一座沉默伫立、令人肃然起敬的山峰"}。而${artist2?.stageName}则在${artist1?.stageName}身上感知到了${artist1?.element === "火" ? "一种说不清缘由的熟悉温暖" : artist1?.element === "水" ? "一种深沉的情感共鸣，仿佛来自某个共同的过去" : artist1?.element === "木" ? "一种滋养的陪伴感，让人安心成长" : artist1?.element === "金" ? "一份利落优雅的气质，穿透了所有喧嚣" : "一股让人安心的扎根之力，让纷乱的世界变得有序"}`,
-                    `在兩人交換第一個字之前，他們的靈魂已經完成了一整場對話。${artist1?.stageName}的潛意識中，${artist2?.stageName}是${artist2?.element === "火" ? "一團無法忽視的熾熱火焰" : artist2?.element === "水" ? "一片靜謐深邃、藏著無盡世界的海洋" : artist2?.element === "木" ? "一縷攜帶著新生氣息的春日微風" : artist2?.element === "金" ? "一顆折射出意外光芒的精緻寶石" : "一座沉默佇立、令人肅然起敬的山峰"}。而${artist2?.stageName}則在${artist1?.stageName}身上感知到了${artist1?.element === "火" ? "一種說不清緣由的熟悉溫暖" : artist1?.element === "水" ? "一種深沉的情感共鳴，仿佛來自某個共同的過去" : artist1?.element === "木" ? "一種滋養的陪伴感，讓人安心成長" : artist1?.element === "金" ? "一份俐落優雅的氣質，穿透了所有喧囂" : "一股讓人安心的扎根之力，讓紛亂的世界變得有序"}`
+                    `Before a single word passed between them, their souls had already completed an entire conversation. The ascendant-to-ascendant recognition — what astrologers call the "first house overlay" — operates beneath conscious awareness, drawing two people together before logic has a chance to intervene.\n\n${artist1?.stageName}'s subconscious registered ${artist2?.stageName} as ${artist2?.element === "火" ? "a blazing presence impossible to ignore — the kind of energy that enters a room before the person does, that shifts the atmosphere simply by existing" : artist2?.element === "水" ? "a deep, still ocean hiding unfathomable worlds — there is mystery here, and the instinct is not to solve it but to dive in" : artist2?.element === "木" ? "a gentle spring breeze carrying the scent of new beginnings — something fresh, hopeful, full of potential waiting to unfold" : artist2?.element === "金" ? "a polished gem reflecting light in unexpected directions — there is precision here, a quiet elegance that doesn't need to announce itself" : "a mountain — immovable, commanding quiet respect — the kind of presence that doesn't need to speak to be felt"}.\n\n${artist2?.stageName}, in turn, sensed in ${artist1?.stageName} ${artist1?.element === "火" ? "a warmth that felt inexplicably familiar — as if they had known this fire in another life, another time, and the embers were simply waiting to be reignited" : artist1?.element === "水" ? "an emotional depth that whispered of shared past lives — a recognition that bypassed the mind and went straight to the soul" : artist1?.element === "木" ? "a nurturing presence that promised growth and safety — the kind of energy that makes you feel you could bloom just by standing next to it" : artist1?.element === "金" ? "an elegance and clarity that cut through the noise — in a chaotic world, this was a signal, crisp and unmistakable" : "a grounding force that made the chaotic world feel manageable — suddenly, everything that felt overwhelming seemed navigable"}.`,
+                    `在兩人交換第一個字之前，他們的靈魂已經完成了一整場對話。上升星座對上升星座的識別——占星師稱之為「第一宮疊圖」——在意識察覺之前就已開始運作，在邏輯有機會介入之前就將兩個人拉向彼此。\n\n${artist1?.stageName}的潛意識中，${artist2?.stageName}是${artist2?.element === "火" ? "一團無法忽視的熾熱火焰——那種在人之前就先進入房間的能量，僅僅存在就足以改變整個氛圍" : artist2?.element === "水" ? "一片靜謐深邃、藏著無盡世界的海洋——這裡有神秘感，而本能不是去解開它，而是縱身潛入" : artist2?.element === "木" ? "一縷攜帶著新生氣息的春日微風——某種新鮮、充滿希望、等待綻放的無限可能" : artist2?.element === "金" ? "一顆折射出意外光芒的精緻寶石——這裡有精準、有不需要宣告自己的安靜優雅" : "一座沉默佇立、令人肅然起敬的山峰——那種不需要開口就能被感知的存在感"}。\n\n而${artist2?.stageName}則在${artist1?.stageName}身上感知到了${artist1?.element === "火" ? "一種說不清緣由的熟悉溫暖——彷彿在另一個生命、另一個時間裡認識過這團火焰，而餘燼只是在等待被重新點燃" : artist1?.element === "水" ? "一種深沉的情感共鳴，彷彿來自某個共同的過去——一種繞過大腦、直接抵達靈魂的確認" : artist1?.element === "木" ? "一種滋養的陪伴感，讓人安心成長——那種站在旁邊就感覺自己可以綻放的能量" : artist1?.element === "金" ? "一份利落優雅的氣質，穿透了所有喧囂——在混亂的世界中，這是一個清晰的訊號" : "一股讓人安心的扎根之力，讓紛亂的世界變得有序——突然之間，所有讓人喘不過氣的東西都變得可以面對了"}。`,
+                    `在兩人交換第一個字之前，他們的靈魂已經完成了一整場對話。上升星座對上升星座的識別——占星師稱之為「第一宮疊圖」——在意識察覺之前就已開始運作，在邏輯有機會介入之前就將兩個人拉向彼此。\n\n${artist1?.stageName}的潛意識中，${artist2?.stageName}是${artist2?.element === "火" ? "一團無法忽視的熾熱火焰——那種在人之前就先進入房間的能量，僅僅存在就足以改變整個氛圍" : artist2?.element === "水" ? "一片靜謐深邃、藏著無盡世界的海洋——這裡有神秘感，而本能不是去解開它，而是縱身潛入" : artist2?.element === "木" ? "一縷攜帶著新生氣息的春日微風——某種新鮮、充滿希望、等待綻放的無限可能" : artist2?.element === "金" ? "一顆折射出意外光芒的精緻寶石——這裡有精準、有不需要宣告自己的安靜優雅" : "一座沉默佇立、令人肅然起敬的山峰——那種不需要開口就能被感知的存在感"}。\n\n而${artist2?.stageName}則在${artist1?.stageName}身上感知到了${artist1?.element === "火" ? "一種說不清緣由的熟悉溫暖——彷彿在另一個生命、另一個時間裡認識過這團火焰，而餘燼只是在等待被重新點燃" : artist1?.element === "水" ? "一種深沉的情感共鳴，彷彿來自某個共同的過去——一種繞過大腦、直接抵達靈魂的確認" : artist1?.element === "木" ? "一種滋養的陪伴感，讓人安心成長——那種站在旁邊就感覺自己可以綻放的能量" : artist1?.element === "金" ? "一份利落優雅的氣質，穿透了所有喧囂——在混亂的世界中，這是一個清晰的訊號" : "一股讓人安心的扎根之力，讓紛亂的世界變得有序——突然之間，所有讓人喘不過氣的東西都變得可以面對了"}。`
                   )}
                 </Section>
 
                 {/* 4. Mutual True Feelings */}
                 <Section title={t("Mutual True Feelings", "双向看待对方的真实本心", "雙向看待對方的真實本心")} icon="💭">
                   {t(
-                    `Looking at ${artist2?.stageName}, ${artist1?.stageName} sees a soul that shines at a wavelength only they can fully perceive — a mix of admiration, protectiveness, and an unspoken "I understand you." There's a quiet reverence that doesn't demand reciprocation. In return, when ${artist2?.stageName} gazes at ${artist1?.stageName}, there's a gravitational pull that defies logic — a feeling of "you are the gravity that keeps my orbit stable." Beneath the surface, a mutual recognition hums: we are cut from the same cloth of stardust.`,
-                    `${artist1?.stageName}看向${artist2?.stageName}时，看到的是一种只有Ta能完全感知的灵魂波长——掺杂着欣赏、守护欲，以及一句无声的"我懂你"。那份安静的珍视不求任何回应。而${artist2?.stageName}凝望${artist1?.stageName}时，则感到一种超越逻辑的引力——"你是让我轨道稳定的重力。"表象之下，共同的认知在低语：我们是由同一片星尘裁剪而成。`,
-                    `${artist1?.stageName}看向${artist2?.stageName}時，看到的是一種只有Ta能完全感知的靈魂波長——摻雜著欣賞、守護慾，以及一句無聲的「我懂你」。那份安靜的珍視不求任何回應。而${artist2?.stageName}凝望${artist1?.stageName}時，則感到一種超越邏輯的引力——「你是讓我軌道穩定的重力。」表象之下，共同的認知在低語：我們是由同一片星塵裁剪而成。`
+                    `The synastry Moon-Mercury midpoint reveals the unspoken dialogue that flows beneath their conscious interactions. This is the conversation that happens in glances, in pauses, in the space between words.\n\nLooking at ${artist2?.stageName}, ${artist1?.stageName} sees a soul that shines at a wavelength only they can fully perceive — a mix of admiration, protectiveness, and an unspoken "I understand you." There's a quiet reverence that doesn't demand reciprocation. ${artist1?.element === "水" || artist1?.element === "土" ? "This perception runs deep — once someone has earned a place in their inner world, they are held there with a loyalty that transcends circumstance." : "This recognition is immediate and unhesitating — they trust what they see, and what they see in the other is something rare and worth protecting."}\n\nWhen ${artist2?.stageName} gazes at ${artist1?.stageName}, there's a gravitational pull that defies logic — a feeling of "you are the gravity that keeps my orbit stable." ${artist2?.element === "火" || artist2?.element === "风" ? "This is an active, engaged form of admiration — not passive worship, but a dynamic appreciation that seeks to celebrate and amplify what it sees." : "This is a quiet, profound recognition — the kind that doesn't need constant verbal affirmation because it is felt at a cellular level."}\n\nBeneath the surface, a mutual recognition hums: we are cut from the same cloth of stardust. The composite chart — the chart of the relationship itself — suggests that what they see in each other is, in many ways, what they are learning to see in themselves.`,
+                    `合盤中的月亮-水星中點揭示了一段在意識互動之下流淌的無聲對話——那些發生在目光中、在停頓中、在言語之間空隙中的交流。\n\n${artist1?.stageName}看向${artist2?.stageName}時，看到的是一種只有Ta能完全感知的靈魂波長——摻雜著欣賞、守護慾，以及一句無聲的「我懂你」。那份安靜的珍視不求任何回應。${artist1?.element === "水" || artist1?.element === "土" ? "這種感知根植極深——一旦有人在他們的內心世界贏得了位置，就會被一種超越環境的忠誠所守護。" : "這種確認是即時且毫不猶豫的——他們相信自己所看到的，而他們在對方身上看到的，是某種稀有且值得守護的東西。"}\n\n當${artist2?.stageName}凝望${artist1?.stageName}時，則感到一種超越邏輯的引力——「你是讓我軌道穩定的重力。」${artist2?.element === "火" || artist2?.element === "风" ? "這是一種積極投入的欣賞——不是被動的崇拜，而是一種動態的珍視，試圖去慶祝和放大它所看到的。" : "這是一種安靜而深刻的確認——不需要持續的言語肯定，因為它在細胞層面上被感知。"}\n\n表象之下，共同的認知在低語：我們是由同一片星塵裁剪而成。組合盤——關係本身的星盤——顯示出，他們在彼此身上看到的，從很多方面來說，正是他們正在學習在自己身上看到的。`,
+                    `合盤中的月亮-水星中點揭示了一段在意識互動之下流淌的無聲對話——那些發生在目光中、在停頓中、在言語之間空隙中的交流。\n\n${artist1?.stageName}看向${artist2?.stageName}時，看到的是一種只有Ta能完全感知的靈魂波長——摻雜著欣賞、守護慾，以及一句無聲的「我懂你」。那份安靜的珍視不求任何回應。${artist1?.element === "水" || artist1?.element === "土" ? "這種感知根植極深——一旦有人在他們的內心世界贏得了位置，就會被一種超越環境的忠誠所守護。" : "這種確認是即時且毫不猶豫的——他們相信自己所看到的，而他們在對方身上看到的，是某種稀有且值得守護的東西。"}\n\n當${artist2?.stageName}凝望${artist1?.stageName}時，則感到一種超越邏輯的引力——「你是讓我軌道穩定的重力。」${artist2?.element === "火" || artist2?.element === "风" ? "這是一種積極投入的欣賞——不是被動的崇拜，而是一種動態的珍視，試圖去慶祝和放大它所看到的。" : "這是一種安靜而深刻的確認——不需要持續的言語肯定，因為它在細胞層面上被感知。"}\n\n表象之下，共同的認知在低語：我們是由同一片星塵裁剪而成。組合盤——關係本身的星盤——顯示出，他們在彼此身上看到的，從很多方面來說，正是他們正在學習在自己身上看到的。`
                   )}
                 </Section>
 
                 {/* 5. Ambiguous Destiny Bond */}
                 <Section title={t("Ambiguous Destiny Bond", "暧昧宿命羁绊", "曖昧宿命羈絆")} icon="💕">
                   {t(
-                    `There exists between them an invisible elastic band — the more the universe tries to separate their paths, the stronger the recoil that brings them back together. Their ${result.calc.starMansionRelation} star mansion connection suggests past-life recognition: a familiar story picked up from where it was left off. This isn't a simple crush; it's a karmic echo. Every glance exchanged adds another knot to the thread tying their fates together. The universe seems to whisper: "You two have unfinished business."`,
-                    `他们之间存在一根无形的弹力带——宇宙越是试图将他们的轨迹分开，回弹的力量就越强，将两人再次拉回彼此身边。他们的${result.calc.starMansionRelation}星宿关系暗示着前世的相识：一个未完待续的故事，从当初停笔的地方又被拾起。这不是简单的crush——这是业力的回响。每一次目光交汇，都在命运的绳索上又添了一个结。宇宙仿佛在低语："你们之间，还有未完成的约定。"`,
-                    `他們之間存在一根無形的彈力帶——宇宙越是試圖將他們的軌跡分開，回彈的力量就越強，將兩人再次拉回彼此身邊。他們的${result.calc.starMansionRelation}星宿關係暗示著前世的相識：一個未完待續的故事，從當初停筆的地方又被拾起。這不是簡單的crush——這是業力的迴響。每一次目光交匯，都在命運的繩索上又添了一個結。宇宙仿佛在低語：「你們之間，還有未完成的約定。」`
+                    `There exists between them an invisible elastic band — the more the universe tries to separate their paths, the stronger the recoil that brings them back together. This is the nature of the ${result.calc.starMansionRelation} mansion connection, one of the six archetypal karmic bonds in the 28-mansion system that has been studied for over two millennia.\n\nThe ${result.calc.starMansionRelation} bond specifically suggests ${result.calc.starMansionRelation === "命之星" ? "past-life recognition of the deepest kind — these are souls who have shared not just experiences, but an essential identity. Meeting in this life feels less like a new encounter and more like a reunion after an impossibly long separation. The familiarity is uncanny; the comfort is immediate." : result.calc.starMansionRelation === "荣亲" ? "a relationship of mutual elevation and genuine pride — they are each other's biggest supporters, not out of obligation but because the other's success feels like their own. This is a bond of shared destiny, not shared dependency." : result.calc.starMansionRelation === "安坏" ? "a magnetic push-pull that oscillates between intense attraction and necessary conflict — they trigger each other in ways that are uncomfortable but ultimately transformative. This is not an easy bond, but it is an unforgettable one." : result.calc.starMansionRelation === "危成" ? "a relationship forged in shared challenges — their bond deepens most when facing external adversity together. Like tempered steel, what doesn't break them makes their connection stronger." : result.calc.starMansionRelation === "业胎" ? "a karmic debt carried across incarnations — there is unfinished business between them, a story that began long before this life. The intensity can be overwhelming because it carries the weight of more than one lifetime." : "a bond of easy, natural companionship — not all significant relationships need to be dramatic. Some are simply correct, in a way that feels like exhaling after holding your breath for too long."}\n\nThis isn't a simple crush; it's a karmic echo. Every glance exchanged adds another knot to the thread tying their fates together. The universe seems to whisper: "You two have unfinished business."`,
+                    `他們之間存在一根無形的彈力帶——宇宙越是試圖將他們的軌跡分開，回彈的力量就越強，將兩人再次拉回彼此身邊。這就是${result.calc.starMansionRelation}星宿連結的本質——二十八星宿體系中被研究了兩千多年的六種原型業力紐帶之一。\n\n${result.calc.starMansionRelation}之緣具體代表${result.calc.starMansionRelation === "命之星" ? "最深層的前世相認——這些靈魂不僅共享過經歷，更共享過一種本質的身分。今生相遇不像新的邂逅，更像是經歷了漫長得不可思議的分離之後的重逢。那份熟悉感令人不安；那份安心感卻即刻降臨。" : result.calc.starMansionRelation === "荣亲" ? "一種互相提升、真誠驕傲的關係——他們是彼此最大的支持者，不是出於義務，而是因為對方的成功就像自己的一樣。這是共享命運的羈絆，而非共享依賴。" : result.calc.starMansionRelation === "安坏" ? "一種在強烈吸引與必要衝突之間搖擺的磁性推拉——他們以令人不適但最終具有轉化力的方式觸發彼此。這不是一段輕鬆的連結，但絕對是一段無法忘懷的。" : result.calc.starMansionRelation === "危成" ? "一種在共同挑戰中鍛造的關係——他們的連結在面對外部逆境時最為深厚。如同淬火鋼鐵，無法摧毀他們的，只會讓他們的連結更加堅固。" : result.calc.starMansionRelation === "业胎" ? "一種跨越化身的業力債務——他們之間有未完成的事，一個在此生之前就已經開始的故事。那份強度可能讓人喘不過氣，因為它承載著不止一生的重量。" : "一種輕鬆、自然的陪伴關係——並非所有重要的關係都必須充滿戲劇性。有些就只是⋯⋯對了，就像憋氣太久之後的呼氣。"}\n\n這不是簡單的crush——這是業力的迴響。每一次目光交匯，都在命運的繩索上又添了一個結。宇宙彷彿在低語：「你們之間，還有未完成的約定。」`,
+                    `他們之間存在一根無形的彈力帶——宇宙越是試圖將他們的軌跡分開，回彈的力量就越強，將兩人再次拉回彼此身邊。這就是${result.calc.starMansionRelation}星宿連結的本質——二十八星宿體系中被研究了兩千多年的六種原型業力紐帶之一。\n\n${result.calc.starMansionRelation}之緣具體代表${result.calc.starMansionRelation === "命之星" ? "最深層的前世相認——這些靈魂不僅共享過經歷，更共享過一種本質的身分。今生相遇不像新的邂逅，更像是經歷了漫長得不可思議的分離之後的重逢。那份熟悉感令人不安；那份安心感卻即刻降臨。" : result.calc.starMansionRelation === "荣亲" ? "一種互相提升、真誠驕傲的關係——他們是彼此最大的支持者，不是出於義務，而是因為對方的成功就像自己的一樣。這是共享命運的羈絆，而非共享依賴。" : result.calc.starMansionRelation === "安坏" ? "一種在強烈吸引與必要衝突之間搖擺的磁性推拉——他們以令人不適但最終具有轉化力的方式觸發彼此。這不是一段輕鬆的連結，但絕對是一段無法忘懷的。" : result.calc.starMansionRelation === "危成" ? "一種在共同挑戰中鍛造的關係——他們的連結在面對外部逆境時最為深厚。如同淬火鋼鐵，無法摧毀他們的，只會讓他們的連結更加堅固。" : result.calc.starMansionRelation === "业胎" ? "一種跨越化身的業力債務——他們之間有未完成的事，一個在此生之前就已經開始的故事。那份強度可能讓人喘不過氣，因為它承載著不止一生的重量。" : "一種輕鬆、自然的陪伴關係——並非所有重要的關係都必須充滿戲劇性。有些就只是⋯⋯對了，就像憋氣太久之後的呼氣。"}\n\n這不是簡單的crush——這是業力的迴響。每一次目光交匯，都在命運的繩索上又添了一個結。宇宙彷彿在低語：「你們之間，還有未完成的約定。」`
                   )}
                 </Section>
 
                 {/* 6. Strengths & Weaknesses */}
                 <Section title={t("Dynamic Strengths & Hidden Frictions", "相处优缺点与隐形隔阂", "相處優缺點與隱形隔閡")} icon="⚖️">
                   {t(
-                    `STRENGTHS: The ${artist1?.element}-${artist2?.element} dynamic creates a natural ${artist1?.element === artist2?.element ? "resonance chamber where both instinctively understand each other's rhythms" : "contrast that keeps the relationship dynamic and prevents stagnation"}. Their ${result.calc.starMansionRelation} bond fosters ${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "uncommon emotional safety — the kind where masks fall away without effort" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "an exhilarating push-pull tension that keeps both growing" : "a refreshing ease that makes every interaction feel like coming home"}. WEAKNESSES: ${artist1?.element === "火" && artist2?.element === "水" ? "Fire can evaporate Water's subtle signals; Water can dampen Fire's enthusiasm without meaning to" : artist1?.element === "金" && artist2?.element === "木" ? "Metal's sharp clarity can cut Wood's gentle growth; Wood's sprawling nature can feel chaotic to Metal" : artist1?.element === artist2?.element ? "Too much similarity can breed complacency — they may forget to challenge each other" : "Their elemental differences require conscious translation — what feels natural to one may confuse the other"}.`,
-                    `优点：${artist1?.element}-${artist2?.element}的五行动态创造了${artist1?.element === artist2?.element ? "天然的共振空间，两人本能地理解彼此的节奏" : "鲜活的对比张力，让关系永不停滞、永远新鲜"}。他们的${result.calc.starMansionRelation}星宿连接带来了${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "难得的情感安全感——面具无需费力就能卸下的那种" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "令人心动的推拉张力，让彼此持续成长" : "清新的轻松感，让每次互动都宛如归家"}。隐患：${artist1?.element === "火" && artist2?.element === "水" ? "火会蒸发水的细微信号；水可能无意间浇灭火的热情" : artist1?.element === "金" && artist2?.element === "木" ? "金的锐利清晰会斩断木的生长；木的蔓延会让金感到混乱" : artist1?.element === artist2?.element ? "过多的相似可能滋生安逸——他们也许会忘记挑战彼此" : "元素差异需要有意识的翻译——对一方自然而然的东西，可能让另一方困惑"}`,
-                    `優點：${artist1?.element}-${artist2?.element}的五行動態創造了${artist1?.element === artist2?.element ? "天然的共振空間，兩人本能地理解彼此的節奏" : "鮮活的對比張力，讓關係永不停滯、永遠新鮮"}。他們的${result.calc.starMansionRelation}星宿連接帶來了${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "難得的情感安全感——面具無需費力就能卸下的那種" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "令人心動的推拉張力，讓彼此持續成長" : "清新的輕鬆感，讓每次互動都宛如歸家"}。隱患：${artist1?.element === "火" && artist2?.element === "水" ? "火會蒸發水的細微信號；水可能無意間澆滅火的熱情" : artist1?.element === "金" && artist2?.element === "木" ? "金的銳利清晰會斬斷木的生長；木的蔓延會讓金感到混亂" : artist1?.element === artist2?.element ? "過多的相似可能滋生安逸——他們也許會忘記挑戰彼此" : "元素差異需要有意識的翻譯——對一方自然而然的東西，可能讓另一方困惑"}`
+                    `A thorough synastry analysis reveals both the harmonic convergences and the friction points that define this relationship's unique texture.\n\nSTRENGTHS: The ${artist1?.element}-${artist2?.element} five-element dynamic creates ${artist1?.element === artist2?.element ? "a natural resonance chamber where both instinctively understand each other's rhythms. Same-element pairs share an unspoken language — they move through the world at similar speeds, process emotions through similar filters, and find comfort in the same kinds of spaces. This creates a home-like safety that is rare and precious." : "a complementary contrast that keeps the relationship dynamic and prevents the stagnation that often comes with too much similarity. Their differences are not obstacles — they are the very engines of their chemistry, each providing what the other naturally lacks."}\n\nTheir ${result.calc.starMansionRelation} mansion bond specifically fosters ${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "uncommon emotional safety — the kind where masks fall away without effort. In each other's presence, there is permission to be fully, unapologetically oneself. This is the foundation upon which lasting intimacy is built." : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "an exhilarating push-pull tension that prevents complacency. This is a connection that demands evolution — neither person can remain static in the presence of the other, and that is precisely its gift." : "a refreshing ease that makes every interaction feel like coming home — not in the sense of familiarity, but in the sense of belonging. There is a natural fit here that requires no forcing."}\n\nWEAKNESSES & HIDDEN FRICTIONS: ${artist1?.element === "火" && artist2?.element === "水" ? "Fire's natural intensity can inadvertently evaporate Water's subtle emotional signals before they are fully expressed. Meanwhile, Water's depth can feel overwhelming to Fire, who prefers clarity over complexity. The solution is not for Fire to dim or Water to shallow — but for both to recognize that their different languages require translation, not correction." : artist1?.element === "金" && artist2?.element === "木" ? "Metal's sharp clarity can cut through Wood's gentle, organic growth patterns without realizing the damage. Wood's sprawling, ever-expanding nature can feel chaotic and undisciplined to Metal's need for precision. The key is for Metal to learn patience with process, and for Wood to appreciate the beauty of structure." : artist1?.element === "水" && artist2?.element === "火" ? "Water's emotional depth can feel suffocating to Fire's need for space and freedom. Fire's intensity can feel destabilizing to Water's need for emotional safety. Neither is wrong — they simply operate on different emotional frequencies. Conscious effort to meet in the middle is required." : artist1?.element === "土" && artist2?.element === "风" ? "Earth's need for stability can feel restrictive to Air's need for movement and change. Air's detachment can feel dismissive to Earth's need for tangible commitment. The balance lies in Air learning to ground, and Earth learning to bend." : artist1?.element === artist2?.element ? "The greatest risk is not conflict but complacency — two people so similar that they forget to challenge each other. Growth comes from difference, and without it, even the most harmonious connection can become stagnant. They must actively seek out perspectives that differ from their shared defaults." : "Their elemental differences, while a source of magnetic attraction, also require the most conscious navigation. What feels perfectly natural to one may be deeply confusing to the other — not because either is wrong, but because their energetic mother tongues are different languages."}`,
+                    `深入合盤分析揭示了定義這段關係獨特質地的和諧交匯點與摩擦點。\n\n優點：${artist1?.element}-${artist2?.element}的五行動態創造了${artist1?.element === artist2?.element ? "天然的共振空間，兩人本能地理解彼此的節奏。同元素配對共享一套無聲的語言——他們以相似的速度穿行世界，透過相似的濾鏡處理情感，在同一類空間中找到慰藉。這創造了一種罕見而珍貴的歸屬感。" : "一種互補的對比，讓關係保持動態，防止因過於相似而產生的停滯。他們的差異不是障礙——正是他們化學反應的引擎，各自提供對方自然缺乏的東西。"}\n\n他們的${result.calc.starMansionRelation}星宿連結特別促成了${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "難得的情感安全感——那種無需費力就能卸下面具的親密。在彼此面前，有一種可以完全、毫無歉意地做自己的許可。這是持久親密關係建立的基礎。" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "令人心動的推拉張力，防止安逸——這是一段要求進化的連結。兩個人都無法在對方身邊保持靜止，而這恰恰是它的禮物。" : "一種清新的輕鬆感，讓每次互動都宛如歸家——不是熟悉感意義上的歸家，而是歸屬感意義上的。這裡有一種不需要強求的自然契合。"}\n\n隱患與隱形摩擦：${artist1?.element === "火" && artist2?.element === "水" ? "火的自然強度可能在水的細微情感訊號完全表達之前就不經意地蒸發了它們。同時，水的深度可能讓火感到難以承受——火偏愛清晰而非複雜。解決方案不是讓火變暗或讓水變淺——而是讓雙方認識到，他們不同的語言需要翻譯而非糾正。" : artist1?.element === "金" && artist2?.element === "木" ? "金的銳利清晰可能在沒有意識到傷害的情況下，切斷了木溫柔、有機的生長模式。木蔓延、不斷擴展的本質可能讓金對精確的追求感到混亂和無序。關鍵在於金要學習對過程保持耐心，木要學會欣賞結構之美。" : artist1?.element === "水" && artist2?.element === "火" ? "水的情感深度可能讓火對空間和自由的渴望感到窒息。火的強度可能讓水對情感安全的需求感到不穩定。兩者都沒有錯——他們只是以不同的情感頻率運作。需要有意識地努力在中間相遇。" : artist1?.element === "土" && artist2?.element === "风" ? "土對穩定的需求可能讓風對移動和變化的渴望感到受限。風的疏離可能讓土對有形承諾的需求感到被輕視。平衡在於風學習扎根，土學習彎曲。" : artist1?.element === artist2?.element ? "最大的風險不是衝突，而是安逸——兩個如此相似的人忘記挑戰彼此。成長來自差異，沒有差異，即使是最和諧的連結也會變得停滯。他們必須積極尋找與他們共享預設不同的視角。" : "他們的元素差異雖然是磁性吸引的來源，但也需要最有意識的導航。對一方來說完全自然的東西，可能讓另一方深感困惑——不是因為任何一方有錯，而是因為他們的能量母語是不同的語言。"}`,
+                    `深入合盤分析揭示了定義這段關係獨特質地的和諧交匯點與摩擦點。\n\n優點：${artist1?.element}-${artist2?.element}的五行動態創造了${artist1?.element === artist2?.element ? "天然的共振空間，兩人本能地理解彼此的節奏。同元素配對共享一套無聲的語言——他們以相似的速度穿行世界，透過相似的濾鏡處理情感，在同一類空間中找到慰藉。這創造了一種罕見而珍貴的歸屬感。" : "一種互補的對比，讓關係保持動態，防止因過於相似而產生的停滯。他們的差異不是障礙——正是他們化學反應的引擎，各自提供對方自然缺乏的東西。"}\n\n他們的${result.calc.starMansionRelation}星宿連結特別促成了${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "難得的情感安全感——那種無需費力就能卸下面具的親密。在彼此面前，有一種可以完全、毫無歉意地做自己的許可。這是持久親密關係建立的基礎。" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "令人心動的推拉張力，防止安逸——這是一段要求進化的連結。兩個人都無法在對方身邊保持靜止，而這恰恰是它的禮物。" : "一種清新的輕鬆感，讓每次互動都宛如歸家——不是熟悉感意義上的歸家，而是歸屬感意義上的。這裡有一種不需要強求的自然契合。"}\n\n隱患與隱形摩擦：${artist1?.element === "火" && artist2?.element === "水" ? "火的自然強度可能在水的細微情感訊號完全表達之前就不經意地蒸發了它們。同時，水的深度可能讓火感到難以承受——火偏愛清晰而非複雜。解決方案不是讓火變暗或讓水變淺——而是讓雙方認識到，他們不同的語言需要翻譯而非糾正。" : artist1?.element === "金" && artist2?.element === "木" ? "金的銳利清晰可能在沒有意識到傷害的情況下，切斷了木溫柔、有機的生長模式。木蔓延、不斷擴展的本質可能讓金對精確的追求感到混亂和無序。關鍵在於金要學習對過程保持耐心，木要學會欣賞結構之美。" : artist1?.element === "水" && artist2?.element === "火" ? "水的情感深度可能讓火對空間和自由的渴望感到窒息。火的強度可能讓水對情感安全的需求感到不穩定。兩者都沒有錯——他們只是以不同的情感頻率運作。需要有意識地努力在中間相遇。" : artist1?.element === "土" && artist2?.element === "风" ? "土對穩定的需求可能讓風對移動和變化的渴望感到受限。風的疏離可能讓土對有形承諾的需求感到被輕視。平衡在於風學習扎根，土學習彎曲。" : artist1?.element === artist2?.element ? "最大的風險不是衝突，而是安逸——兩個如此相似的人忘記挑戰彼此。成長來自差異，沒有差異，即使是最和諧的連結也會變得停滯。他們必須積極尋找與他們共享預設不同的視角。" : "他們的元素差異雖然是磁性吸引的來源，但也需要最有意識的導航。對一方來說完全自然的東西，可能讓另一方深感困惑——不是因為任何一方有錯，而是因為他們的能量母語是不同的語言。"}`
                   )}
                 </Section>
 
                 {/* 7. Long-term Fate Trajectory */}
                 <Section title={t("Future Fate Trajectory", "未来整体缘分走势", "未來整體緣分走勢")} icon="🔮">
                   {t(
-                    `The combined astrological arc between ${artist1?.stageName} and ${artist2?.stageName} points toward ${result.calc.overallScore >= 70 ? "a long, evolving journey — the kind of connection that deepens rather than fades with time. Saturn's steady hand suggests commitment potential; Jupiter's expansive energy hints at shared adventures yet to unfold." : result.calc.overallScore >= 40 ? "a meaningful chapter regardless of its duration — some connections are meant to be seasons, not lifetimes, and every season has its own beauty. The North Node alignment points to mutual growth as the core purpose." : "a catalyst of transformation — sometimes the most important people are those who come to shake us awake, not to stay. Their intersection carries karmic lessons that will echo long after paths diverge."} The ${result.calc.starMansionRelation} star mansion pattern indicates ${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "longevity with intentional nurturing — this bond has roots deep enough to weather cosmic storms" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "intensity that may fluctuate — the highs are euphoric, the challenges demand maturity" : "a steady, quiet unfolding — not a fireworks display, but a constellation that slowly reveals its full shape over time"}. Trust the timing.`,
-                    `${artist1?.stageName}与${artist2?.stageName}的合盘走势指向${result.calc.overallScore >= 70 ? "一段漫长而不断演化的旅程——那种随时间流逝反而愈加深邃的连接。土星稳定的手掌暗示着承诺的可能；木星扩展的能量预示着尚未展开的共同冒险。" : result.calc.overallScore >= 40 ? "一段不论长短都意义深远的篇章——有些连接是季节而非一生，而每个季节都有其独特的美。交点轴的对齐指向以互相成长为核心意义。" : "一场蜕变的催化——有时候最重要的人，是来唤醒我们的，而不是来停留的。他们的交集携带着业力课程，即使在轨迹分岔之后仍会久久回响。"}他们的${result.calc.starMansionRelation}星宿格局显示${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "用心经营即可长久——这份连接的根系深到足以抵御宇宙风暴" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "强度可能起伏不定——巅峰是欣喜若狂的，挑战则需要成熟来应对" : "一种沉稳安静的生长——不是烟花表演，而是一座星座，随时间慢慢显露全貌"}。相信宇宙的时机。`,
-                    `${artist1?.stageName}與${artist2?.stageName}的合盤走勢指向${result.calc.overallScore >= 70 ? "一段漫長而不斷演化的旅程——那種隨時間流逝反而愈加深邃的連接。土星穩定的手掌暗示著承諾的可能；木星擴展的能量預示著尚未展開的共同冒險。" : result.calc.overallScore >= 40 ? "一段不論長短都意義深遠的篇章——有些連接是季節而非一生，而每個季節都有其獨特的美。交點軸的對齊指向以互相成長為核心意義。" : "一場蛻變的催化——有時候最重要的人，是來喚醒我們的，而不是來停留的。他們的交集攜帶著業力課程，即使在軌跡分岔之後仍會久久迴響。"}他們的${result.calc.starMansionRelation}星宿格局顯示${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "用心經營即可長久——這份連接的根系深到足以抵禦宇宙風暴" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "強度可能起伏不定——巔峰是欣喜若狂的，挑戰則需要成熟來應對" : "一種沉穩安靜的生長——不是煙花表演，而是一座星座，隨時間慢慢顯露全貌"}。相信宇宙的時機。`
+                    `The combined astrological arc between ${artist1?.stageName} and ${artist2?.stageName} points toward ${result.calc.overallScore >= 70 ? "a long, evolving journey — the kind of connection that deepens rather than fades with time. Saturn's steady hand suggests commitment potential that transcends the initial spark; Jupiter's expansive energy hints at shared adventures yet to unfold. The North Node alignment is particularly significant here — it suggests that this relationship serves a higher evolutionary purpose for both individuals. They are not just lovers or companions; they are teachers to each other, mirrors reflecting back the parts of themselves that most need to grow." : result.calc.overallScore >= 40 ? "a meaningful chapter regardless of its duration — some connections are meant to be seasons, not lifetimes, and every season has its own beauty. The North Node alignment points to mutual growth as the core purpose. In the composite chart, the Sun-Moon midpoint suggests that even if paths eventually diverge, the imprint left on each soul is permanent. Not all important relationships last forever — but all of them leave us different than they found us." : "a catalyst of transformation — sometimes the most important people are those who come to shake us awake, not to stay. Their intersection carries karmic lessons that will echo long after paths diverge. The Uranus contact in their synastry suggests that this connection sparks awakening — it may be sudden, it may be disruptive, but it is never meaningless. The most profound growth often comes through the people who don't stay, but who change everything while they're here."}\n\nThe ${result.calc.starMansionRelation} star mansion pattern specifically indicates ${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "longevity with intentional nurturing — this bond has roots deep enough to weather cosmic storms, but it requires conscious tending. Like any profound connection, it cannot survive on autopilot. The potential is there; the actualization depends on both parties choosing each other, again and again." : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "intensity that may fluctuate — the highs are euphoric, the challenges demand maturity. This is not a smooth trajectory but a dynamic one, with peaks and valleys that ultimately create a richer shared landscape than any flat, uneventful path ever could." : "a steady, quiet unfolding — not a fireworks display, but a constellation that slowly reveals its full shape over time. This is the kind of bond that may not make headlines, but it makes a life."}\n\nTrust the timing. The universe doesn't rush, and it doesn't make mistakes.`,
+                    `${artist1?.stageName}與${artist2?.stageName}的合盤走勢指向${result.calc.overallScore >= 70 ? "一段漫長而不斷演化的旅程——那種隨時間流逝反而愈加深邃的連接。土星穩定的手掌暗示著超越最初火花的承諾可能；木星擴展的能量預示著尚未展開的共同冒險。北交點的對齊在此尤為重要——它暗示著這段關係對雙方都具有更高的進化目的。他們不僅是戀人或伴侶；他們是彼此的老師，是映照出對方最需要成長之处的鏡子。" : result.calc.overallScore >= 40 ? "一段不論長短都意義深遠的篇章——有些連接是季節而非一生，而每個季節都有其獨特的美。北交點的對齊指向以互相成長為核心意義。在組合盤中，日月的中點暗示著，即使路徑最終分岔，在每個靈魂上留下的印記都是永久的。並非所有重要的關係都能持續到永遠——但它們全都讓我們與被找到時不同。" : "一場蛻變的催化——有時候最重要的人，是來喚醒我們的，而不是來停留的。他們的交集攜帶著業力課程，即使在軌跡分岔之後仍會久久迴響。他們合盤中的天王星接觸暗示著這段連結會引發覺醒——可能是突然的、可能是顛覆性的，但絕非毫無意義。最深刻的成長往往來自那些不會留下、但在存在於此期間改變了一切的人。"}\n\n${result.calc.starMansionRelation}星宿格局具體顯示${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "用心經營即可長久——這份連結的根系深到足以抵禦宇宙風暴，但需要有意識的呵護。如同任何深刻的連結，它無法在自動駕駛模式下生存。潛力存在；實現則取決於雙方一次又一次地選擇彼此。" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "強度可能起伏不定——巔峰是欣喜若狂的，挑戰則需要成熟來應對。這不是一條平滑的軌跡，而是一條動態的軌跡，充滿了高峰與低谷，最終創造出一幅比任何平穩無波的路徑更豐富的共享風景。" : "一種沉穩安靜的生長——不是煙花表演，而是一座星座，隨時間慢慢顯露全貌。這種連結可能不會登上頭條，但它造就了一種人生。"}\n\n相信宇宙的時機。宇宙不急不徐，也從不出錯。`,
+                    `${artist1?.stageName}與${artist2?.stageName}的合盤走勢指向${result.calc.overallScore >= 70 ? "一段漫長而不斷演化的旅程——那種隨時間流逝反而愈加深邃的連接。土星穩定的手掌暗示著超越最初火花的承諾可能；木星擴展的能量預示著尚未展開的共同冒險。北交點的對齊在此尤為重要——它暗示著這段關係對雙方都具有更高的進化目的。他們不僅是戀人或伴侶；他們是彼此的老師，是映照出對方最需要成長之处的鏡子。" : result.calc.overallScore >= 40 ? "一段不論長短都意義深遠的篇章——有些連接是季節而非一生，而每個季節都有其獨特的美。北交點的對齊指向以互相成長為核心意義。在組合盤中，日月的中點暗示著，即使路徑最終分岔，在每個靈魂上留下的印記都是永久的。並非所有重要的關係都能持續到永遠——但它們全都讓我們與被找到時不同。" : "一場蛻變的催化——有時候最重要的人，是來喚醒我們的，而不是來停留的。他們的交集攜帶著業力課程，即使在軌跡分岔之後仍會久久迴響。他們合盤中的天王星接觸暗示著這段連結會引發覺醒——可能是突然的、可能是顛覆性的，但絕非毫無意義。最深刻的成長往往來自那些不會留下、但在存在於此期間改變了一切的人。"}\n\n${result.calc.starMansionRelation}星宿格局具體顯示${["命之星", "荣亲"].includes(result.calc.starMansionRelation) ? "用心經營即可長久——這份連結的根系深到足以抵禦宇宙風暴，但需要有意識的呵護。如同任何深刻的連結，它無法在自動駕駛模式下生存。潛力存在；實現則取決於雙方一次又一次地選擇彼此。" : ["安坏", "危成"].includes(result.calc.starMansionRelation) ? "強度可能起伏不定——巔峰是欣喜若狂的，挑戰則需要成熟來應對。這不是一條平滑的軌跡，而是一條動態的軌跡，充滿了高峰與低谷，最終創造出一幅比任何平穩無波的路徑更豐富的共享風景。" : "一種沉穩安靜的生長——不是煙花表演，而是一座星座，隨時間慢慢顯露全貌。這種連結可能不會登上頭條，但它造就了一種人生。"}\n\n相信宇宙的時機。宇宙不急不徐，也從不出錯。`
                   )}
                 </Section>
 
                 {/* 8. Fate Encounter Probability + Destiny tag */}
                 <Section title={t("Fate Encounter & Destiny Tag", "相遇概率与专属宿命标签", "相遇概率與專屬宿命標籤")} icon="🏷️">
                   {t(
-                    `In the vast sea of humanity — 8 billion souls spread across 196 countries — the statistical probability of two individuals with ${artist1?.stageName}'s exact ${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion} configuration encountering someone with ${artist2?.stageName}'s ${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion} signature is astronomically rare.`,
-                    `在人海茫茫之中——80亿灵魂分布在196个国家——拥有${artist1?.stageName}的${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion}配置的个体，与拥有${artist2?.stageName}的${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion}特征的灵魂相遇的概率，在天文学尺度上都是极为罕见的。`,
-                    `在人海茫茫之中——80億靈魂分佈在196個國家——擁有${artist1?.stageName}的${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion}配置的個體，與擁有${artist2?.stageName}的${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion}特徵的靈魂相遇的概率，在天文學尺度上都是極為罕見的。`
+                    `In the vast sea of humanity — 8 billion souls spread across 196 countries — the statistical probability of two individuals with ${artist1?.stageName}'s exact ${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion} configuration encountering someone with ${artist2?.stageName}'s ${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion} signature is astronomically rare. When we factor in the specific ${result.calc.starMansionRelation} mansion relationship — one of only six karmic archetypes in a 28-mansion system that dates back to the Tang Dynasty — we are looking at a convergence of patterns so statistically improbable that the rational mind struggles to categorize it as mere coincidence.\n\nThis is why the ancient astrologers didn't call it chance. They called it fate.`,
+                    `在人海茫茫之中——80億靈魂分佈在196個國家——擁有${artist1?.stageName}的${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion}配置的個體，與擁有${artist2?.stageName}的${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion}特徵的靈魂相遇的概率，在天文學尺度上都是極其罕見的。當我們再納入特定的${result.calc.starMansionRelation}星宿關係——一個可追溯至唐代的二十八星宿體系中僅有的六種業力原型之一——我們所看到的，是一種在統計學上極不可能的模式交匯，以至於理性思維難以將其歸類為單純的巧合。\n\n這就是為什麼古代占星師不稱之為偶然。他們稱之為命運。`,
+                    `在人海茫茫之中——80億靈魂分佈在196個國家——擁有${artist1?.stageName}的${artist1?.zodiacSign}-${artist1?.baziDayPillar}-${artist1?.starMansion}配置的個體，與擁有${artist2?.stageName}的${artist2?.zodiacSign}-${artist2?.baziDayPillar}-${artist2?.starMansion}特徵的靈魂相遇的概率，在天文學尺度上都是極其罕見的。當我們再納入特定的${result.calc.starMansionRelation}星宿關係——一個可追溯至唐代的二十八星宿體系中僅有的六種業力原型之一——我們所看到的，是一種在統計學上極不可能的模式交匯，以至於理性思維難以將其歸類為單純的巧合。\n\n這就是為什麼古代占星師不稱之為偶然。他們稱之為命運。`
                   )}
                   <div className="mt-3 p-3 bg-[#d4a85308] rounded-lg border border-[#d4a85315] text-center">
                     {(() => { const cfg = RELATION_CONFIG[result.calc.overallTag.tag]; return (
@@ -241,11 +353,17 @@ export default function CpReportPage() {
                 </Section>
               </div>
 
-              {/* ===== SOCIAL SHARE ROW ===== */}
+              {/* ===== SOCIAL SHARE ROW v2 — instant poster + copy text ===== */}
               <div className="glass rounded-xl p-4 border border-[#d4a85310]">
                 <p className="text-[10px] text-[#8a8aad] text-center mb-3 uppercase tracking-wider">
                   {t("Share This CP Report", "分享这份 CP 缘分报告", "分享這份 CP 緣分報告")}
                 </p>
+
+                {/* Success feedback */}
+                {shareMsg && (
+                  <p className="text-[10px] text-green-400/70 text-center mb-2 animate-fade-in">{shareMsg}</p>
+                )}
+
                 <div className="flex justify-center gap-3 flex-wrap">
                   {[
                     { name: "Xiaohongshu", icon: "📕", color: "hover:bg-red-400/20 hover:text-red-400" },
@@ -254,12 +372,49 @@ export default function CpReportPage() {
                     { name: "Facebook", icon: "📘", color: "hover:bg-blue-500/20 hover:text-blue-400" },
                     { name: "Twitter / X", icon: "🐦", color: "hover:bg-sky-400/20 hover:text-sky-400" },
                   ].map(p => {
-                    const cfg = RELATION_CONFIG[result.calc.overallTag.tag];
+                    const cpData = generateCpData({
+                      name1: artist1?.stageName || "",
+                      name2: artist2?.stageName || "",
+                      score: result.calc.overallScore,
+                    });
+                    const isZh = locale === "zh-TW";
+                    const label = isZh ? cpData.labelZh : cpData.labelEn;
+                    const phrase = isZh ? cpData.phraseZh : cpData.phraseEn;
+                    const essays = [isZh ? cpData.essay1Zh : cpData.essay1En, isZh ? cpData.essay2Zh : cpData.essay2En];
+
+                    const shareText = getShareText(p.name,
+                      artist1?.stageName || "", artist2?.stageName || "",
+                      result.calc.overallScore, label, phrase
+                    );
+
+                    const kw = isZh
+                      ? ["靈魂共振", "雙向奔赴", "宇宙級羈絆"]
+                      : ["Soul Resonance", "Mutual Pull", "Cosmic Bond"];
+                    const posterData: PosterData = {
+                      title: `${artist1?.stageName} × ${artist2?.stageName}`,
+                      subtitle: t("CP Fate Report", "CP 缘分合盘报告", "CP 緣分合盤報告"),
+                      tier: cpData.tier,
+                      tierColor: cpData.colors.color,
+                      tierGlow: cpData.colors.glow,
+                      tierGrad: cpData.colors.bgGrad,
+                      label,
+                      phrase,
+                      essays,
+                      keywords: kw,
+                      leftName: artist1?.stageName || "",
+                      rightName: artist2?.stageName || "",
+                    };
+
+                    const handleShare = () => {
+                      setSharePosterData(posterData);
+                      setShowPoster(true);
+                      navigator.clipboard.writeText(shareText).catch(() => {});
+                      setShareMsg(isZh ? "✨ 平台文案已複製，可直接貼上發布" : "✨ Text copied — paste to share");
+                      setTimeout(() => setShareMsg(""), 3000);
+                    };
+
                     return (
-                      <button key={p.name} onClick={async () => {
-                        const text = `${cfg?.emoji} CP Fate: ${artist1?.stageName} × ${artist2?.stageName} | ${t("缘分评分", "緣分評分", "Fate Score")}: ${result.calc.overallScore} · ${cfg?.label}\n#R7Fortune #CPReport #IdolMatch`;
-                        try { await navigator.clipboard.writeText(text); } catch {}
-                      }}
+                      <button key={p.name} onClick={handleShare}
                         className={`flex flex-col items-center gap-1 px-3 py-2 glass rounded-xl border border-[#d4a85310] ${p.color} transition-all text-[#8a8aad] hover:scale-105`}>
                         <span className="text-lg">{p.icon}</span>
                         <span className="text-[8px]">{p.name}</span>
@@ -268,23 +423,47 @@ export default function CpReportPage() {
                   })}
                 </div>
                 <p className="text-[8px] text-[#8a8aad33] text-center mt-2">
-                  {t("Click to copy report text — paste on any platform", "点击复制报告文案 — 粘贴至任意平台发布", "點擊複製報告文案 — 粘貼至任意平台發布")}
+                  {t("Click to save poster + copy text", "点击保存壁纸 + 复制分享文案", "點擊儲存壁紙 + 複製分享文案")}
                 </p>
               </div>
 
-              {/* ===== SHARE POSTER ARCHITECTURE PLACEHOLDER ===== */}
-              {/* TODO: Dynamic share poster generation system
-                  - Server-side canvas render: deep blue starry bg + gold vintage style
-                  - Auto-fetches user's compatibility data (score, tag, traits, fate quotes)
-                  - Each poster is unique per reading — one person, one design
-                  - Bottom-right: permanent QR code linking to R7 Fortune homepage
-                  - Supports HD one-click save, optimized for all social platforms
-                  - Implementation: api/lib/poster-generator.ts + src/components/SharePoster.tsx */}
-              <div className="glass rounded-xl p-3 border border-[#d4a85306] opacity-40">
-                <p className="text-[9px] text-[#8a8aad44] text-center">
-                  📸 {t("Share Poster · Coming Soon", "专属分享海报 · 即将上线", "專屬分享海報 · 即將上線")}
-                </p>
-              </div>
+
+              {/* Floating share button */}
+              <button onClick={() => {
+                const cpData = generateCpData({
+                  name1: artist1?.stageName || "",
+                  name2: artist2?.stageName || "",
+                  score: result.calc.overallScore,
+                });
+                const isZh = locale === "zh-TW";
+                setSharePosterData({
+                  title: `${artist1?.stageName} × ${artist2?.stageName}`,
+                  subtitle: t("CP Fate Report", "CP 缘分合盘报告", "CP 緣分合盤報告"),
+                  tier: cpData.tier,
+                  tierColor: cpData.colors.color,
+                  tierGlow: cpData.colors.glow,
+                  tierGrad: cpData.colors.bgGrad,
+                  label: isZh ? cpData.labelZh : cpData.labelEn,
+                  phrase: isZh ? cpData.phraseZh : cpData.phraseEn,
+                  essays: [isZh ? cpData.essay1Zh : cpData.essay1En, isZh ? cpData.essay2Zh : cpData.essay2En],
+                  keywords: isZh ? ["靈魂共振", "雙向奔赴", "宇宙級羈絆"] : ["Soul Resonance", "Mutual Pull", "Cosmic Bond"],
+                  leftName: artist1?.stageName || "",
+                  rightName: artist2?.stageName || "",
+                });
+                setShowPoster(true);
+              }}
+                className="fixed bottom-20 right-4 z-40 w-12 h-12 bg-[#FFB6C1] text-[#0a0a0f] rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform shadow-[#FFB6C130]">
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              {/* Unified Share Poster — renders with ALL text on canvas */}
+              {sharePosterData && (
+                <SharePoster
+                  data={sharePosterData}
+                  visible={showPoster}
+                  onClose={() => setShowPoster(false)}
+                />
+              )}
 
               {/* Disclaimer */}
               <p className="text-[9px] text-[#8a8aad33] text-center leading-relaxed">
@@ -306,11 +485,11 @@ export default function CpReportPage() {
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#0a0a0f] rounded-xl p-4 border border-[#d4a85306]">
-      <h4 className="text-xs font-semibold text-[#f0e6d3] mb-2 flex items-center gap-2">
+    <div className="bg-[#1e1e2a]/85 rounded-xl p-4 border border-[#d4a85312]">
+      <h4 className="text-sm font-bold text-[#FFB6C1] mb-2 flex items-center gap-2">
         <span>{icon}</span> {title}
       </h4>
-      <p className="text-xs text-[#8a8aad] leading-relaxed">{children}</p>
+      <p className="text-xs text-[#f0e6d3]/80 leading-relaxed">{children}</p>
     </div>
   );
 }

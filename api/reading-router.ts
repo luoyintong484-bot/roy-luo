@@ -5,23 +5,50 @@ import { readings, readingUnlocks, users } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export const readingRouter = createRouter({
-  // Check remaining free readings
+  // Check remaining free readings + premium status
   getFreeCount: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const result = await db.select({ freeReadings: users.freeReadings }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
-    return { freeReadings: result[0]?.freeReadings ?? 0 };
+    const result = await db.select({
+      freeReadings: users.freeReadings,
+      divinationCount: users.divinationCount,
+      isPremium: users.isPremium,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    return {
+      freeReadings: u?.freeReadings ?? 0,
+      divinationCount: u?.divinationCount ?? 0,
+      isPremium: u?.isPremium ?? false,
+      canAccess: (u?.isPremium === true) || ((u?.freeReadings ?? 0) > 0),
+    };
   }),
 
   // Use one free reading
   useFree: authedQuery.mutation(async ({ ctx }) => {
     const db = getDb();
-    const result = await db.select({ freeReadings: users.freeReadings }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
-    const current = result[0]?.freeReadings ?? 0;
-    if (current <= 0) {
-      throw new Error("No free readings remaining");
+    const result = await db.select({
+      freeReadings: users.freeReadings,
+      isPremium: users.isPremium,
+      divinationCount: users.divinationCount,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+
+    // Premium users always pass
+    if (u.isPremium) {
+      await db.update(users).set({ divinationCount: (u.divinationCount ?? 0) + 1 }).where(eq(users.id, ctx.user.id));
+      return { remaining: -1, divinationCount: (u.divinationCount ?? 0) + 1, isPremium: true };
     }
-    await db.update(users).set({ freeReadings: current - 1 }).where(eq(users.id, ctx.user.id));
-    return { remaining: current - 1 };
+
+    // Free user: enforce limit
+    const current = u.freeReadings ?? 0;
+    if (current <= 0) {
+      throw new Error("FREE_LIMIT_REACHED"); // Special error code for frontend
+    }
+    await db.update(users).set({
+      freeReadings: current - 1,
+      divinationCount: (u.divinationCount ?? 0) + 1,
+    }).where(eq(users.id, ctx.user.id));
+    return { remaining: current - 1, divinationCount: (u.divinationCount ?? 0) + 1, isPremium: false };
   }),
 
   create: authedQuery
@@ -35,15 +62,32 @@ export const readingRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const user = ctx.user;
+      const userId = ctx.user.id;
 
-      // Check free readings for free requests
+      // Fetch fresh user data from DB (context may be stale)
+      const userResult = await db.select({
+        freeReadings: users.freeReadings,
+        isPremium: users.isPremium,
+        divinationCount: users.divinationCount,
+      }).from(users).where(eq(users.id, userId)).limit(1);
+      const freshUser = userResult[0];
+      if (!freshUser) throw new Error("User not found");
+
+      // Enforce free limit: premium users bypass, free users must have remaining readings
       if (input.price === 0) {
-        if (user.freeReadings <= 0) {
-          throw new Error("Free reading limit reached. Please purchase.");
+        if (!freshUser.isPremium && (freshUser.freeReadings ?? 0) <= 0) {
+          throw new Error("FREE_LIMIT_REACHED");
         }
         // Deduct one free reading
-        await db.update(users).set({ freeReadings: user.freeReadings - 1 }).where(eq(users.id, user.id));
+        await db.update(users).set({
+          freeReadings: Math.max(0, (freshUser.freeReadings ?? 0) - 1),
+          divinationCount: (freshUser.divinationCount ?? 0) + 1,
+        }).where(eq(users.id, userId));
+      } else {
+        // Paid reading: just increment count
+        await db.update(users).set({
+          divinationCount: (freshUser.divinationCount ?? 0) + 1,
+        }).where(eq(users.id, userId));
       }
 
       const result = await db.insert(readings).values({

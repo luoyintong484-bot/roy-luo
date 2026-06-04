@@ -224,7 +224,7 @@ export function generateCosmicAnswer(
     },
   };
   const t = templates[relationTag] || templates.good_vibes;
-  return locale === "zh" ? t.zh : t.en;
+  return locale === "zh-TW" ? t.zh : t.en;
 }
 
 // --- Main Calculation ---
@@ -247,6 +247,24 @@ export function calculateCompatibility(
   userMansion: string,
   artistMansion: string,
 ): CompatibilityCalcResult {
+  // Special case: Anton × Wonbin (RIIZE tonbin) — fixed 99 Soulmate Bond
+  const isTonbin = (
+    (userDayPillar === "己亥" && artistDayPillar === "己巳") ||
+    (userDayPillar === "己巳" && artistDayPillar === "己亥")
+  );
+
+  if (isTonbin) {
+    return {
+      synastry: { score: 99, keywords: ["Cosmic Pair", "Soulmate", "Perfect Resonance"], timeEstimated: false },
+      bazi: { score: 99, elementComplement: "己亥 (Anton) × 己巳 (Wonbin) — twin earth stems, a once-in-a-lifetime elemental lock", elementRelation: "twin-earth-soul-bond" },
+      starMansionRelation: "命之星",
+      overallTag: { tag: "soulmate", label: "Soulmate Bond", emoji: "💕", color: "#FF6B8A" },
+      overallScore: 99,
+      summary: "Anton and Wonbin share a cosmic blueprint written in the same stardust. Their twin 己 earth stems create a mirror resonance — each sees their own soul reflected in the other. This is not mere compatibility; this is recognition across lifetimes.",
+      summaryZh: "Anton与元彬共享同一份星辰蓝图。他们同为己土日柱，形成镜像共振——彼此在对方眼中看到了自己的灵魂倒影。这不是简单的契合，而是跨越生生世世的相认。",
+    };
+  }
+
   const synastry = calcSynastry(userBirth, artistBirth, userBirthTime);
   const bazi = calcBazi(userDayPillar, artistDayPillar);
   const starMansionRelation = calcStarMansionRelation(userMansion, artistMansion);

@@ -22,6 +22,8 @@ export const users = mysqlTable("users", {
   avatar: text("avatar"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   freeReadings: int("free_readings").default(3).notNull(),
+  divinationCount: int("divination_count").default(0).notNull(),
+  isPremium: boolean("is_premium").default(false).notNull(),
   membershipType: mysqlEnum("membership_type", ["none", "monthly", "yearly"]).default("none").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
   language: varchar("language", { length: 10 }).default("zh-CN"),
