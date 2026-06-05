@@ -87,25 +87,25 @@ export default function IdolCompatibilityDetailPage() {
           <div className="glass rounded-2xl p-6 border border-[#d4a85310] mb-6">
             <div className="flex items-center justify-center gap-6">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-[#d4a85310] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2">
-                  <Star className="w-6 h-6 text-[#d4a853]" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#d4a85310] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2">
+                  <Star className="w-8 h-8 sm:w-10 sm:h-10 text-[#d4a853]" />
                 </div>
-                <p className="text-xs text-[#f0e6d3] font-medium">You</p>
-                <p className="text-[10px] text-[#8a8aad44]">{state.userPillar}</p>
+                <p className="text-sm text-[#f0e6d3] font-medium">You</p>
+                <p className="text-xs text-[#8a8aad44]">{state.userPillar}</p>
               </div>
               <div className="text-center px-4">
-                <div className="text-3xl font-display font-bold text-[#d4a853]">{result.overallScore}</div>
+                <div className="text-4xl sm:text-5xl font-display font-bold text-[#d4a853]">{result.overallScore}</div>
                 <div className="h-0.5 w-12 bg-[#d4a85322] mx-auto my-1.5" />
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${tagConfig.bg} ${tagConfig.color} border border-current border-opacity-20`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tagConfig.bg} ${tagConfig.color} border border-current border-opacity-20`}>
                   {tagConfig.label}
                 </span>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2 overflow-hidden">
-                  {result.artistAvatar ? <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" /> : <Heart className="w-6 h-6 text-[#d4a853]" />}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2 overflow-hidden">
+                  {result.artistAvatar ? <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" /> : <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-[#d4a853]" />}
                 </div>
-                <p className="text-xs text-[#f0e6d3] font-medium truncate max-w-[80px]">{result.artistName}</p>
-                <p className="text-[10px] text-[#8a8aad44]">{artistEl}</p>
+                <p className="text-sm text-[#f0e6d3] font-medium truncate max-w-[120px]">{result.artistName}</p>
+                <p className="text-xs text-[#8a8aad44]">{artistEl}</p>
               </div>
             </div>
           </div>

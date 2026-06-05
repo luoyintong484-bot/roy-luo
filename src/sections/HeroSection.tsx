@@ -144,10 +144,6 @@ export default function HeroSection() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#d4a85315] border border-[#d4a85333] rounded-full mb-6 animate-fade-in-up">
-            <span className="text-xs text-[#d4a853] font-medium tracking-wide">R7 Fortune · Meet Your Future</span>
-          </div>
-
           <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-black italic text-[#f0e6d3] leading-[1.1] animate-fade-in-up"
             style={{ textShadow: "0 0 80px rgba(212,168,83,0.2), 0 4px 20px rgba(0,0,0,0.5)", animationDelay: "0.2s" }}>
             Meet Your
@@ -155,8 +151,8 @@ export default function HeroSection() {
             <span className="text-[#d4a853]">Future</span>
           </h1>
 
-          <p className="mt-6 text-base sm:text-lg text-[#8a8aad] font-light leading-relaxed max-w-lg animate-fade-in-up"
-            style={{ animationDelay: "0.4s" }}>
+          <p className="mt-6 text-base sm:text-lg font-light leading-relaxed max-w-lg animate-fade-in-up rounded-lg px-3 py-2"
+            style={{ animationDelay: "0.4s", color: "#f0e6d3", backgroundColor: "rgba(0,0,0,0.6)", textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
             {t("hero.desc")}
           </p>
 

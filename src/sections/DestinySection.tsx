@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router"
 import { useI18n } from "@/contexts/I18nContext"
 import { useBirthProfile, computeDerivedFields } from "@/hooks/useBirthProfile"
-import { Sparkles, Star, Users, Loader2, MapPin, Clock, User, ChevronDown, Heart, ChevronRight } from "lucide-react"
+import { Sparkles, Star, Users, MapPin, Clock, User, ChevronDown, Heart, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ, type Country } from "@/lib/location-data"
 
@@ -57,7 +57,6 @@ export default function DestinySection() {
   const [birthMinute2, setBirthMinute2] = useState("")
 
   const [freeCount, setFreeCount] = useState(3)
-  const [isLoading, setIsLoading] = useState(false)
 
   const selectedCountry = COUNTRIES.find((c) => c.name === country)
   const selectedProvince = selectedCountry?.subdivisions.find((s) => s.name === province)
@@ -114,18 +113,19 @@ export default function DestinySection() {
   const handleCalculate = () => {
     if (!birthYear || !birthMonth || !birthDay) return
 
-    // Auto-save birth info to profile
-    const derived = computeDerivedFields(birthYear, birthMonth, birthDay);
-    saveBirthProfile({
-      name, gender: gender || "",
-      birthYear, birthMonth, birthDay, birthHour, birthMinute,
-      birthPlace, timezone,
-      baziDayPillar: derived.baziDayPillar,
-      starMansion: derived.starMansion,
-      zodiacSign: derived.zodiacSign,
-    });
+    try {
+      // Auto-save birth info to profile
+      const derived = computeDerivedFields(birthYear, birthMonth, birthDay);
+      saveBirthProfile({
+        name, gender: gender || "",
+        birthYear, birthMonth, birthDay, birthHour, birthMinute,
+        birthPlace, timezone,
+        baziDayPillar: derived.baziDayPillar,
+        starMansion: derived.starMansion,
+        zodiacSign: derived.zodiacSign,
+      });
+    } catch {}
 
-    setIsLoading(true)
     const bd = `${birthYear}-${String(birthMonth).padStart(2, "0")}-${String(birthDay).padStart(2, "0")}T00:00:00.000Z`
     const bt = birthHour !== "" && birthMinute !== "" ? `${String(birthHour).padStart(2, "0")}:${String(birthMinute).padStart(2, "0")}` : undefined
 
@@ -140,7 +140,6 @@ export default function DestinySection() {
 
     // TEMP: paywall bypass — show full report for preview
     setFreeCount((c) => Math.max(0, c - 1))
-    setIsLoading(false)
     navigate("/destiny-result", { state: params })
   }
 
@@ -436,9 +435,9 @@ export default function DestinySection() {
               </div>
             )}
 
-            <Button onClick={handleCalculate} disabled={isLoading || !isFormValid}
+            <Button onClick={handleCalculate} disabled={!isFormValid}
               className="w-full bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] hover:from-[#e0b860] hover:to-[#d4a853] font-bold rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+              <Sparkles className="w-4 h-4 mr-2" />
               {t("destiny.start")}
             </Button>
           </div>

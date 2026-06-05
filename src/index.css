@@ -233,3 +233,87 @@ img {
   max-width: 100%;
   height: auto;
 }
+
+/* ===== Mobile Optimization ===== */
+@media (max-width: 768px) {
+  /* Remove Android canvas background animation, use plain dark bg */
+  canvas[style*="absolute"] {
+    display: none !important;
+  }
+
+  /* Hero banner text: brighter + semi-transparent dark backdrop */
+  .hero-subtitle,
+  [class*="hero"] p {
+    color: rgba(240, 230, 211, 0.95) !important;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+  }
+
+  /* Global spacing: more padding on all containers */
+  .glass,
+  [class*="glass"],
+  section > div,
+  main > div > div {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Larger touch targets for all buttons */
+  button:not(.text-\[8px\]):not(.text-\[9px\]):not(.text-\[10px\]),
+  a[role="button"],
+  [class*="Button"] {
+    min-height: 44px;
+    padding: 10px 16px !important;
+  }
+
+  /* Better readability: line height + letter spacing */
+  p, span, a, li, label {
+    line-height: 1.65;
+    letter-spacing: 0.02em;
+  }
+
+  /* Prevent horizontal overflow */
+  body, html {
+    overflow-x: hidden;
+  }
+
+  /* Full-width containers on mobile */
+  .max-w-4xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-sm {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Android-specific: disable animated backgrounds */
+@media (max-width: 768px) and (pointer: coarse) {
+  canvas {
+    display: none !important;
+  }
+}
+
+/* Global small text visibility fix */
+@media (max-width: 768px) {
+  /* Bump all very small text up by 1-2px on mobile */
+  .text-\[8px\], .text-\[9px\] { font-size: 10px !important; }
+  .text-\[10px\] { font-size: 11px !important; }
+  .text-\[10px\].text-\[\\#8a8aad44\],
+  .text-\[9px\].text-\[\\#8a8aad44\],
+  .text-\[8px\].text-\[\\#8a8aad44\] {
+    color: #a0a0b8 !important;
+  }
+  /* Brighten muted text on dark backgrounds */
+  .text-\[\#8a8aad44\], [class*="text-\[\#8a8aad33\]"], [class*="text-\[\#8a8aad55\]"] {
+    color: #a0a0b8 !important;
+  }
+}
+
+/* ===== Global readability: small text brightness +15%, size +1 ===== */
+@media (min-width: 769px) {
+  .text-\[10px\], .text-\[11px\] { font-size: 12px !important; }
+  .text-\[8px\], .text-\[9px\] { font-size: 10px !important; }
+  .text-xs { font-size: 0.8rem !important; }
+}
+/* Hover brightness boost on small text */
+@media (hover: hover) {
+  .text-\[10px\]:hover, .text-\[9px\]:hover, .text-\[8px\]:hover,
+  .text-xs:hover { filter: brightness(1.25); }
+}

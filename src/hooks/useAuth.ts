@@ -68,9 +68,18 @@ export function useAuth(options?: UseAuthOptions) {
     return () => window.removeEventListener("r7-auth-change", handler);
   }, []);
 
+  const mergeInvites = trpc.reading.mergeGuestInvites.useMutation();
+
   const logout = useCallback(() => {
     logoutUser();
   }, []);
+
+  // Auto-merge guest invite data on login
+  useEffect(() => {
+    if (user) {
+      mergeInvites.mutate().catch(() => {});
+    }
+  }, [!!user]);
 
   useEffect(() => {
     if (redirectOnUnauthenticated && !user) {

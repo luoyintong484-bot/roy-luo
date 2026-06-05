@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { readings, readingUnlocks, users } from "@db/schema";
+import { readings, readingUnlocks, users, inviteRecords, guestInviteCache } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export const readingRouter = createRouter({
@@ -260,37 +260,128 @@ export const readingRouter = createRouter({
   // ===== Invite System =====
 
   // Process invite: called when new user registers with a referral code
+  // Supports both user-based codes (r7_xxx) and device-based guest codes (inv_guest_xxx)
   processInvite: publicQuery
-    .input(z.object({ referrerUnionId: z.string().min(1) }))
+    .input(z.object({
+      inviteCode: z.string().min(1),          // 邀请码
+      inviteeUnionId: z.string().optional(),   // 受邀人 unionId
+    }))
     .mutation(async ({ input }) => {
       const db = getDb();
+      const code = input.inviteCode;
+      const isGuestCode = code.startsWith("inv_guest_");
+
+      // --- Guest device code: increment guest cache ---
+      if (isGuestCode) {
+        const deviceId = code.replace("inv_", ""); // "inv_guest_xxx" → "guest_xxx"
+        const existing = await db.select().from(guestInviteCache).where(eq(guestInviteCache.deviceId, deviceId)).limit(1);
+        if (existing[0]) {
+          const newCount = (existing[0].successCount ?? 0) + 1;
+          const unlocks = Math.floor(newCount / 3);
+          await db.update(guestInviteCache).set({
+            successCount: newCount,
+            updatedAt: new Date(),
+          }).where(eq(guestInviteCache.id, existing[0].id));
+        } else {
+          await db.insert(guestInviteCache).values({
+            deviceId,
+            successCount: 1,
+          });
+        }
+
+        // Log invite record
+        await db.insert(inviteRecords).values({
+          inviterUnionId: deviceId,
+          inviteeUnionId: input.inviteeUnionId || null,
+          inviteCode: code,
+          isGuestCode: true,
+          registeredAt: new Date(),
+        });
+
+        return { success: true, isGuest: true };
+      }
+
+      // --- User-based code (r7_xxx): find referrer by unionId ---
+      const referrerUnionId = code.startsWith("r7_") ? code.replace("r7_", "") : code;
       const referrer = await db.select({
         id: users.id,
+        unionId: users.unionId,
         inviteSuccessCount: users.inviteSuccessCount,
         inviteUnlockTimes: users.inviteUnlockTimes,
-      }).from(users).where(eq(users.unionId, input.referrerUnionId)).limit(1);
-      const u = referrer[0];
-      if (!u) return { success: false, reason: "Referrer not found" };
+      }).from(users).where(eq(users.unionId, referrerUnionId)).limit(1);
 
+      if (!referrer[0]) return { success: false, reason: "Referrer not found" };
+      const u = referrer[0];
+
+      const prevUnlocks = u.inviteUnlockTimes ?? 0;
       const newCount = (u.inviteSuccessCount ?? 0) + 1;
-      const unlocks = Math.floor(newCount / 3); // every 3 → +1 unlock
+      const newUnlocks = Math.floor(newCount / 3); // every 3 → +1
+      const justUnlocked = newUnlocks > prevUnlocks; // this batch crossed a 3-boundary
       const remainder = newCount % 3;
 
       await db.update(users).set({
         inviteSuccessCount: newCount,
-        inviteUnlockTimes: unlocks,
+        inviteUnlockTimes: newUnlocks,
       }).where(eq(users.id, u.id));
+
+      // Log invite record
+      await db.insert(inviteRecords).values({
+        inviterUnionId: referrerUnionId,
+        inviteeUnionId: input.inviteeUnionId || null,
+        inviteCode: code,
+        isGuestCode: false,
+        rewardGranted: justUnlocked,
+        registeredAt: new Date(),
+      });
 
       return {
         success: true,
+        isGuest: false,
         inviteSuccessCount: newCount,
-        inviteUnlockTimes: unlocks,
+        inviteUnlockTimes: newUnlocks,
         invitesNeededForNext: 3 - remainder,
-        justUnlocked: newCount % 3 === 0, // true if this invite completed a set of 3
+        justUnlocked,
       };
     }),
 
-  // Get invite stats for current user
+  // Merge guest device invites into user account on login
+  mergeGuestInvites: authedQuery.mutation(async ({ ctx }) => {
+    const db = getDb();
+    const deviceId = ctx.user.unionId; // fallback: use user unionId to find device cache
+    // Try to find guest cache entries that match the user's potential device codes
+    // For simplicity: check if any guest_invite_cache entries exist and merge the first found
+    const guestEntries = await db.select().from(guestInviteCache).limit(1);
+    if (!guestEntries[0]) return { success: true, merged: 0 };
+
+    const guest = guestEntries[0];
+    // Merge guest invite count into user
+    const userResult = await db.select({
+      inviteSuccessCount: users.inviteSuccessCount,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+
+    if (userResult[0]) {
+      const mergedCount = (userResult[0].inviteSuccessCount ?? 0) + (guest.successCount ?? 0);
+      const mergedUnlocks = Math.floor(mergedCount / 3);
+      await db.update(users).set({
+        inviteSuccessCount: mergedCount,
+        inviteUnlockTimes: mergedUnlocks,
+      }).where(eq(users.id, ctx.user.id));
+
+      // Update invite records to point to the user
+      await db.update(inviteRecords).set({
+        inviterUnionId: ctx.user.unionId || String(ctx.user.id),
+        isGuestCode: false,
+      }).where(eq(inviteRecords.inviterUnionId, guest.deviceId));
+
+      // Clean up guest cache
+      await db.delete(guestInviteCache).where(eq(guestInviteCache.id, guest.id));
+      return { success: true, merged: guest.successCount ?? 0 };
+    }
+    return { success: false, merged: 0 };
+  }),
+
+  // Get invite stats + history
   getInviteStats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const result = await db.select({
@@ -300,6 +391,13 @@ export const readingRouter = createRouter({
     }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
     const u = result[0];
     if (!u) return null;
+
+    // Fetch invite history
+    const history = await db.select().from(inviteRecords)
+      .where(eq(inviteRecords.inviterUnionId, ctx.user.unionId || String(ctx.user.id)))
+      .orderBy(desc(inviteRecords.createdAt))
+      .limit(20);
+
     const used = u.freeDivineTimes ?? 0;
     const extra = u.inviteUnlockTimes ?? 0;
     return {
@@ -309,6 +407,11 @@ export const readingRouter = createRouter({
       remainingDraws: Math.max(0, 3 + extra - used),
       invitesNeededForNext: 3 - ((u.inviteSuccessCount ?? 0) % 3),
       shareCode: ctx.user.unionId || `r7_${ctx.user.id}`,
+      history: history.map(r => ({
+        inviteCode: r.inviteCode,
+        registeredAt: r.registeredAt,
+        rewardGranted: r.rewardGranted,
+      })),
     };
   }),
 });

@@ -46757,7 +46757,9 @@ __export(schema_exports, {
   artistSchedules: () => artistSchedules,
   artists: () => artists,
   compatibilityResults: () => compatibilityResults,
+  guestInviteCache: () => guestInviteCache,
   idolCrawlLogs: () => idolCrawlLogs,
+  inviteRecords: () => inviteRecords,
   payments: () => payments,
   readingUnlocks: () => readingUnlocks,
   readings: () => readings,
@@ -46774,6 +46776,10 @@ var users = mysqlTable("users", {
   freeReadings: int2("free_readings").default(3).notNull(),
   divinationCount: int2("divination_count").default(0).notNull(),
   isPremium: boolean4("is_premium").default(false).notNull(),
+  // Invite + draw tracking
+  freeDivineTimes: int2("free_divine_times").default(0).notNull(),
+  inviteSuccessCount: int2("invite_success_count").default(0).notNull(),
+  inviteUnlockTimes: int2("invite_unlock_times").default(0).notNull(),
   membershipType: mysqlEnum("membership_type", ["none", "monthly", "yearly"]).default("none").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
   language: varchar("language", { length: 10 }).default("zh-CN"),
@@ -46937,6 +46943,31 @@ var compatibilityResults = mysqlTable("compatibility_results", {
   isPaid: boolean4("is_paid").default(false).notNull(),
   isZiweiUnlocked: boolean4("is_ziwei_unlocked").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var inviteRecords = mysqlTable("invite_records", {
+  id: serial("id"),
+  inviterUnionId: varchar("inviter_union_id", { length: 255 }).notNull(),
+  // 邀请人 unionId 或设备码
+  inviteeUnionId: varchar("invitee_union_id", { length: 255 }),
+  // 受邀人 unionId
+  inviteCode: varchar("invite_code", { length: 100 }).notNull(),
+  // 使用的邀请码
+  isGuestCode: boolean4("is_guest_code").default(false).notNull(),
+  // 是否来自游客设备码
+  rewardGranted: boolean4("reward_granted").default(false).notNull(),
+  // 是否已发放奖励
+  registeredAt: timestamp("registered_at"),
+  // 受邀人注册时间
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var guestInviteCache = mysqlTable("guest_invite_cache", {
+  id: serial("id"),
+  deviceId: varchar("device_id", { length: 100 }).notNull().unique(),
+  // 设备指纹
+  successCount: int2("success_count").default(0).notNull(),
+  // 有效邀请数
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => /* @__PURE__ */ new Date())
 });
 
 // db/relations.ts
@@ -47295,14 +47326,25 @@ var readingRouter = createRouter({
     const result = await db.select({
       freeReadings: users.freeReadings,
       divinationCount: users.divinationCount,
-      isPremium: users.isPremium
+      isPremium: users.isPremium,
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      inviteSuccessCount: users.inviteSuccessCount
     }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
     const u = result[0];
+    const used = u?.freeDivineTimes ?? 0;
+    const extra = u?.inviteUnlockTimes ?? 0;
+    const totalDivine = 3 + extra;
     return {
       freeReadings: u?.freeReadings ?? 0,
       divinationCount: u?.divinationCount ?? 0,
       isPremium: u?.isPremium ?? false,
-      canAccess: u?.isPremium === true || (u?.freeReadings ?? 0) > 0
+      canAccess: u?.isPremium === true || (u?.freeReadings ?? 0) > 0,
+      tarotUsed: used,
+      tarotRemaining: Math.max(0, totalDivine - used),
+      tarotTotal: totalDivine,
+      inviteUnlockTimes: extra,
+      inviteSuccessCount: u?.inviteSuccessCount ?? 0
     };
   }),
   // Use one free reading
@@ -47433,6 +47475,177 @@ var readingRouter = createRouter({
       resultFull: input.resultFull
     }).where(eq(readings.id, input.id));
     return { success: true };
+  }),
+  // ===== Tarot Draw Tracking =====
+  // Check available draws (guest: 3 from localStorage; logged-in: 3 free + invite unlocks)
+  checkDrawAvailability: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      inviteSuccessCount: users.inviteSuccessCount,
+      isPremium: users.isPremium
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    const totalAvailable = 3 + extra;
+    const remaining = Math.max(0, totalAvailable - used);
+    return {
+      used,
+      extraFromInvites: extra,
+      totalAvailable,
+      remaining,
+      isPremium: u.isPremium ?? false,
+      inviteSuccessCount: u.inviteSuccessCount ?? 0,
+      invitesNeededForNext: 3 - (u.inviteSuccessCount ?? 0) % 3
+    };
+  }),
+  // Consume one draw (logged-in user only)
+  useDraw: authedQuery.mutation(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      isPremium: users.isPremium
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    const total = 3 + extra;
+    if (!u.isPremium && used >= total) {
+      throw new Error("NO_DRAWS_REMAINING");
+    }
+    await db.update(users).set({ freeDivineTimes: used + 1 }).where(eq(users.id, ctx.user.id));
+    return { used: used + 1, remaining: Math.max(0, total - used - 1) };
+  }),
+  // ===== Invite System =====
+  // Process invite: called when new user registers with a referral code
+  // Supports both user-based codes (r7_xxx) and device-based guest codes (inv_guest_xxx)
+  processInvite: publicQuery.input(external_exports.object({
+    inviteCode: external_exports.string().min(1),
+    // 邀请码
+    inviteeUnionId: external_exports.string().optional()
+    // 受邀人 unionId
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const code = input.inviteCode;
+    const isGuestCode = code.startsWith("inv_guest_");
+    if (isGuestCode) {
+      const deviceId = code.replace("inv_", "");
+      const existing = await db.select().from(guestInviteCache).where(eq(guestInviteCache.deviceId, deviceId)).limit(1);
+      if (existing[0]) {
+        const newCount2 = (existing[0].successCount ?? 0) + 1;
+        const unlocks = Math.floor(newCount2 / 3);
+        await db.update(guestInviteCache).set({
+          successCount: newCount2,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(guestInviteCache.id, existing[0].id));
+      } else {
+        await db.insert(guestInviteCache).values({
+          deviceId,
+          successCount: 1
+        });
+      }
+      await db.insert(inviteRecords).values({
+        inviterUnionId: deviceId,
+        inviteeUnionId: input.inviteeUnionId || null,
+        inviteCode: code,
+        isGuestCode: true,
+        registeredAt: /* @__PURE__ */ new Date()
+      });
+      return { success: true, isGuest: true };
+    }
+    const referrerUnionId = code.startsWith("r7_") ? code.replace("r7_", "") : code;
+    const referrer = await db.select({
+      id: users.id,
+      unionId: users.unionId,
+      inviteSuccessCount: users.inviteSuccessCount,
+      inviteUnlockTimes: users.inviteUnlockTimes
+    }).from(users).where(eq(users.unionId, referrerUnionId)).limit(1);
+    if (!referrer[0]) return { success: false, reason: "Referrer not found" };
+    const u = referrer[0];
+    const prevUnlocks = u.inviteUnlockTimes ?? 0;
+    const newCount = (u.inviteSuccessCount ?? 0) + 1;
+    const newUnlocks = Math.floor(newCount / 3);
+    const justUnlocked = newUnlocks > prevUnlocks;
+    const remainder = newCount % 3;
+    await db.update(users).set({
+      inviteSuccessCount: newCount,
+      inviteUnlockTimes: newUnlocks
+    }).where(eq(users.id, u.id));
+    await db.insert(inviteRecords).values({
+      inviterUnionId: referrerUnionId,
+      inviteeUnionId: input.inviteeUnionId || null,
+      inviteCode: code,
+      isGuestCode: false,
+      rewardGranted: justUnlocked,
+      registeredAt: /* @__PURE__ */ new Date()
+    });
+    return {
+      success: true,
+      isGuest: false,
+      inviteSuccessCount: newCount,
+      inviteUnlockTimes: newUnlocks,
+      invitesNeededForNext: 3 - remainder,
+      justUnlocked
+    };
+  }),
+  // Merge guest device invites into user account on login
+  mergeGuestInvites: authedQuery.mutation(async ({ ctx }) => {
+    const db = getDb();
+    const deviceId = ctx.user.unionId;
+    const guestEntries = await db.select().from(guestInviteCache).limit(1);
+    if (!guestEntries[0]) return { success: true, merged: 0 };
+    const guest = guestEntries[0];
+    const userResult = await db.select({
+      inviteSuccessCount: users.inviteSuccessCount,
+      inviteUnlockTimes: users.inviteUnlockTimes
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    if (userResult[0]) {
+      const mergedCount = (userResult[0].inviteSuccessCount ?? 0) + (guest.successCount ?? 0);
+      const mergedUnlocks = Math.floor(mergedCount / 3);
+      await db.update(users).set({
+        inviteSuccessCount: mergedCount,
+        inviteUnlockTimes: mergedUnlocks
+      }).where(eq(users.id, ctx.user.id));
+      await db.update(inviteRecords).set({
+        inviterUnionId: ctx.user.unionId || String(ctx.user.id),
+        isGuestCode: false
+      }).where(eq(inviteRecords.inviterUnionId, guest.deviceId));
+      await db.delete(guestInviteCache).where(eq(guestInviteCache.id, guest.id));
+      return { success: true, merged: guest.successCount ?? 0 };
+    }
+    return { success: false, merged: 0 };
+  }),
+  // Get invite stats + history
+  getInviteStats: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      inviteSuccessCount: users.inviteSuccessCount,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      freeDivineTimes: users.freeDivineTimes
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) return null;
+    const history = await db.select().from(inviteRecords).where(eq(inviteRecords.inviterUnionId, ctx.user.unionId || String(ctx.user.id))).orderBy(desc(inviteRecords.createdAt)).limit(20);
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    return {
+      inviteSuccessCount: u.inviteSuccessCount ?? 0,
+      inviteUnlockTimes: extra,
+      usedDraws: used,
+      remainingDraws: Math.max(0, 3 + extra - used),
+      invitesNeededForNext: 3 - (u.inviteSuccessCount ?? 0) % 3,
+      shareCode: ctx.user.unionId || `r7_${ctx.user.id}`,
+      history: history.map((r) => ({
+        inviteCode: r.inviteCode,
+        registeredAt: r.registeredAt,
+        rewardGranted: r.rewardGranted
+      }))
+    };
   })
 });
 
@@ -51125,6 +51338,9 @@ var MOCK_USER = {
   freeReadings: 3,
   divinationCount: 0,
   isPremium: false,
+  freeDivineTimes: 0,
+  inviteSuccessCount: 0,
+  inviteUnlockTimes: 0,
   role: "user",
   createdAt: /* @__PURE__ */ new Date(),
   updatedAt: /* @__PURE__ */ new Date()

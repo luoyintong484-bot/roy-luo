@@ -203,6 +203,27 @@ export const compatibilityResults = mysqlTable("compatibility_results", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ===== Invite Records =====
+export const inviteRecords = mysqlTable("invite_records", {
+  id: serial("id"),
+  inviterUnionId: varchar("inviter_union_id", { length: 255 }).notNull(), // 邀请人 unionId 或设备码
+  inviteeUnionId: varchar("invitee_union_id", { length: 255 }),           // 受邀人 unionId
+  inviteCode: varchar("invite_code", { length: 100 }).notNull(),          // 使用的邀请码
+  isGuestCode: boolean("is_guest_code").default(false).notNull(),         // 是否来自游客设备码
+  rewardGranted: boolean("reward_granted").default(false).notNull(),      // 是否已发放奖励
+  registeredAt: timestamp("registered_at"),                                // 受邀人注册时间
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ===== Guest Device Invite Cache (merged to user on login) =====
+export const guestInviteCache = mysqlTable("guest_invite_cache", {
+  id: serial("id"),
+  deviceId: varchar("device_id", { length: 100 }).notNull().unique(),     // 设备指纹
+  successCount: int("success_count").default(0).notNull(),                // 有效邀请数
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Artist = typeof artists.$inferSelect;
@@ -213,3 +234,5 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export type ArtistSchedule = typeof artistSchedules.$inferSelect;
 export type CompatibilityResult = typeof compatibilityResults.$inferSelect;
 export type IdolCrawlLog = typeof idolCrawlLogs.$inferSelect;
+export type InviteRecord = typeof inviteRecords.$inferSelect;
+export type GuestInviteCache = typeof guestInviteCache.$inferSelect;

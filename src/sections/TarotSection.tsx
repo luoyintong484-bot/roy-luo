@@ -297,14 +297,51 @@ export default function TarotSection() {
   const [tarotMode, setTarotMode] = useState<"classic" | "idol">("classic");
   const [idolCategory, setIdolCategory] = useState<string>("");
 
-  // Guest tracking: localStorage-based, max 3 draws
-  const { user, isAuthenticated } = useAuth();
-  const [guestUsed, setGuestUsed] = useState(() => {
-    try { return parseInt(localStorage.getItem("tarot_guest_used") || "0"); } catch { return 0; }
-  });
+  // Device fingerprint: stable across localStorage clears
+  const getDeviceId = () => {
+    const fp = [
+      navigator.hardwareConcurrency || 4,
+      navigator.maxTouchPoints || 0,
+      screen.colorDepth,
+      screen.width + "x" + screen.height,
+      new Intl.DateTimeFormat().resolvedOptions().timeZone,
+      navigator.language,
+    ].join("|");
+    let hash = 0;
+    for (let i = 0; i < fp.length; i++) {
+      hash = ((hash << 5) - hash) + fp.charCodeAt(i);
+      hash |= 0;
+    }
+    return "dev_" + Math.abs(hash).toString(36);
+  };
+
+  const DEVICE_ID = getDeviceId();
   const GUEST_MAX = 3;
-  const guestRemaining = Math.max(0, GUEST_MAX - guestUsed);
+
+  // Guest tracking: classic & idol each get 3 independent free draws
+  const GUEST_CLASSIC_KEY = `r7_guest_classic_${DEVICE_ID}`;
+  const GUEST_IDOL_KEY = `r7_guest_idol_${DEVICE_ID}`;
+  const { user, isAuthenticated } = useAuth();
+  const [guestClassicUsed, setGuestClassicUsed] = useState(() => {
+    try { return parseInt(localStorage.getItem(GUEST_CLASSIC_KEY) || "0"); } catch { return 0; }
+  });
+  const [guestIdolUsed, setGuestIdolUsed] = useState(() => {
+    try { return parseInt(localStorage.getItem(GUEST_IDOL_KEY) || "0"); } catch { return 0; }
+  });
+
+  // Get guest remaining for current mode
+  const guestModeUsed = tarotMode === "idol" ? guestIdolUsed : guestClassicUsed;
+  const guestModeRemaining = Math.max(0, GUEST_MAX - guestModeUsed);
+  // Classic & idol both exhausted?
+  const classicExhausted = guestClassicUsed >= GUEST_MAX;
+  const idolExhausted = guestIdolUsed >= GUEST_MAX;
+  const bothGuestExhausted = classicExhausted && idolExhausted;
+
   const [showLockModal, setShowLockModal] = useState(false);
+  const [showInviteCode, setShowInviteCode] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   // Fetch real free reading count from backend (logged-in users only)
   const { data: accessInfo } = trpc.reading.getFreeCount.useQuery(undefined, {
@@ -313,12 +350,35 @@ export default function TarotSection() {
   });
   const dbRemaining = Math.max(0, accessInfo?.tarotRemaining ?? (accessInfo?.freeReadings ?? 0));
   const isPremiumUser = accessInfo?.isPremium ?? false;
-  const extraFromInvites = accessInfo?.inviteUnlockTimes ?? 0;
 
-  // Effective remaining: guest uses localStorage, logged-in uses DB
-  const effectiveRemaining = isAuthenticated ? dbRemaining : guestRemaining;
-  const effectiveUsed = isAuthenticated ? (accessInfo?.tarotUsed ?? 0) : guestUsed;
+  // Effective remaining: guest uses localStorage (mode-specific), logged-in uses DB
+  const effectiveRemaining = isAuthenticated ? dbRemaining : guestModeRemaining;
+  const effectiveUsed = isAuthenticated ? (accessInfo?.tarotUsed ?? 0) : guestModeUsed;
   const effectiveMax = isAuthenticated ? (accessInfo?.tarotTotal ?? 3) : GUEST_MAX;
+
+  // Generate unique share code: user-based if logged in, device-based if guest
+  const generateShareCode = () => {
+    const code = isAuthenticated ? `r7_${user?.id || "user"}` : `inv_${DEVICE_ID.slice(0, 12)}`;
+    const link = `${window.location.origin}/?ref=${code}`;
+    setInviteCode(code);
+    setInviteLink(link);
+    setShowInviteCode(true);
+    setInviteCopied(false);
+  };
+
+  const copyInviteLink = async () => {
+    const text = locale === "zh-TW"
+      ? `快來 R7 Fortune 免費占卜！註冊時輸入邀請碼 ${inviteCode}，我倆都能解鎖更多抽牌次數 🎴 ${inviteLink}`
+      : locale === "zh"
+      ? `快来 R7 Fortune 免费占卜！注册时输入邀请码 ${inviteCode}，我俩都能解锁更多抽牌次数 🎴 ${inviteLink}`
+      : `Join me on R7 Fortune for free tarot! Use invite code ${inviteCode} when registering — we both unlock more draws 🎴 ${inviteLink}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "R7 Fortune", text, url: inviteLink }); } catch {}
+    }
+    await navigator.clipboard.writeText(text).catch(() => {});
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 3000);
+  };
 
   const idolCategories = [
     { key: "fansign", icon: Heart, labelEn: "Fansign Fortune", labelZh: "签售运势", descEn: "What energy surrounds your next fansign?", descZh: "下一次签售会，你的运势如何？" },
@@ -331,20 +391,33 @@ export default function TarotSection() {
     if (tarotMode === "classic" && !question.trim()) return;
     if (tarotMode === "idol" && !idolCategory) return;
 
-    // Check limit: premium always passes, otherwise check remaining
-    if (!isPremiumUser && effectiveRemaining <= 0) {
-      setShowLockModal(true);
-      return;
+    // Premium user: always pass
+    // Logged-in non-premium: check DB remaining, block if 0
+    // Guest: if remaining > 0, allow draw (prompt after); if 0 remaining, force lock
+    if (!isPremiumUser) {
+      if (isAuthenticated && dbRemaining <= 0) {
+        setShowLockModal(true);
+        return;
+      }
+      if (!isAuthenticated && guestModeRemaining <= 0) {
+        setShowLockModal(true);
+        return;
+      }
     }
 
-    // Deduct: guest → localStorage, logged-in → backend API
+    // Deduct: guest → localStorage (mode-specific, fingerprint-keyed), logged-in → backend API
     if (!isPremiumUser) {
       if (isAuthenticated) {
         useDrawMutation.mutate();
       } else {
-        const newUsed = guestUsed + 1;
-        setGuestUsed(newUsed);
-        localStorage.setItem("tarot_guest_used", String(newUsed));
+        const newUsed = guestModeUsed + 1;
+        const storageKey = tarotMode === "idol" ? GUEST_IDOL_KEY : GUEST_CLASSIC_KEY;
+        if (tarotMode === "idol") {
+          setGuestIdolUsed(newUsed);
+        } else {
+          setGuestClassicUsed(newUsed);
+        }
+        localStorage.setItem(storageKey, String(newUsed));
       }
     }
 
@@ -353,7 +426,7 @@ export default function TarotSection() {
     setDrawnCards([]);
     setShowReading(false);
     if (!TEST_MODE && !isPremiumUser) setIsUnlocked(false);
-  }, [question, effectiveRemaining, isPremiumUser, tarotMode, idolCategory, isAuthenticated, guestUsed, useDrawMutation]);
+  }, [question, effectiveRemaining, isPremiumUser, tarotMode, idolCategory, isAuthenticated, guestModeRemaining, guestModeUsed, useDrawMutation, GUEST_IDOL_KEY, GUEST_CLASSIC_KEY]);
 
   const handleShuffleComplete = useCallback(() => {
     setIsShuffling(false);
@@ -622,8 +695,32 @@ export default function TarotSection() {
         </div>
       )}
 
-      {/* ===== Lock Modal: free draws exhausted ===== */}
-      {showLockModal && (
+      {/* ===== Guest login prompt: shown after each free draw (not blocking) ===== */}
+      {showReading && drawnCards.length > 0 && !isAuthenticated && guestModeRemaining > 0 && (
+        <div className="max-w-2xl mx-auto mt-3 glass rounded-xl p-4 border border-[#FFB6C120] bg-[#FFB6C105] animate-fade-in">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <UserPlus className="w-4 h-4 text-[#FFB6C1] flex-shrink-0" />
+              <p className="text-xs text-[#f0e6d3] truncate">
+                {locale === "zh-TW"
+                  ? `${tarotMode === "idol" ? "Idol占卜" : "經典塔羅"} 還有 ${guestModeRemaining} 次免費 · 註冊解鎖更多，每邀請 3 位好友額外贈 1 次`
+                  : locale === "zh"
+                  ? `${tarotMode === "idol" ? "Idol占卜" : "经典塔罗"} 还有 ${guestModeRemaining} 次免费 · 注册解锁更多，每邀请 3 位好友额外赠 1 次`
+                  : `${tarotMode === "idol" ? "Idol" : "Classic"} tarot: ${guestModeRemaining} free left · Register to unlock more, +1 per 3 invited friends`}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-4 py-2 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-lg text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all flex-shrink-0"
+            >
+              {locale === "zh-TW" ? "註冊 / 登錄" : locale === "zh" ? "注册 / 登录" : "Register / Login"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Lock Modal: Step 1 - choices ===== */}
+      {showLockModal && !showInviteCode && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={() => setShowLockModal(false)} />
           <div className="relative glass rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up text-center">
@@ -650,28 +747,64 @@ export default function TarotSection() {
                 {locale === "zh-TW" ? "去註冊" : locale === "zh" ? "去注册" : "Register"}
               </button>
               <button
-                onClick={async () => {
-                  const refCode = user?.id ? `r7_${user.id}` : "guest";
-                  const link = `${window.location.origin}/?ref=${refCode}`;
-                  const text = locale === "zh-TW"
-                    ? `快來 R7 Fortune 免費占卜！用我的邀請碼 ${refCode} 註冊，我倆都能解鎖更多次數 🎴 ${link}`
-                    : locale === "zh"
-                    ? `快来 R7 Fortune 免费占卜！用我的邀请码 ${refCode} 注册，我俩都能解锁更多次数 🎴 ${link}`
-                    : `Join me on R7 Fortune for free tarot! Use my invite code ${refCode} when you register — we both unlock more draws 🎴 ${link}`;
-                  if (navigator.share) {
-                    try { await navigator.share({ title: "R7 Fortune", text, url: link }); } catch {}
-                  } else {
-                    await navigator.clipboard.writeText(text).catch(() => {});
-                  }
-                  setShowLockModal(false);
-                  navigate(`/?ref=${refCode}`);
-                }}
+                onClick={generateShareCode}
                 className="w-full py-3 bg-[#151520] border border-[#d4a85322] text-[#f0e6d3] rounded-xl text-sm font-medium hover:border-[#d4a85355] transition-all flex items-center justify-center gap-2"
               >
                 <Share2 className="w-4 h-4" />
                 {locale === "zh-TW" ? "去邀請好友" : locale === "zh" ? "去邀请好友" : "Invite Friends"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Lock Modal: Step 2 - invite code ===== */}
+      {showLockModal && showInviteCode && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={() => { setShowInviteCode(false); setShowLockModal(false); }} />
+          <div className="relative glass rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up text-center">
+            <button onClick={() => { setShowInviteCode(false); setShowLockModal(false); }} className="absolute top-4 right-4 text-[#8a8aad] hover:text-[#f0e6d3]"><X className="w-4 h-4" /></button>
+            <div className="w-14 h-14 rounded-full bg-[#FFB6C110] flex items-center justify-center mx-auto mb-4 border border-[#FFB6C120]">
+              <Share2 className="w-7 h-7 text-[#FFB6C1]" />
+            </div>
+            <h3 className="text-lg font-bold text-[#f0e6d3] mb-2">
+              {locale === "zh-TW" ? "你的專屬邀請碼" : locale === "zh" ? "你的专属邀请码" : "Your Invite Code"}
+            </h3>
+            <p className="text-xs text-[#8a8aad] mb-4">
+              {locale === "zh-TW"
+                ? "好友透過此碼註冊，每滿 3 人你將自動獲得 +1 次免費抽牌"
+                : locale === "zh"
+                ? "好友通过此码注册，每满 3 人你将自动获得 +1 次免费抽牌"
+                : "Friends who register with this code earn you +1 free draw per 3 signups"}
+            </p>
+            {/* Invite code display */}
+            <div className="bg-[#151520] rounded-xl p-4 mb-3 border border-[#d4a85315]">
+              <p className="text-[10px] text-[#8a8aad44] mb-2 uppercase tracking-wider">
+                {locale === "zh-TW" ? "邀請碼" : locale === "zh" ? "邀请码" : "Invite Code"}
+              </p>
+              <p className="text-2xl font-display font-bold text-[#FFB6C1] tracking-widest select-all">{inviteCode}</p>
+              <p className="text-[9px] text-[#8a8aad44] mt-2 break-all">{inviteLink}</p>
+            </div>
+            <button
+              onClick={copyInviteLink}
+              className={`w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                inviteCopied
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] hover:from-[#FFC4CF] hover:to-[#FFA0B5]"
+              }`}
+            >
+              {inviteCopied ? (
+                <><Check className="w-4 h-4" /> {locale === "zh-TW" ? "已複製" : locale === "zh" ? "已复制" : "Copied!"}</>
+              ) : (
+                <><Share2 className="w-4 h-4" /> {locale === "zh-TW" ? "複製邀請連結" : locale === "zh" ? "复制邀请链接" : "Copy Invite Link"}</>
+              )}
+            </button>
+            <button
+              onClick={() => setShowInviteCode(false)}
+              className="w-full py-2.5 text-xs text-[#8a8aad] hover:text-[#f0e6d3] transition-colors mt-1"
+            >
+              {locale === "zh-TW" ? "返回上一步" : locale === "zh" ? "返回上一步" : "Go Back"}
+            </button>
           </div>
         </div>
       )}

@@ -393,6 +393,46 @@ export default function IdolMatchPage() {
                 />
               </div>
 
+              {/* ===== 缘分深度解析 ===== */}
+              {results.length > 0 && (() => {
+                const best = results[0];
+                const artist = getArtistById(best.artistId);
+                if (!artist) return null;
+                const cfg = RELATION_CONFIG[best.calc.overallTag.tag];
+                const derived = computeDerivedFields(birthYear, birthMonth, birthDay);
+                return (
+                  <div className="glass rounded-2xl p-5 border border-[#FFB6C115]">
+                    <h3 className="text-sm font-semibold text-[#f0e6d3] mb-4 text-center">
+                      {locale === "zh-TW" ? "✨ 缘分深度解析" : "Destiny Depth Analysis"}
+                    </h3>
+                    {/* Top match */}
+                    <div className="bg-[#151520] rounded-xl p-4 mb-4 text-center border border-[#d4a85310]">
+                      <p className="text-xs text-[#8a8aad]">{locale === "zh-TW" ? "最佳匹配" : "Best Match"}</p>
+                      <p className="text-lg font-bold text-[#FFB6C1] mt-1">{artist.stageName}</p>
+                      <p className="text-sm text-[#d4a853] mt-0.5">{cfg?.emoji} {cfg?.label} · {best.calc.overallScore}分</p>
+                    </div>
+                    {/* 4-dimension analysis */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { icon:"💫", t:locale==="zh-TW"?"緣分深淺":"Destiny Depth",
+                          d:best.calc.overallScore>=70?(locale==="zh-TW"?"你們的星盤高度契合，星宿關係顯示前世已有緣分牽引，今生的相遇絕非偶然":"Your charts are highly compatible. The star mansion relation reveals past-life karmic threads — this meeting is no coincidence."):(locale==="zh-TW"?"你們的緣分帶有成長課題，需要雙方共同努力才能走得更遠":"Your connection carries growth lessons. Mutual effort will deepen this bond over time.")},
+                        { icon:"🫧", t:locale==="zh-TW"?"核心吸引力":"Core Attraction",
+                          d:locale==="zh-TW"?`${userName}的${(derived.baziDayPillar||"?")[0]}命與${artist.stageName}的${artist.element||"?"}元素形成${best.calc.bazi.complement||"獨特能量場"}，這是最本質的吸引來源`:`Your ${(derived.baziDayPillar||"?")[0]} element and ${artist.stageName}'s ${artist.element||"?"} create a ${best.calc.bazi.complement||"unique energy field"} — the deepest source of attraction`},
+                        { icon:"✨", t:locale==="zh-TW"?"相處優勢":"Harmony Strengths",
+                          d:locale==="zh-TW"?`${best.calc.starMansionRelation}星宿關係賦予你們${best.calc.starMansionRelation==="荣亲"||best.calc.starMansionRelation==="命之星"?"天然的默契與信任":"深刻的互相成就潛力"}。合盤關鍵詞：${(best.calc.synastry.keywords||["互補"]).join("、")}`:`${best.calc.starMansionRelation} mansion bond grants ${best.calc.starMansionRelation==="荣亲"||best.calc.starMansionRelation==="命之星"?"natural trust and understanding":"profound mutual growth potential"}. Keywords: ${(best.calc.synastry.keywords||["complementary"]).join(", ")}`},
+                        { icon:"⚠️", t:locale==="zh-TW"?"潛在矛盾":"Potential Friction",
+                          d:locale==="zh-TW"?`注意${best.calc.bazi.score<50?"五行生克差異可能帶來溝通上的張力":"保持彼此獨立空間，避免過度依賴"}，關係標籤「${cfg?.label||"Good Vibes"}」提醒你們在相處中保持平衡`:`Watch for ${best.calc.bazi.score<50?"element friction that may cause communication tension":"maintaining individual space to avoid over-dependence"}. Tag "${cfg?.label||"Good Vibes"}" reminds you to keep balance`},
+                      ].map((dim,i) => (
+                        <div key={i} className="bg-[#151520] rounded-lg p-3 border border-[#d4a85308]">
+                          <h4 className="text-xs font-semibold text-[#FFB6C1] mb-1">{dim.icon} {dim.t}</h4>
+                          <p className="text-[10px] text-[#8a8aad] leading-relaxed">{dim.d}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Results list */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {results.map(r => {
