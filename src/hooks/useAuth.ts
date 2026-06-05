@@ -16,6 +16,9 @@ const MOCK_USER = {
   avatar: null as string | null,
   freeReadings: 3,
   isPremium: false,
+  freeDivineTimes: 0,
+  inviteSuccessCount: 0,
+  inviteUnlockTimes: 0,
   membershipType: "monthly" as const,
 };
 

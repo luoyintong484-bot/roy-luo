@@ -24,6 +24,10 @@ export const users = mysqlTable("users", {
   freeReadings: int("free_readings").default(3).notNull(),
   divinationCount: int("divination_count").default(0).notNull(),
   isPremium: boolean("is_premium").default(false).notNull(),
+  // Invite + draw tracking
+  freeDivineTimes: int("free_divine_times").default(0).notNull(),
+  inviteSuccessCount: int("invite_success_count").default(0).notNull(),
+  inviteUnlockTimes: int("invite_unlock_times").default(0).notNull(),
   membershipType: mysqlEnum("membership_type", ["none", "monthly", "yearly"]).default("none").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
   language: varchar("language", { length: 10 }).default("zh-CN"),

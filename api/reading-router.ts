@@ -12,13 +12,24 @@ export const readingRouter = createRouter({
       freeReadings: users.freeReadings,
       divinationCount: users.divinationCount,
       isPremium: users.isPremium,
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      inviteSuccessCount: users.inviteSuccessCount,
     }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
     const u = result[0];
+    const used = u?.freeDivineTimes ?? 0;
+    const extra = u?.inviteUnlockTimes ?? 0;
+    const totalDivine = 3 + extra;
     return {
       freeReadings: u?.freeReadings ?? 0,
       divinationCount: u?.divinationCount ?? 0,
       isPremium: u?.isPremium ?? false,
       canAccess: (u?.isPremium === true) || ((u?.freeReadings ?? 0) > 0),
+      tarotUsed: used,
+      tarotRemaining: Math.max(0, totalDivine - used),
+      tarotTotal: totalDivine,
+      inviteUnlockTimes: extra,
+      inviteSuccessCount: u?.inviteSuccessCount ?? 0,
     };
   }),
 
@@ -197,4 +208,107 @@ export const readingRouter = createRouter({
       }).where(eq(readings.id, input.id));
       return { success: true };
     }),
+
+  // ===== Tarot Draw Tracking =====
+
+  // Check available draws (guest: 3 from localStorage; logged-in: 3 free + invite unlocks)
+  checkDrawAvailability: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      inviteSuccessCount: users.inviteSuccessCount,
+      isPremium: users.isPremium,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    const totalAvailable = 3 + extra; // 3 free + invite unlocks
+    const remaining = Math.max(0, totalAvailable - used);
+    return {
+      used,
+      extraFromInvites: extra,
+      totalAvailable,
+      remaining,
+      isPremium: u.isPremium ?? false,
+      inviteSuccessCount: u.inviteSuccessCount ?? 0,
+      invitesNeededForNext: 3 - ((u.inviteSuccessCount ?? 0) % 3),
+    };
+  }),
+
+  // Consume one draw (logged-in user only)
+  useDraw: authedQuery.mutation(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      freeDivineTimes: users.freeDivineTimes,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      isPremium: users.isPremium,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) throw new Error("User not found");
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    const total = 3 + extra;
+    if (!u.isPremium && used >= total) {
+      throw new Error("NO_DRAWS_REMAINING");
+    }
+    await db.update(users).set({ freeDivineTimes: used + 1 }).where(eq(users.id, ctx.user.id));
+    return { used: used + 1, remaining: Math.max(0, total - used - 1) };
+  }),
+
+  // ===== Invite System =====
+
+  // Process invite: called when new user registers with a referral code
+  processInvite: publicQuery
+    .input(z.object({ referrerUnionId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const referrer = await db.select({
+        id: users.id,
+        inviteSuccessCount: users.inviteSuccessCount,
+        inviteUnlockTimes: users.inviteUnlockTimes,
+      }).from(users).where(eq(users.unionId, input.referrerUnionId)).limit(1);
+      const u = referrer[0];
+      if (!u) return { success: false, reason: "Referrer not found" };
+
+      const newCount = (u.inviteSuccessCount ?? 0) + 1;
+      const unlocks = Math.floor(newCount / 3); // every 3 → +1 unlock
+      const remainder = newCount % 3;
+
+      await db.update(users).set({
+        inviteSuccessCount: newCount,
+        inviteUnlockTimes: unlocks,
+      }).where(eq(users.id, u.id));
+
+      return {
+        success: true,
+        inviteSuccessCount: newCount,
+        inviteUnlockTimes: unlocks,
+        invitesNeededForNext: 3 - remainder,
+        justUnlocked: newCount % 3 === 0, // true if this invite completed a set of 3
+      };
+    }),
+
+  // Get invite stats for current user
+  getInviteStats: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const result = await db.select({
+      inviteSuccessCount: users.inviteSuccessCount,
+      inviteUnlockTimes: users.inviteUnlockTimes,
+      freeDivineTimes: users.freeDivineTimes,
+    }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const u = result[0];
+    if (!u) return null;
+    const used = u.freeDivineTimes ?? 0;
+    const extra = u.inviteUnlockTimes ?? 0;
+    return {
+      inviteSuccessCount: u.inviteSuccessCount ?? 0,
+      inviteUnlockTimes: extra,
+      usedDraws: used,
+      remainingDraws: Math.max(0, 3 + extra - used),
+      invitesNeededForNext: 3 - ((u.inviteSuccessCount ?? 0) % 3),
+      shareCode: ctx.user.unionId || `r7_${ctx.user.id}`,
+    };
+  }),
 });

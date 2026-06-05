@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
-import { Sparkles, Loader2, Eye, Unlock, Lock, Check, CreditCard, X, ShieldCheck, Heart, MapPin, Music, Mail, Send } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Sparkles, Loader2, Eye, Unlock, Lock, Check, CreditCard, X, ShieldCheck, Heart, MapPin, Music, Mail, Send, UserPlus, Share2 } from "lucide-react";
 import { TEST_MODE } from "@/const";
 import { trpc } from "@/providers/trpc";
 import { TAROT_CARDS, FREE_READING_LIMIT, UNLOCK_PRICE } from "@/data/tarotCards";
@@ -284,6 +286,7 @@ function TarotShareRow({ locale }: { locale: string }) {
 
 export default function TarotSection() {
   const { t, locale } = useI18n();
+  const navigate = useNavigate();
   const [question, setQuestion] = useState("");
   const [isDrawing, setIsDrawing] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
@@ -294,13 +297,28 @@ export default function TarotSection() {
   const [tarotMode, setTarotMode] = useState<"classic" | "idol">("classic");
   const [idolCategory, setIdolCategory] = useState<string>("");
 
-  // Fetch real free reading count from backend (not localStorage)
+  // Guest tracking: localStorage-based, max 3 draws
+  const { user, isAuthenticated } = useAuth();
+  const [guestUsed, setGuestUsed] = useState(() => {
+    try { return parseInt(localStorage.getItem("tarot_guest_used") || "0"); } catch { return 0; }
+  });
+  const GUEST_MAX = 3;
+  const guestRemaining = Math.max(0, GUEST_MAX - guestUsed);
+  const [showLockModal, setShowLockModal] = useState(false);
+
+  // Fetch real free reading count from backend (logged-in users only)
   const { data: accessInfo } = trpc.reading.getFreeCount.useQuery(undefined, {
     staleTime: 1000 * 10,
+    enabled: isAuthenticated,
   });
-  const remainingFree = Math.max(0, (accessInfo?.freeReadings ?? 0));
+  const dbRemaining = Math.max(0, accessInfo?.tarotRemaining ?? (accessInfo?.freeReadings ?? 0));
   const isPremiumUser = accessInfo?.isPremium ?? false;
-  const freeUsed = FREE_READING_LIMIT - remainingFree; // derived from API
+  const extraFromInvites = accessInfo?.inviteUnlockTimes ?? 0;
+
+  // Effective remaining: guest uses localStorage, logged-in uses DB
+  const effectiveRemaining = isAuthenticated ? dbRemaining : guestRemaining;
+  const effectiveUsed = isAuthenticated ? (accessInfo?.tarotUsed ?? 0) : guestUsed;
+  const effectiveMax = isAuthenticated ? (accessInfo?.tarotTotal ?? 3) : GUEST_MAX;
 
   const idolCategories = [
     { key: "fansign", icon: Heart, labelEn: "Fansign Fortune", labelZh: "签售运势", descEn: "What energy surrounds your next fansign?", descZh: "下一次签售会，你的运势如何？" },
@@ -308,20 +326,26 @@ export default function TarotSection() {
     { key: "idol-draw", icon: Music, labelEn: "Idol Career Reading", labelZh: "愛豆事業占卜", descEn: "Artist comeback trends, hidden schedules, inner state, team dynamics, future trajectory.", descZh: "藝人回歸動向、隱藏行程、內心狀態、隊內關係、後續走勢。" },
   ];
 
-  const useFreeMutation = trpc.reading.useFree.useMutation();
+  const useDrawMutation = trpc.reading.useDraw.useMutation();
   const drawCards = useCallback(() => {
     if (tarotMode === "classic" && !question.trim()) return;
     if (tarotMode === "idol" && !idolCategory) return;
 
-    // Premium user or free user with remaining readings: proceed
-    if (!isPremiumUser && remainingFree <= 0) {
-      setShowPaymentModal(true);
+    // Check limit: premium always passes, otherwise check remaining
+    if (!isPremiumUser && effectiveRemaining <= 0) {
+      setShowLockModal(true);
       return;
     }
 
-    // Deduct free reading via backend API
+    // Deduct: guest → localStorage, logged-in → backend API
     if (!isPremiumUser) {
-      useFreeMutation.mutate();
+      if (isAuthenticated) {
+        useDrawMutation.mutate();
+      } else {
+        const newUsed = guestUsed + 1;
+        setGuestUsed(newUsed);
+        localStorage.setItem("tarot_guest_used", String(newUsed));
+      }
     }
 
     setIsShuffling(true);
@@ -329,7 +353,7 @@ export default function TarotSection() {
     setDrawnCards([]);
     setShowReading(false);
     if (!TEST_MODE && !isPremiumUser) setIsUnlocked(false);
-  }, [question, remainingFree, isPremiumUser, tarotMode, idolCategory, useFreeMutation]);
+  }, [question, effectiveRemaining, isPremiumUser, tarotMode, idolCategory, isAuthenticated, guestUsed, useDrawMutation]);
 
   const handleShuffleComplete = useCallback(() => {
     setIsShuffling(false);
@@ -354,7 +378,7 @@ export default function TarotSection() {
       localStorage.setItem("r7_reports", JSON.stringify(existing.slice(0, 50)));
     } catch {}
     setTimeout(() => setShowReading(true), 800);
-  }, [question, tarotMode, idolCategory, remainingFree, isPremiumUser, useFreeMutation]);
+  }, [question, tarotMode, idolCategory]);
 
   return (
     <section id="tarot" className="py-24 relative">
@@ -365,9 +389,17 @@ export default function TarotSection() {
           <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-[#d4a85308] border border-[#d4a85315] rounded-full">
             <Sparkles className="w-3 h-3 text-[#d4a853]" />
             <span className="text-[10px] text-[#d4a853]">
-              {remainingFree > 0
-                ? (locale === "zh-TW" ? `剩餘免費次數：${remainingFree}` : `Remaining Free Credits: ${remainingFree}`)
+              {effectiveRemaining > 0
+                ? (locale === "zh-TW" ? `剩餘免費次數：${effectiveRemaining}` : `Remaining Free: ${effectiveRemaining}`)
                 : (locale === "zh-TW" ? "免費額度已用完" : "Free credits exhausted")}
+            </span>
+            {/* Hint text */}
+            <span className="text-[9px] text-[#8a8aad55] hidden sm:inline">
+              {locale === "zh-TW"
+                ? "註冊解鎖第 4 次抽牌，每邀請 3 位好友註冊額外贈 1 次抽牌"
+                : locale === "zh"
+                ? "注册解锁第 4 次，每成功邀请 3 位好友注册额外赠 1 次抽牌"
+                : "Register to unlock your 4th draw; get +1 draw per 3 successful invited registrations"}
             </span>
           </div>
           {/* Subscription + Referral */}
@@ -481,8 +513,8 @@ export default function TarotSection() {
           <div className="max-w-2xl mx-auto glass rounded-xl p-6 animate-fade-in">
             <h3 className="text-lg font-semibold text-[#d4a853] mb-4 font-display flex items-center gap-2">
               <Eye className="w-5 h-5" /> {t("tarot.reading")}
-              {remainingFree > 0 && !isUnlocked && (
-                <span className="ml-2 px-2 py-0.5 bg-green-400/10 text-green-400 text-[10px] rounded-full">FREE {freeUsed}/{FREE_READING_LIMIT}</span>
+              {effectiveRemaining > 0 && !isUnlocked && (
+                <span className="ml-2 px-2 py-0.5 bg-green-400/10 text-green-400 text-[10px] rounded-full">FREE {effectiveUsed}/{effectiveMax}</span>
               )}
             </h3>
 
@@ -510,7 +542,7 @@ export default function TarotSection() {
             </div>
 
             {/* Comprehensive guidance */}
-            {(remainingFree > 0 || isUnlocked) ? (
+            {(effectiveRemaining > 0 || isUnlocked) ? (
               <div className="mt-6 pt-4 border-t border-[#d4a85310]">
                 <h4 className="text-sm font-medium text-[#f0e6d3] mb-2">
                   {tarotMode === "idol"
@@ -555,7 +587,7 @@ export default function TarotSection() {
                   </div>
                 </div>
                 {/* AI 私域升级入口 */}
-                {remainingFree <= 0 && (
+                {effectiveRemaining <= 0 && (
                   <div className="mt-4 p-4 bg-gradient-to-r from-[#FFB6C108] to-[#d4a85308] rounded-xl border border-[#FFB6C115] text-center">
                     <p className="text-xs font-semibold text-[#FFB6C1] mb-1">
                       {locale === "zh-TW" ? "✨ AI 解讀僅為基礎指引" : "✨ AI reading is basic guidance only"}
@@ -587,6 +619,60 @@ export default function TarotSection() {
             {locale === "zh-TW" ? "分享你的塔羅解讀" : "Share Your Reading"}
           </p>
           <TarotShareRow locale={locale} />
+        </div>
+      )}
+
+      {/* ===== Lock Modal: free draws exhausted ===== */}
+      {showLockModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={() => setShowLockModal(false)} />
+          <div className="relative glass rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up text-center">
+            <button onClick={() => setShowLockModal(false)} className="absolute top-4 right-4 text-[#8a8aad] hover:text-[#f0e6d3]"><X className="w-4 h-4" /></button>
+            <div className="w-14 h-14 rounded-full bg-[#d4a85310] flex items-center justify-center mx-auto mb-4 border border-[#d4a85320]">
+              <Lock className="w-7 h-7 text-[#d4a853]" />
+            </div>
+            <h3 className="text-lg font-bold text-[#f0e6d3] mb-2">
+              {locale === "zh-TW" ? "免費次數已耗盡" : locale === "zh" ? "免费次数已用完" : "Free Draws Exhausted"}
+            </h3>
+            <p className="text-xs text-[#8a8aad] mb-6">
+              {locale === "zh-TW"
+                ? "免費 3 次占卜已耗盡，註冊帳號或邀請新用戶解鎖抽牌"
+                : locale === "zh"
+                ? "免费 3 次占卜已用完，注册账号或邀请好友注册即可解锁更多测算次数"
+                : "Your 3 free readings are used up. Register or invite new users to unlock more draws"}
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => { setShowLockModal(false); navigate("/login"); }}
+                className="w-full py-3 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-xl text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                {locale === "zh-TW" ? "去註冊" : locale === "zh" ? "去注册" : "Register"}
+              </button>
+              <button
+                onClick={async () => {
+                  const refCode = user?.id ? `r7_${user.id}` : "guest";
+                  const link = `${window.location.origin}/?ref=${refCode}`;
+                  const text = locale === "zh-TW"
+                    ? `快來 R7 Fortune 免費占卜！用我的邀請碼 ${refCode} 註冊，我倆都能解鎖更多次數 🎴 ${link}`
+                    : locale === "zh"
+                    ? `快来 R7 Fortune 免费占卜！用我的邀请码 ${refCode} 注册，我俩都能解锁更多次数 🎴 ${link}`
+                    : `Join me on R7 Fortune for free tarot! Use my invite code ${refCode} when you register — we both unlock more draws 🎴 ${link}`;
+                  if (navigator.share) {
+                    try { await navigator.share({ title: "R7 Fortune", text, url: link }); } catch {}
+                  } else {
+                    await navigator.clipboard.writeText(text).catch(() => {});
+                  }
+                  setShowLockModal(false);
+                  navigate(`/?ref=${refCode}`);
+                }}
+                className="w-full py-3 bg-[#151520] border border-[#d4a85322] text-[#f0e6d3] rounded-xl text-sm font-medium hover:border-[#d4a85355] transition-all flex items-center justify-center gap-2"
+              >
+                <Share2 className="w-4 h-4" />
+                {locale === "zh-TW" ? "去邀請好友" : locale === "zh" ? "去邀请好友" : "Invite Friends"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
