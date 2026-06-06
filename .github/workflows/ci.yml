@@ -24,10 +24,13 @@ jobs:
       - name: Build backend
         run: npx esbuild api/boot.ts --platform=node --bundle --format=esm --outdir=dist --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);"
 
+      # 确保 curl 安装（解决 exit code 127）
+      - name: Install curl
+        run: sudo apt update && sudo apt install curl -y
+
       - name: Trigger Baota WebHook
         run: |
-          echo "Triggering Baota auto-deploy..."
-          curl -X POST "${{ secrets.BAOTA_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"action\":\"deploy\",\"project\":\"r7fortune\",\"timestamp\":\"$(date -Iseconds)\"}" \
-            --connect-timeout 10 --max-time 30 || echo "WebHook call completed"
+          echo "=== 触发宝塔自动部署 ==="
+          curl -sS "https://38.190.206.134:33484/hook?access_key=F1l4GC9Dt9RxAaDgl5HHYF58iFtYjZPgXFUVxw05mTqJ4WlA&param=aaa" \
+            --connect-timeout 10 --max-time 30 \
+            || echo "警告: WebHook 调用未成功"
