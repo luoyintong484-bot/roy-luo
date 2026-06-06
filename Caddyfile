@@ -1,0 +1,6 @@
+www.r7fortune.com r7fortune.com {
+    root * /www/wwwroot/www.r7fortune.com/public
+    try_files {path} {path}/ /index.html
+    file_server
+    encode gzip
+}
