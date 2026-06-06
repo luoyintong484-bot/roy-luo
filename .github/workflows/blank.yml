@@ -1,0 +1,121 @@
+# ============================================================
+# R7 Fortune — Auto Deploy Workflow (blank.yml)
+# 使用 curl 替代 actions/checkout 拉取代码并触发部署
+# ============================================================
+name: Auto Deploy via Curl
+
+on:
+  push:
+    branches: [ main, master, ci/workflow-setup ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # --------------------------------------------------
+      # [修复 exit code 127] 强制安装 curl
+      # GitHub Actions ubuntu-latest 环境虽自带 curl，但部分
+      # 精简镜像或自定义 runner 可能缺失，导致 127 报错。
+      # 直接执行 sudo apt update && apt install curl -y 确保可用
+      # --------------------------------------------------
+      - name: Install curl (fix exit code 127)
+        run: |
+          sudo apt update && sudo apt install curl -y
+          echo "curl 安装完成: $(curl --version | head -1)"
+
+      # --------------------------------------------------
+      # [修复点2] 使用 curl 拉取仓库源码（替代 checkout）
+      # 通过 GitHub REST API 下载 tarball，解压后进入目录
+      # 注意：私有仓库需设置 GITHUB_TOKEN secrets
+      # --------------------------------------------------
+      - name: Fetch source code via curl
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== 拉取仓库源码 ==="
+          echo "Repo: ${REPO}"
+          echo "Ref: ${REF}"
+
+          # GitHub API 拉取 tarball
+          curl -sSL \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -o source.tar.gz \
+            "https://api.github.com/repos/${REPO}/tarball/${REF}"
+
+          # 解压到工作目录
+          mkdir -p source
+          tar -xzf source.tar.gz -C source --strip-components=1
+          rm -f source.tar.gz
+
+          echo "=== 源码拉取完成 ==="
+          ls -la source/
+
+      # --------------------------------------------------
+      # Node.js 环境配置
+      # --------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: source/package-lock.json
+
+      # --------------------------------------------------
+      # 安装依赖 + 构建
+      # --------------------------------------------------
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: source
+        run: npx vite build
+
+      - name: Build backend
+        working-directory: source
+        run: npx esbuild api/boot.ts --platform=node --bundle --format=esm --outdir=dist --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);"
+
+      # --------------------------------------------------
+      # 生成 favicon 占位文件
+      # --------------------------------------------------
+      - name: Create favicon placeholder
+        working-directory: source
+        run: |
+          python3 -c "
+          import struct,zlib
+          sig=b'\x89PNG\r\n\x1a\n'
+          def c(t,d):c=t+d;return struct.pack('>I',len(d))+c+struct.pack('>I',zlib.crc32(c)&0xffffffff)
+          ihdr=c(b'IHDR',struct.pack('>IIBBBBB',1,1,8,2,0,0,0))
+          idat=c(b'IDAT',zlib.compress(b'\x00\x80\x00\x80\x80\x80'))
+          with open('dist/public/favicon.ico','wb') as f:f.write(sig+ihdr+idat+c(b'IEND',b''))
+          " 2>/dev/null || touch dist/public/favicon.ico
+
+      # --------------------------------------------------
+      # 触发宝塔 WebHook 自动部署
+      # --------------------------------------------------
+      - name: Trigger Baota WebHook
+        if: env.BAOTA_WEBHOOK_URL != ''
+        env:
+          BAOTA_WEBHOOK_URL: ${{ secrets.BAOTA_WEBHOOK_URL }}
+        run: |
+          echo "=== 触发宝塔自动部署 ==="
+          # curl 已在上一步 sudo apt install curl -y 确保安装
+          curl -X POST "${BAOTA_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -d "{\"action\":\"deploy\",\"project\":\"r7fortune\",\"timestamp\":\"$(date -Iseconds)\"}" \
+            --connect-timeout 10 --max-time 30 \
+            || echo "警告: WebHook 调用未成功，请检查 BAOTA_WEBHOOK_URL 配置"
+
+      # --------------------------------------------------
+      # [可选] 上传 dist 制品用于手动下载
+      # --------------------------------------------------
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r7fortune-dist
+          path: source/dist/public/
+          retention-days: 7
