@@ -25,12 +25,20 @@ export default class ErrorBoundary extends Component<Props, State> {
             <h2 className="font-display text-xl font-bold text-[#f0e6d3] mb-2">Oops!</h2>
             <p className="text-sm text-[#8a8aad] mb-1">Something went wrong loading this page.</p>
             <p className="text-[10px] text-[#8a8aad44] mb-4">{this.state.error}</p>
-            <button
-              onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = "/"; }}
-              className="px-5 py-2.5 bg-[#FFB6C1] text-[#0a0a0f] rounded-lg text-sm font-medium hover:bg-[#f0a0b8] transition-colors"
-            >
-              Back to Home
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => { this.setState({ hasError: false, error: null }); window.history.back(); }}
+                className="px-5 py-2.5 bg-[#151520] border border-[#d4a85322] text-[#f0e6d3] rounded-lg text-sm font-medium hover:border-[#d4a85355] transition-colors"
+              >
+                ← Go Back
+              </button>
+              <button
+                onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = "/"; }}
+                className="px-5 py-2.5 bg-[#FFB6C1] text-[#0a0a0f] rounded-lg text-sm font-medium hover:bg-[#f0a0b8] transition-colors"
+              >
+                Back to Home
+              </button>
+            </div>
           </div>
         </div>
       );
