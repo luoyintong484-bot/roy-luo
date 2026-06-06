@@ -96,19 +96,15 @@ jobs:
 
       # --------------------------------------------------
       # 触发宝塔 WebHook 自动部署
+      # curl 已在上一步 sudo apt install curl -y 确保安装
+      # WebHook: r7自动部署, 服务器 38.190.206.134:33484
       # --------------------------------------------------
       - name: Trigger Baota WebHook
-        if: env.BAOTA_WEBHOOK_URL != ''
-        env:
-          BAOTA_WEBHOOK_URL: ${{ secrets.BAOTA_WEBHOOK_URL }}
         run: |
           echo "=== 触发宝塔自动部署 ==="
-          # curl 已在上一步 sudo apt install curl -y 确保安装
-          curl -X POST "${BAOTA_WEBHOOK_URL}" \
-            -H "Content-Type: application/json" \
-            -d "{\"action\":\"deploy\",\"project\":\"r7fortune\",\"timestamp\":\"$(date -Iseconds)\"}" \
+          curl -sS "https://38.190.206.134:33484/hook?access_key=F1l4GC9Dt9RxAaDgl5HHYF58iFtYjZPgXFUVxw05mTqJ4WlA&param=aaa" \
             --connect-timeout 10 --max-time 30 \
-            || echo "警告: WebHook 调用未成功，请检查 BAOTA_WEBHOOK_URL 配置"
+            || echo "警告: WebHook 调用未成功"
 
       # --------------------------------------------------
       # [可选] 上传 dist 制品用于手动下载
