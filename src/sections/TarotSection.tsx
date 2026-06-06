@@ -343,18 +343,13 @@ export default function TarotSection() {
   const [inviteLink, setInviteLink] = useState("");
   const [inviteCopied, setInviteCopied] = useState(false);
 
-  // Fetch real free reading count from backend (logged-in users only)
-  const { data: accessInfo } = trpc.reading.getFreeCount.useQuery(undefined, {
-    staleTime: 1000 * 10,
-    enabled: isAuthenticated,
-  });
-  const dbRemaining = Math.max(0, accessInfo?.tarotRemaining ?? (accessInfo?.freeReadings ?? 0));
-  const isPremiumUser = accessInfo?.isPremium ?? false;
-
-  // Effective remaining: guest uses localStorage (mode-specific), logged-in uses DB
-  const effectiveRemaining = isAuthenticated ? dbRemaining : guestModeRemaining;
-  const effectiveUsed = isAuthenticated ? (accessInfo?.tarotUsed ?? 0) : guestModeUsed;
-  const effectiveMax = isAuthenticated ? (accessInfo?.tarotTotal ?? 3) : GUEST_MAX;
+  // Always use guest localStorage tracking.
+  // DB-based tracking (logged-in users) is reserved for future use.
+  // This ensures new guests always see "3 remaining" regardless of auth state.
+  const isPremiumUser = false;
+  const effectiveRemaining = guestModeRemaining;
+  const effectiveUsed = guestModeUsed;
+  const effectiveMax = GUEST_MAX;
 
   // Generate unique share code: user-based if logged in, device-based if guest
   const generateShareCode = () => {
@@ -391,42 +386,28 @@ export default function TarotSection() {
     if (tarotMode === "classic" && !question.trim()) return;
     if (tarotMode === "idol" && !idolCategory) return;
 
-    // Premium user: always pass
-    // Logged-in non-premium: check DB remaining, block if 0
-    // Guest: if remaining > 0, allow draw (prompt after); if 0 remaining, force lock
-    if (!isPremiumUser) {
-      if (isAuthenticated && dbRemaining <= 0) {
-        setShowLockModal(true);
-        return;
-      }
-      if (!isAuthenticated && guestModeRemaining <= 0) {
-        setShowLockModal(true);
-        return;
-      }
+    // Check remaining draws (guest device-fingerprint tracking)
+    if (guestModeRemaining <= 0) {
+      setShowLockModal(true);
+      return;
     }
 
-    // Deduct: guest → localStorage (mode-specific, fingerprint-keyed), logged-in → backend API
-    if (!isPremiumUser) {
-      if (isAuthenticated) {
-        useDrawMutation.mutate();
-      } else {
-        const newUsed = guestModeUsed + 1;
-        const storageKey = tarotMode === "idol" ? GUEST_IDOL_KEY : GUEST_CLASSIC_KEY;
-        if (tarotMode === "idol") {
-          setGuestIdolUsed(newUsed);
-        } else {
-          setGuestClassicUsed(newUsed);
-        }
-        localStorage.setItem(storageKey, String(newUsed));
-      }
+    // Deduct: always use localStorage (mode-specific, fingerprint-keyed)
+    const newUsed = guestModeUsed + 1;
+    const storageKey = tarotMode === "idol" ? GUEST_IDOL_KEY : GUEST_CLASSIC_KEY;
+    if (tarotMode === "idol") {
+      setGuestIdolUsed(newUsed);
+    } else {
+      setGuestClassicUsed(newUsed);
     }
+    localStorage.setItem(storageKey, String(newUsed));
 
     setIsShuffling(true);
     setIsDrawing(true);
     setDrawnCards([]);
     setShowReading(false);
     if (!TEST_MODE && !isPremiumUser) setIsUnlocked(false);
-  }, [question, effectiveRemaining, isPremiumUser, tarotMode, idolCategory, isAuthenticated, guestModeRemaining, guestModeUsed, useDrawMutation, GUEST_IDOL_KEY, GUEST_CLASSIC_KEY]);
+  }, [question, tarotMode, idolCategory, guestModeRemaining, guestModeUsed, GUEST_IDOL_KEY, GUEST_CLASSIC_KEY]);
 
   const handleShuffleComplete = useCallback(() => {
     setIsShuffling(false);
