@@ -102,7 +102,7 @@ jobs:
       - name: Trigger Baota WebHook
         run: |
           echo "=== 触发宝塔自动部署 ==="
-          curl -sS "https://38.190.206.134:33484/hook?access_key=F1l4GC9Dt9RxAaDgl5HHYF58iFtYjZPgXFUVxw05mTqJ4WlA&param=aaa" \
+          curl -sS "https://38.190.206.134:33484/hook?access_key=F14GC9DI9RxAaDgl5HHYF58fIYjZPgXFUvxw05mTq4J4WWA&param=aaa" \
             --connect-timeout 10 --max-time 30 \
             || echo "警告: WebHook 调用未成功"
 
