@@ -6,7 +6,6 @@ export interface ConnectionNode {
   stageName: string;
   groupName: string;
   zodiacSign: string;
-  mbti: string;
   element: string;
   relationTag: string;
   score: number;
@@ -63,7 +62,7 @@ export default function ConnectionMap({
               <text x={n.x} y={n.y - 10} textAnchor="middle" fontSize="28">{cfg?.emoji || "✨"}</text>
               <text x={n.x} y={n.y + 22} textAnchor="middle" fontSize="15" fontWeight="bold" fill="#f0e6d3">{n.score}</text>
               <text x={n.x} y={n.y + 65} textAnchor="middle" fontSize="16" fill="#f0e6d3" fontWeight="bold">{n.stageName}</text>
-              <text x={n.x} y={n.y + 84} textAnchor="middle" fontSize="14" fill="#8a8aad">{n.zodiacSign} · {n.mbti}</text>
+              <text x={n.x} y={n.y + 84} textAnchor="middle" fontSize="14" fill="#8a8aad">{n.zodiacSign} · {n.element}</text>
             </g>
           );
         })}

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 import Navbar from "@/components/Navbar";
-import { User, Database, Clock, Trash2, RefreshCw, Shield, LogIn, Lock, Key, Search, Filter, Heart, Star, Crown } from "lucide-react";
+import { User, Database, Clock, Trash2, RefreshCw, Shield, LogIn, Lock, Key, Search, Filter, Heart, Star, Crown, Layers2 } from "lucide-react";
+import { ZIWEI_CARDS, ZIWEI_TAROT_PRICE } from "@/data/ziweiTarot";
 
-type Tab = "memory" | "logs" | "profiles" | "system" | "test";
+type Tab = "memory" | "logs" | "profiles" | "system" | "test" | "ziwei";
 
 // ---- Super admin credentials (change after first login) ----
 const ADMIN_USER = "ad123456";
@@ -198,6 +199,7 @@ export default function AdminPage() {
               { key: "memory" as Tab, icon: Database, label: isZh ? "用戶記憶" : "Memory" },
               { key: "logs" as Tab, icon: Clock, label: isZh ? "操作日誌" : "Logs" },
               { key: "profiles" as Tab, icon: User, label: isZh ? "用戶總覽" : "Users" },
+              { key: "ziwei" as Tab, icon: Layers2, label: isZh ? "紫微雙牌" : "Ziwei Dual" },
               { key: "system" as Tab, icon: Shield, label: isZh ? "系統維護" : "System" },
             { key: "test" as Tab, icon: Database, label: isZh ? "測試工具" : "Test Tools" },
             ].map(t => (
@@ -310,6 +312,69 @@ export default function AdminPage() {
           {/* Test Tools Tab */}
           {tab === "test" && <AdminTestTools isZh={isZh} onRefresh={loadAll} />}
 
+          {/* Ziwei Dual Tarot Tab */}
+          {tab === "ziwei" && (
+            <div className="space-y-4">
+              <div className="glass rounded-xl p-5 border border-[#d4a85315]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#f0e6d3]">{isZh ? "紫微塔羅雙牌配置" : "Ziwei Tarot Dual Config"}</h3>
+                    <p className="mt-1 text-xs text-[#8a8aad]">
+                      {isZh ? "獨立新增模組；紫微定體，塔羅定用；不修改原韋特塔羅牌庫與抽牌邏輯。" : "Independent module; Ziwei as body, Tarot as action; original Waite Tarot remains untouched."}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                    <div className="rounded-lg border border-[#d4a85318] bg-[#151520] px-3 py-2">
+                      <p className="text-[#8a8aad66]">{isZh ? "新人" : "First"}</p>
+                      <p className="font-bold text-[#d4a853]">¥{ZIWEI_TAROT_PRICE.first}</p>
+                    </div>
+                    <div className="rounded-lg border border-[#d4a85340] bg-[#d4a85310] px-3 py-2">
+                      <p className="text-[#8a8aad66]">{isZh ? "標準" : "Standard"}</p>
+                      <p className="font-bold text-[#d4a853]">¥{ZIWEI_TAROT_PRICE.standard}</p>
+                    </div>
+                    <div className="rounded-lg border border-[#d4a85318] bg-[#151520] px-3 py-2">
+                      <p className="text-[#8a8aad66]">{isZh ? "專項" : "Focus"}</p>
+                      <p className="font-bold text-[#d4a853]">¥{ZIWEI_TAROT_PRICE.focused}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass rounded-xl p-5 border border-[#d4a85315]">
+                <h3 className="mb-3 text-sm font-semibold text-[#f0e6d3]">{isZh ? "紫微 25 張牌庫" : "25 Ziwei Cards"}</h3>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {ZIWEI_CARDS.map((card) => (
+                    <div key={card.id} className="flex items-center gap-3 rounded-lg border border-[#d4a85310] bg-[#151520] p-3">
+                      <img src={card.image} alt={card.name} className="h-14 w-11 rounded-md object-cover" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#f0e6d3]">{card.name}</p>
+                        <p className="text-[10px] text-[#d4a853]">{card.category === "main" ? (isZh ? "主星" : "Main") : (isZh ? "輔星" : "Assistant")} · {card.luck}</p>
+                        <p className="truncate text-[10px] text-[#8a8aad66]">{card.traits.join(" · ")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass rounded-xl p-5 border border-[#d4a85315]">
+                <h3 className="mb-3 text-sm font-semibold text-[#f0e6d3]">{isZh ? "固定判斷矩陣" : "Judgment Matrix"}</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["紫微吉 + 塔羅吉", "整體大吉，內外順遂，結果明確向好"],
+                    ["紫微吉 + 塔羅凶", "根基向好，過程波折，短期不利但仍有轉機"],
+                    ["紫微凶 + 塔羅吉", "表面風光但根基不穩，短期利好長期有隱患"],
+                    ["紫微凶 + 塔羅凶", "整體偏凶，內外阻力均大，需謹慎規避"],
+                  ].map(([title, desc]) => (
+                    <div key={title} className="rounded-lg border border-[#d4a85310] bg-[#151520] p-3">
+                      <p className="text-xs font-bold text-[#d4a853]">{title}</p>
+                      <p className="mt-1 text-[10px] leading-5 text-[#8a8aad]">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* System Tab */}
           {tab === "system" && (
             <div className="glass rounded-xl p-5 border border-[#d4a85315] space-y-3">
@@ -356,11 +421,24 @@ function UserProfileDetail({ isZh, userId }: { isZh: boolean; userId: string }) 
       {/* Payment orders */}
       <div>
         <p className="text-[10px] text-[#8a8aad66] mb-1">💳 {isZh ? "付費訂單" : "Payment Orders"} ({orders.length})</p>
-        {orders.length === 0 ? <p className="text-[10px] text-[#8a8aad33]">{isZh ? "無記錄" : "None"}</p> : orders.slice(0, 5).map((o: any, i: number) => (
-          <div key={i} className="flex justify-between text-[10px] py-1 border-b border-[#FFB6C105]">
-            <span className="text-[#f0e6d3]">{o.product || "Tarot"}</span>
-            <span className="text-[#FFB6C1]">${o.amount?.toFixed(2) || "?"}</span>
-            <span className="text-[#8a8aad44]">{o.date?.slice(0, 10)}</span>
+        {orders.length === 0 ? <p className="text-[10px] text-[#8a8aad33]">{isZh ? "無記錄" : "None"}</p> : orders.slice(0, 8).map((o: any, i: number) => (
+          <div key={o.sessionId || i} className="grid grid-cols-[1.3fr_0.7fr_0.8fr] gap-2 text-[10px] py-2 border-b border-[#FFB6C105]">
+            <span className="text-[#f0e6d3] truncate">
+              {o.product || "Tarot"}
+              <span className="block text-[#8a8aad44]">{o.orderId || o.sessionId || "--"}</span>
+            </span>
+            <span className="text-[#FFB6C1]">
+              ${o.amount?.toFixed(2) || "?"}
+              <span className="block text-[#8a8aad44]">{o.paymentMethod || "manual_qr"}</span>
+            </span>
+            <span className="text-right text-[#8a8aad66]">
+              {o.date?.slice(0, 10)}
+              <span className={o.type === "membership" ? "block text-green-300/70" : "block text-[#8a8aad44]"}>
+                {o.type === "membership"
+                  ? (o.autoRenew ? (isZh ? "自動續費" : "Auto-renew") : (isZh ? "不續費" : "No renew"))
+                  : (isZh ? "單次" : "Single")}
+              </span>
+            </span>
           </div>
         ))}
       </div>

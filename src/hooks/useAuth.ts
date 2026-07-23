@@ -1,6 +1,6 @@
 import { trpc } from "@/providers/trpc";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { LOGIN_PATH } from "@/const";
 
 type UseAuthOptions = {
@@ -9,6 +9,9 @@ type UseAuthOptions = {
 };
 
 const AUTH_KEY = "r7_auth_user";
+// ⚠️ PRODUCTION: Remove MOCK_USER entirely and use real backend auth (api/auth-router.ts).
+// The mock user bypasses all authentication — only safe for local development.
+const ALLOW_MOCK_AUTH = false; // false=生产模式, true=开发测试
 const MOCK_USER = {
   id: 1,
   email: "test@r7fortune.com",
@@ -25,7 +28,7 @@ const MOCK_USER = {
 function getStoredUser() {
   try {
     const stored = localStorage.getItem(AUTH_KEY);
-    if (stored === "logged_in") return MOCK_USER;
+    if (ALLOW_MOCK_AUTH && stored === "logged_in") return MOCK_USER;
   } catch {}
   return null;
 }
@@ -57,6 +60,7 @@ export function useAuth(options?: UseAuthOptions) {
     options ?? {};
 
   const navigate = useNavigate();
+  const location = useLocation();
   const utils = trpc.useUtils();
 
   const [user, setUser] = useState<typeof MOCK_USER | null>(getStoredUser);
@@ -77,13 +81,13 @@ export function useAuth(options?: UseAuthOptions) {
   // Auto-merge guest invite data on login
   useEffect(() => {
     if (user) {
-      mergeInvites.mutate().catch(() => {});
+      mergeInvites.mutateAsync().catch(() => {});
     }
   }, [!!user]);
 
   useEffect(() => {
     if (redirectOnUnauthenticated && !user) {
-      const currentPath = window.location.pathname;
+      const currentPath = location.pathname;
       if (currentPath !== redirectPath) {
         navigate(redirectPath);
       }

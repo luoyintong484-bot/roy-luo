@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBirthProfile, computeDerivedFields } from "@/hooks/useBirthProfile";
+import { getMembershipState, getPaymentOrders, setMembershipAutoRenew, type MembershipState } from "@/lib/payment";
+import { PAYMENT_COMING_SOON } from "@/const";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 // ==================== TYPES ====================
 type TabKey = "overview" | "myPage" | "history" | "favorites" | "settings" | "payments";
@@ -86,32 +89,154 @@ function LogoutModal({ open, onClose, onConfirm }: { open: boolean; onClose: () 
 // ==================== PAYMENT HISTORY ====================
 function PaymentHistory({ locale }: { locale: string }) {
   const isZh = locale === "zh-TW";
-  const [orders] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem("r7_orders") || "[]").reverse(); } catch { return []; }
-  });
+  const [orders] = useState(() => getPaymentOrders().slice().reverse());
+  const [membership, setMembership] = useState<MembershipState>(() => getMembershipState());
+  const membershipActive = Boolean(membership.vip && membership.expiresAt && new Date(membership.expiresAt).getTime() > Date.now());
+  const autoRenewOn = Boolean(membershipActive && membership.autoRenew && !membership.cancelAtPeriodEnd);
 
-  if (orders.length === 0) {
-    return (
-      <EmptyState icon={CreditCard}
-        title={isZh ? "暫無付款記錄" : "No payment records"}
-        hint={isZh ? "完成付費後記錄將顯示於此" : "Payment records will appear here"} />
-    );
-  }
+  const formatDate = (date?: string) => {
+    if (!date) return "--";
+    return new Date(date).toLocaleString(isZh ? "zh-TW" : "en-US");
+  };
+
+  const toggleAutoRenew = () => {
+    setMembership(setMembershipAutoRenew(!autoRenewOn));
+  };
 
   return (
-    <div className="space-y-2">
-      {orders.slice(0, 20).map((o: any, i: number) => (
-        <div key={i} className="flex items-center justify-between bg-[#151520] rounded-lg px-4 py-3 border border-[#FFB6C108]">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-[#d4a85324] bg-gradient-to-br from-[#251928]/86 via-[#151520] to-[#0d0d17] p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <p className="text-xs text-[#f0e6d3]">{o.product || (isZh ? "塔羅解讀" : "Tarot Reading")}</p>
-            <p className="text-[10px] text-[#8a8aad44]">{o.date ? new Date(o.date).toLocaleString(isZh ? "zh-TW" : "en-US") : ""}</p>
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-[#d4a853]" />
+              <p className="text-sm font-bold text-[#f0e6d3]">
+                {isZh ? "會員與自動續費" : "Membership & Auto-renew"}
+              </p>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                membershipActive
+                  ? "bg-green-400/10 text-green-300 border border-green-300/20"
+                  : "bg-[#FFB6C108] text-[#8a8aad] border border-[#FFB6C115]"
+              }`}>
+                {membershipActive ? (isZh ? "已開通" : "Active") : (isZh ? "未開通" : "Free")}
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-6 text-[#8a8aad]">
+              {membershipActive
+                ? (isZh
+                    ? `月度會員有效至 ${formatDate(membership.expiresAt)}。${autoRenewOn ? "到期前系統會保留續費授權。" : "已取消自動續費，到期後不再續費。"}`
+                    : `Monthly membership is valid until ${formatDate(membership.expiresAt)}. ${autoRenewOn ? "Renewal authorization is enabled." : "Auto-renew is cancelled and will stop at period end."}`)
+                : (isZh
+                    ? "開通會員後可在此查看週期、續費狀態和取消入口。"
+                    : "After subscribing, your cycle, renewal status, and cancellation control appear here.")}
+            </p>
+            {membershipActive && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div className="rounded-xl border border-[#FFB6C110] bg-[#050509]/35 px-3 py-2">
+                  <span className="text-[#8a8aad]">{isZh ? "下次週期" : "Next cycle"}</span>
+                  <p className="mt-0.5 font-semibold text-[#f0e6d3]">{formatDate(membership.nextBillingAt || membership.expiresAt)}</p>
+                </div>
+                <div className="rounded-xl border border-[#FFB6C110] bg-[#050509]/35 px-3 py-2">
+                  <span className="text-[#8a8aad]">{isZh ? "續費狀態" : "Renewal status"}</span>
+                  <p className="mt-0.5 font-semibold text-[#f0e6d3]">
+                    {autoRenewOn ? (isZh ? "自動續費已開啟" : "Auto-renew enabled") : (isZh ? "自動續費已關閉" : "Auto-renew off")}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="text-right">
-            <p className="text-xs font-bold text-[#FFB6C1]">${o.amount?.toFixed(2) || "2.99"}</p>
-            <p className="text-[9px] text-green-400/60">{isZh ? "已完成" : "Completed"}</p>
+          <div className="flex flex-col gap-2 sm:min-w-[180px]">
+            {membershipActive ? (
+              <>
+                <button
+                  onClick={toggleAutoRenew}
+                  className={`rounded-xl px-4 py-2.5 text-xs font-bold transition-colors ${
+                    autoRenewOn
+                      ? "bg-[#FFB6C1] text-[#0a0a0f] hover:bg-[#f0a0b8]"
+                      : "border border-[#FFB6C122] text-[#FFB6C1] hover:bg-[#FFB6C108]"
+                  }`}
+                >
+                  {autoRenewOn ? (isZh ? "自動續費：開啟" : "Auto-renew: On") : (isZh ? "重新開啟自動續費" : "Enable auto-renew")}
+                </button>
+                {autoRenewOn && (
+                  <button
+                    onClick={toggleAutoRenew}
+                    className="rounded-xl border border-rose-300/20 px-4 py-2.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/8 transition-colors"
+                  >
+                    {isZh ? "取消自動續費" : "Cancel auto-renew"}
+                  </button>
+                )}
+              </>
+            ) : (
+              PAYMENT_COMING_SOON ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-[#d4a85330] bg-[#d4a85312] px-4 py-2.5 text-center text-xs font-bold text-[#d4a853]"
+                >
+                  {isZh ? "會員即將上線" : "Membership Coming Soon"}
+                </button>
+              ) : (
+                <Link
+                  to={`/payment?type=monthly&return=${encodeURIComponent("/profile?tab=payments")}`}
+                  state={{
+                    amount: 12.99,
+                    label: "Monthly Member · VIP",
+                    labelZh: "月度會員 · 無限次抽牌+完整解析",
+                    productType: "membership",
+                    reportType: "monthly",
+                    reportKey: "vip_monthly",
+                    returnPath: "/profile?tab=payments",
+                  }}
+                  className="rounded-xl bg-[#FFB6C1] px-4 py-2.5 text-center text-xs font-bold text-[#0a0a0f] hover:bg-[#f0a0b8] transition-colors"
+                >
+                  {isZh ? "開通月度會員" : "Subscribe monthly"}
+                </Link>
+              )
+            )}
           </div>
         </div>
-      ))}
+      </div>
+
+      {orders.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          title={isZh ? "暫無付款記錄" : "No payment records"}
+          hint={isZh ? "完成付費後記錄將顯示於此" : "Payment records will appear here"}
+        />
+      ) : (
+        <div className="space-y-2">
+          {orders.slice(0, 20).map((o, i) => (
+            <div key={o.sessionId || i} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#151520] rounded-xl px-4 py-3 border border-[#FFB6C108]">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs font-semibold text-[#f0e6d3]">{o.product || (isZh ? "塔羅解讀" : "Tarot Reading")}</p>
+                  <span className="rounded-full bg-[#FFB6C108] px-2 py-0.5 text-[9px] text-[#FFB6C1] border border-[#FFB6C115]">
+                    {o.type === "membership" ? (isZh ? "會員" : "Membership") : (isZh ? "單次報告" : "Report")}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] text-[#8a8aad66]">
+                  {(isZh ? "訂單：" : "Order: ")}{o.orderId || o.sessionId || "--"}
+                  {" · "}
+                  {formatDate(o.date)}
+                  {" · "}
+                  {o.paymentMethod === "alipay" ? (isZh ? "支付寶" : "Alipay") : o.paymentMethod === "wechat" ? (isZh ? "微信支付" : "WeChat Pay") : "QR"}
+                </p>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-3">
+                <div className="text-right">
+                  <p className="text-xs font-bold text-[#FFB6C1]">${o.amount?.toFixed(2) || "2.99"}</p>
+                  <p className="text-[9px] text-green-400/70">{isZh ? "已完成" : "Completed"}</p>
+                </div>
+                {o.accessUrl && (
+                  <Link to={o.accessUrl} className="rounded-lg border border-[#d4a85324] px-3 py-1.5 text-[10px] font-semibold text-[#d4a853] hover:text-[#f0e6d3] hover:bg-[#d4a85312] transition-colors">
+                    {isZh ? "查看報告" : "View report"}
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -310,6 +435,97 @@ export default function ProfilePage() {
     navigate("/");
   };
 
+  const getLocalAccountStorageKeys = () => {
+    const keys = new Set([
+      "r7_auth_user",
+      "r7_birth_profile",
+      "r7_profile",
+      "r7_reports",
+      "r7_orders",
+      "r7_sub_state",
+      "r7_pending_report",
+      "r7_pending_payment",
+      "r7_manual_payment_order",
+      "r7_unlocked_reports",
+      "r7_ziwei_natal_report",
+      "r7_ziwei_synastry_report",
+      "r7_chart_archive",
+      "r7_tarot_leads",
+      "r7_share_points",
+      "r7_share_uid",
+      "r7_referrals",
+      "r7_currency_override",
+      "r7_exchange_rate",
+      "r7-locale",
+      "r7_theme",
+      "r7_privacy_profile",
+      "r7_privacy_history",
+      "r7_privacy_favorites",
+      "r7_avatar",
+      "r7_operation_logs",
+      "r7_registered_users",
+    ]);
+
+    const dynamicPrefixes = [
+      "r7_unlock_sig_",
+      "r7_ref_count_",
+      "r7_ref_rewards_",
+      "r7_ref_tracked_",
+      "r7_quota_",
+      "r7_guest_",
+      "r7_destiny_free_",
+      "r7_tarot_free_full_analysis_used_",
+      "r7_cp_support_",
+    ];
+
+    try {
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key && dynamicPrefixes.some((prefix) => key.startsWith(prefix))) keys.add(key);
+      }
+    } catch {}
+
+    return Array.from(keys).sort();
+  };
+
+  const exportLocalUserData = () => {
+    const keys = getLocalAccountStorageKeys();
+    const data = keys.reduce<Record<string, unknown>>((acc, key) => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw !== null) {
+          try { acc[key] = JSON.parse(raw); }
+          catch { acc[key] = raw; }
+        }
+      } catch {}
+      return acc;
+    }, {});
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), data }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `r7fortune-user-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const clearLocalAccountData = () => {
+    const confirmed = window.confirm(locale === "zh-TW"
+      ? "確定清除本機保存的出生檔案、歷史、付款記錄與偏好嗎？此操作不會刪除服務器帳號。"
+      : "Clear locally saved birth profile, history, payment records and preferences? This does not delete the server account.");
+    if (!confirmed) return;
+    getLocalAccountStorageKeys().forEach((key) => {
+      try { localStorage.removeItem(key); } catch {}
+    });
+    clearBirthProfile();
+    setLocalReports([]);
+    setAvatar(null);
+    setBpYear(""); setBpMonth(""); setBpDay(""); setBpHour(""); setBpMinute(""); setBpPlace("");
+  };
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
+  };
+
   const tabs: { key: TabKey; label: string; icon: typeof Sparkles }[] = [
     { key: "overview", label: locale === "zh-TW" ? "總覽" : "Overview", icon: Home },
     { key: "myPage", label: t("nav.myPage"), icon: User },
@@ -331,7 +547,7 @@ export default function ProfilePage() {
 
           {/* ---- Top Bar ---- */}
           <div className="flex items-center justify-between mb-8">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-[#8a8aad] hover:text-[#FFB6C1] transition-colors">
+            <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-[#8a8aad] hover:text-[#FFB6C1] transition-colors">
               <ArrowLeft className="w-4 h-4" /> {locale === "zh-TW" ? "返回" : "Back"}
             </button>
             <h1 className="font-display text-xl sm:text-2xl font-bold text-[#f0e6d3] absolute left-1/2 -translate-x-1/2 hidden sm:block">
@@ -812,6 +1028,7 @@ export default function ProfilePage() {
                         </button>
                       )}
                     </div>
+                    <PrivacyNotice compact />
                   </div>
                 </div>
                 )}
@@ -839,6 +1056,41 @@ export default function ProfilePage() {
                         {locale === "zh-TW" ? "隱私設置已儲存" : "Privacy settings saved"}
                       </p>
                     )}
+                    <div className="rounded-2xl border border-[#FFB6C115] bg-[#151520] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-[#f0e6d3]">
+                            {locale === "zh-TW" ? "資料管理" : "Data Management"}
+                          </p>
+                          <p className="mt-1 text-[10px] leading-5 text-[#8a8aad66]">
+                            {locale === "zh-TW"
+                              ? "可導出或清除本機保存的出生檔案、歷史與付款記錄。正式服務器刪號接口上線後會接入此處。"
+                              : "Export or clear locally saved birth profiles, history, and payment records. Server-side account deletion will be connected here when available."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={exportLocalUserData}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d4a85324] px-4 py-2.5 text-xs font-semibold text-[#d4a853] hover:bg-[#d4a85310] transition-colors"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          {locale === "zh-TW" ? "導出我的資料" : "Export my data"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearLocalAccountData}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-300/20 px-4 py-2.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/8 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {locale === "zh-TW" ? "清除本機資料" : "Clear local data"}
+                        </button>
+                      </div>
+                    </div>
+                    <Link to="/privacy-policy" className="block text-center text-[10px] text-[#d4a853] hover:underline">
+                      {locale === "zh-TW" ? "查看完整隱私政策" : "View full privacy policy"}
+                    </Link>
                   </div>
                 </div>
                 )}

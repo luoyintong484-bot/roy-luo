@@ -5,6 +5,7 @@ import { useBirthProfile, computeDerivedFields } from "@/hooks/useBirthProfile"
 import { Sparkles, Star, Users, MapPin, Clock, User, ChevronDown, Heart, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ, type Country } from "@/lib/location-data"
+import PrivacyNotice from "@/components/PrivacyNotice"
 
 const YEARS = Array.from({ length: 100 }, (_, i) => 1930 + i).reverse()
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -56,7 +57,21 @@ export default function DestinySection() {
   const [birthHour2, setBirthHour2] = useState("")
   const [birthMinute2, setBirthMinute2] = useState("")
 
-  const [freeCount, setFreeCount] = useState(3)
+  // Device fingerprint for free count (same approach as TarotSection)
+  const DEVICE_ID = (() => {
+    try {
+      const nav = navigator;
+      const fp = [nav.language, screen.width, screen.colorDepth, nav.hardwareConcurrency || 4].join('|');
+      let hash = 0;
+      for (let i = 0; i < fp.length; i++) { hash = ((hash << 5) - hash) + fp.charCodeAt(i); hash |= 0; }
+      return "dev_" + Math.abs(hash).toString(36);
+    } catch { return "dev_fallback"; }
+  })();
+  const DESTINY_FREE_KEY = `r7_destiny_free_${DEVICE_ID}`;
+  const [freeCount, setFreeCount] = useState(() => {
+    try { const v = parseInt(localStorage.getItem(DESTINY_FREE_KEY) || "3"); return Math.max(0, Math.min(3, v)); }
+    catch { return 3; }
+  })
 
   const selectedCountry = COUNTRIES.find((c) => c.name === country)
   const selectedProvince = selectedCountry?.subdivisions.find((s) => s.name === province)
@@ -138,8 +153,10 @@ export default function DestinySection() {
       params.country2 = country2; params.province2 = province2; params.city2 = city2 || cityInput2; params.timezone2 = timezone2
     }
 
-    // TEMP: paywall bypass — show full report for preview
-    setFreeCount((c) => Math.max(0, c - 1))
+    // Consume 1 free quota (persisted to localStorage)
+    const newCount = Math.max(0, freeCount - 1);
+    setFreeCount(newCount);
+    localStorage.setItem(DESTINY_FREE_KEY, String(newCount));
     navigate("/destiny-result", { state: params })
   }
 
@@ -248,10 +265,6 @@ export default function DestinySection() {
         <div className="text-center mb-12">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#f0e6d3]">{t("destiny.title")}</h2>
           <p className="mt-2 text-sm text-[#8a8aad]">{t("destiny.subtitle")}</p>
-          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-[#d4a85308] rounded-full border border-[#d4a85310]">
-            <Sparkles className="w-3 h-3 text-[#d4a853]" />
-            <span className="text-[10px] text-[#d4a853]">{t("destiny.freeRemaining").replace("{count}", String(freeCount))}</span>
-          </div>
         </div>
 
         <div className="flex justify-center gap-3 mb-8">
@@ -440,6 +453,7 @@ export default function DestinySection() {
               <Sparkles className="w-4 h-4 mr-2" />
               {t("destiny.start")}
             </Button>
+            <PrivacyNotice compact />
           </div>
         </div>
 

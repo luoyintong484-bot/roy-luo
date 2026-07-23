@@ -18,6 +18,35 @@ export const PRODUCTS = {
   cpReport:        { usd: 10.00, name: "CP Report", nameZh: "CP 合盤報告" },
 } as const;
 
+// ===== 国内人民币固定定价（微信/支付宝收款通道） =====
+export const CNY_PRICES = {
+  tarot:   { cny: 29.90,  label: "塔羅解讀",         labelEn: "Tarot Reading" },
+  ziweiTarot: { cny: 39.90, label: "紫微塔羅雙牌", labelEn: "Ziwei Tarot Dual Reading" },
+  natal:   { cny: 79.00,  label: "紫微斗數個人完整解析",   labelEn: "Ziwei Doushu Natal Report" },
+  synastry:{ cny: 109.00, label: "紫微斗數雙人合盤解析",   labelEn: "Ziwei Doushu Synastry Report" },
+  cp:      { cny: 69.90,  label: "CP 专属合盤解讀",    labelEn: "CP Compatibility Report" },
+} as const;
+
+export type CnyPriceKey = keyof typeof CNY_PRICES;
+
+/** Get CNY display price for a report type */
+export function getCnyPrice(key: CnyPriceKey): string {
+  return `¥${CNY_PRICES[key].cny.toFixed(2)}`;
+}
+
+/** Get display price: CNY for CN users, USD otherwise */
+export function getLocalPrice(key: CnyPriceKey): { amount: number; display: string; currency: "CNY" | "USD" } {
+  const c = detectCurrency();
+  if (c === "CNY") {
+    return { amount: CNY_PRICES[key].cny, display: `¥${CNY_PRICES[key].cny.toFixed(2)}`, currency: "CNY" };
+  }
+  // USD fallback: map to approximate USD amounts
+  const usdMap: Record<CnyPriceKey, number> = {
+    tarot: 3.99, ziweiTarot: 4.99, natal: 10.99, synastry: 15.99, cp: 9.99,
+  };
+  return { amount: usdMap[key], display: `$${usdMap[key].toFixed(2)}`, currency: "USD" };
+}
+
 export type ProductKey = keyof typeof PRODUCTS;
 
 // ---- Currency ----

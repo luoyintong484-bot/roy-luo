@@ -8,7 +8,9 @@ import { inspectAttr } from 'kimi-plugin-inspect-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    devServer({ entry: "api/boot.ts", exclude: [/^\/(?!api\/).*$/] }),
+    // Keep SPA routes in Vite while allowing provider callbacks to reach Hono
+    // during local verification as they do in production.
+    devServer({ entry: "api/boot.ts", exclude: [/^\/(?!(?:api|payment)\/).*$/] }),
     inspectAttr(), react()],
   server: {
     port: 3000,

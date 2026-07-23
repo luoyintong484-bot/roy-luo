@@ -4,13 +4,15 @@
    Handles: payment method display, checkout redirect, unlock.
    ============================================================ */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
-import { useAuth } from "@/hooks/useAuth";
 import { initiatePayment, type ReportType } from "@/lib/payment-service";
 import { detectRegion, PAYMENT_METHODS } from "@/lib/payment";
-import { Lock, Loader2, X, ShieldCheck, CreditCard, Check, AlertTriangle, LogIn, ArrowRight } from "lucide-react";
+import { getLocalPrice, type CnyPriceKey } from "@/lib/pricing";
+import { PAYMENT_COMING_SOON, TEST_MODE } from "@/const";
+import { trackEvent } from "@/lib/analytics";
+import { Lock, Loader2, X, ShieldCheck, CreditCard, Clock3 } from "lucide-react";
 
 export interface PayModalConfig {
   reportType: ReportType;
@@ -33,55 +35,34 @@ interface PayModalProps {
 
 export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalProps) {
   const { locale } = useI18n();
-  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const isZh = locale === "zh-TW";
   const region = detectRegion();
   const methods = PAYMENT_METHODS[region];
   const [paying, setPaying] = useState(false);
-  const [paid, setPaid] = useState(false);
   const [error, setError] = useState("");
   const payingRef = useRef(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen || PAYMENT_COMING_SOON || !TEST_MODE) return;
+    onPaid();
+    onClose();
+  }, [isOpen, onPaid, onClose]);
 
-  // Auth gate: redirect to login if not logged in
-  if (!isAuthenticated) {
-    localStorage.setItem("r7_pay_return", window.location.pathname + window.location.search);
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative glass rounded-2xl p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up text-center">
-          <button onClick={onClose} className="absolute top-4 right-4 text-[#8a8aad] hover:text-[#f0e6d3]">
-            <X className="w-4 h-4" />
-          </button>
-          <div className="w-14 h-14 rounded-full bg-[#FFB6C110] flex items-center justify-center mx-auto mb-4 border border-[#FFB6C120]">
-            <LogIn className="w-7 h-7 text-[#FFB6C1]" />
-          </div>
-          <h3 className="text-lg font-bold text-[#f0e6d3] mb-2">
-            {isZh ? "請先登錄" : "Please Login First"}
-          </h3>
-          <p className="text-xs text-[#8a8aad] mb-6">
-            {isZh ? "登錄後即可解鎖完整版報告內容" : "Login to unlock the full report"}
-          </p>
-          <button
-            onClick={() => { onClose(); navigate("/login"); }}
-            className="w-full py-3 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-sm font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all flex items-center justify-center gap-2"
-          >
-            {isZh ? "前往登錄" : "Go to Login"}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // ⚠️ ALL hooks must be called before any conditional return (React rule of hooks)
   const handlePay = useCallback(async () => {
     // Debounce: prevent double-clicks
     if (payingRef.current) return;
     payingRef.current = true;
     setPaying(true);
     setError("");
+
+    trackEvent("payment_started", {
+      scene_type: config.reportType,
+      price: config.amount,
+      session_id: config.reportKey,
+      source_page: "pay_modal",
+    });
 
     try {
       const result = await initiatePayment({
@@ -94,53 +75,90 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
 
       if ("error" in result) {
         setError(result.error);
+        trackEvent("payment_failed", {
+          scene_type: config.reportType,
+          price: config.amount,
+          session_id: config.reportKey,
+          source_page: "pay_modal",
+        });
         payingRef.current = false;
         setPaying(false);
         return;
       }
 
+      trackEvent("order_created", {
+        scene_type: config.reportType,
+        price: config.amount,
+        order_id: result.sessionId,
+        session_id: config.reportKey,
+        source_page: "pay_modal",
+      });
+
       // Test flow or production checkout
       if (result.url.startsWith("/")) {
-        setTimeout(() => {
-          setPaying(false);
-          setPaid(true);
-          setTimeout(() => {
-            onPaid();
-            setPaid(false);
-            onClose();
-            payingRef.current = false;
-          }, 800);
-        }, 1200);
+        navigate(result.url);
       } else {
-        window.open(result.url, "_blank");
-        payingRef.current = false;
-        setPaying(false);
+        // External payment URL — must use window.location for cross-origin redirect
+        window.location.href = result.url;
       }
     } catch (err: any) {
       setError(err?.message || "Payment failed, please try again");
+      trackEvent("payment_failed", {
+        scene_type: config.reportType,
+        price: config.amount,
+        session_id: config.reportKey,
+        source_page: "pay_modal",
+      });
       payingRef.current = false;
       setPaying(false);
     }
-  }, [config, onPaid, onClose]);
+  }, [config, navigate]);
+
+  // Conditional returns — AFTER all hooks per React rules
+  if (!isOpen) return null;
+
+  if (PAYMENT_COMING_SOON) {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative glass rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up text-center">
+          <button onClick={onClose} className="absolute top-4 right-4 text-[#8a8aad] hover:text-[#f0e6d3] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+          <div className="w-14 h-14 rounded-full bg-[#d4a85310] flex items-center justify-center mx-auto mb-4 border border-[#d4a85320]">
+            <Clock3 className="w-7 h-7 text-[#d4a853]" />
+          </div>
+          <p className="text-[10px] text-[#d4a853] tracking-[0.18em] uppercase mb-2">
+            {isZh ? "Coming Soon" : "Coming Soon"}
+          </p>
+          <h3 className="font-display text-lg font-bold text-[#f0e6d3] mb-2">
+            {isZh ? config.titleZh : config.title}
+          </h3>
+          <p className="text-xs text-[#8a8aad] leading-relaxed mb-5">
+            {isZh
+              ? `預計價格 ¥${config.amount.toFixed(1)}。功能即將開放，當前不會生成訂單，也不會進入付款流程。`
+              : `Expected price ¥${config.amount.toFixed(1)}. This feature is coming soon; no order or payment will be created.`}
+          </p>
+          <button
+            onClick={() => {
+              onClose();
+            }}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all"
+          >
+            {isZh ? "知道了" : "Got it"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (TEST_MODE) return null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#151520]/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative glass rounded-2xl p-6 sm:p-8 max-w-sm w-full border border-[#d4a85320] shadow-2xl animate-fade-in-up">
-        {paid ? (
-          <div className="text-center py-6">
-            <div className="w-16 h-16 rounded-full bg-green-400/10 flex items-center justify-center mx-auto mb-4 border border-green-400/20">
-              <Check className="w-8 h-8 text-green-400" />
-            </div>
-            <h3 className="font-display text-lg font-bold text-[#f0e6d3] mb-1">
-              {isZh ? "解鎖成功" : "Unlocked!"}
-            </h3>
-            <p className="text-xs text-[#8a8aad]">
-              {isZh ? "完整解讀已為您展示" : "Full reading is now available"}
-            </p>
-          </div>
-        ) : (
-          <>
+        <>
             <button onClick={onClose} className="absolute top-4 right-4 text-[#8a8aad] hover:text-[#f0e6d3] transition-colors">
               <X className="w-4 h-4" />
             </button>
@@ -179,7 +197,10 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
                   {isZh ? "合計" : "Total"}
                 </span>
                 <span className="text-2xl font-display font-bold text-[#d4a853]">
-                  ${config.amount.toFixed(2)}
+                  {(() => {
+                    const priceKey = config.reportType as CnyPriceKey;
+                    return getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1} ? priceKey : "tarot").display;
+                  })()}
                 </span>
               </div>
             </div>
@@ -199,7 +220,11 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
               className="w-full py-3 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-lg text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-              {isZh ? `確認支付 $${config.amount.toFixed(2)}` : `Confirm Payment $${config.amount.toFixed(2)}`}
+              {(() => {
+                const priceKey = config.reportType as CnyPriceKey;
+                const price = getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1} ? priceKey : "tarot");
+                return isZh ? `確認支付 ${price.display}` : `Confirm Payment ${price.display}`;
+              })()}
             </button>
 
             {error && <p className="text-[10px] text-rose-400 text-center mt-2">{error}</p>}
@@ -207,8 +232,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
             <p className="text-[9px] text-[#8a8aad33] text-center mt-3">
               {isZh ? "安全加密支付 · 即時解鎖" : "Secure encrypted payment · Instant unlock"}
             </p>
-          </>
-        )}
+        </>
       </div>
     </div>
   );
@@ -218,7 +242,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
 export const PAYWALL_CONFIGS: Record<ReportType, Omit<PayModalConfig, "reportKey">> = {
   tarot: {
     reportType: "tarot",
-    amount: 1.99,
+    amount: 29.90,
     title: "Unlock Full Tarot Reading",
     titleZh: "解鎖完整塔羅深度解讀",
     desc: "Deep card analysis · Element interaction · Scene guidance · Actionable advice",
@@ -226,31 +250,41 @@ export const PAYWALL_CONFIGS: Record<ReportType, Omit<PayModalConfig, "reportKey
     includes: "Past · Present · Future × Full Dimension Deep Analysis",
     includesZh: "過去 · 現在 · 未來 × 全維度深度分析",
   },
+  ziweiTarot: {
+    reportType: "ziweiTarot",
+    amount: 39.90,
+    title: "Unlock Ziwei Tarot Dual Reading",
+    titleZh: "解鎖紫微塔羅雙牌解讀",
+    desc: "Ziwei body × Tarot action · Matrix judgment · Focused advice",
+    descZh: "紫微定體 × 塔羅定用 · 吉凶矩陣 · 問題行動指引",
+    includes: "Dual-card matrix · Deep linked reading · Practical next step",
+    includesZh: "雙牌卦象 · 體用聯動深讀 · 可執行下一步",
+  },
   synastry: {
     reportType: "synastry",
-    amount: 10.00,
-    title: "Unlock Full Synastry Report",
-    titleZh: "解鎖完整雙人合盤報告",
-    desc: "6-Dimension Deep Analysis · Bazi×Natal×Vedic Cross-Validation",
-    descZh: "6大維度深度解讀 · 八字×星盤×印度占星交叉驗證",
-    includes: "Core Attraction · Daily Mode · Conflicts · Destiny · Cautions · Long-Term",
-    includesZh: "核心吸引力 · 日常相處 · 矛盾課題 · 緣分解析 · 注意事項 · 長期建議",
+    amount: 109.00,
+    title: "Unlock Ziwei Doushu Synastry Report",
+    titleZh: "解鎖紫微斗數雙人合盤解析",
+    desc: "Dual Ziwei charts · Spouse palace · Main-star resonance · Relationship timing",
+    descZh: "雙方命盤 · 夫妻宮互照 · 主星共振 · 關係走勢",
+    includes: "Attraction · Spouse Palaces · Conflict Pattern · Long-Term Advice",
+    includesZh: "吸引力來源 · 夫妻宮互照 · 矛盾模式 · 長期相處建議",
   },
   natal: {
     reportType: "natal",
-    amount: 9.99,
-    title: "Unlock Full Natal Report",
-    titleZh: "解鎖完整本命星盤報告",
-    desc: "Bazi 4-Pillars · Natal Chart · Vedic Cross-Validation",
-    descZh: "八字四柱 · 本命星盤 · 印度占星交叉驗證",
-    includes: "Career · Wealth · Love · Health · Full Destiny Analysis",
-    includesZh: "事業發展 · 財富運勢 · 感情姻緣 · 健康狀況 · 全盤命運解析",
+    amount: 79.00,
+    title: "Unlock Ziwei Doushu Natal Report",
+    titleZh: "解鎖紫微斗數個人完整解析",
+    desc: "12 Palaces · Life & Body Palaces · Main Stars · Four Transformations",
+    descZh: "十二宮位 · 命宮身宮 · 主星四化 · 人生主軸",
+    includes: "Life Palace · Career · Wealth · Love · Health · Timing",
+    includesZh: "命宮身宮 · 事業財帛 · 感情姻緣 · 健康提醒 · 流年節點",
   },
   cp: {
     reportType: "cp",
-    amount: 10.00,
+    amount: 69.90,
     title: "Unlock Full CP Deep Report",
-    titleZh: "解鎖完整深度報告",
+    titleZh: "解鎖完整CP深度報告",
     desc: "8 Deep Sections · Hidden Feelings · Full Fate Trajectory",
     descZh: "8 項深度解析 · 隱藏內心 · 緣分完整走勢",
     includes: "Magnetic Attraction · Venus Complement · First Impression · Mutual Feelings · Destiny Bond · Strengths · Fate Trajectory · Encounter Probability",
@@ -258,7 +292,7 @@ export const PAYWALL_CONFIGS: Record<ReportType, Omit<PayModalConfig, "reportKey
   },
   idol: {
     reportType: "idol",
-    amount: 9.99,
+    amount: 69.90,
     title: "Unlock Full Idol Compatibility",
     titleZh: "解鎖完整愛豆合盤報告",
     desc: "Multi-Dimension Analysis · Synastry × Bazi × Star Mansion",

@@ -1,76 +1,240 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
+import { isReportPaid } from "@/lib/payment-service";
+import { buildZiweiChart, type ZiweiChart } from "@/lib/ziwei-doushu";
+import { buildZiweiNatalReport, type ZiweiReportSection } from "@/lib/ziwei-report-templates";
+import ReportLock from "@/components/ReportLock";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Navbar from "@/components/Navbar";
 import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Sparkles } from "lucide-react";
 
-function BoldBrackets({ text }: { text: string }) {
-  const parts = text.split(/(【[^】]+】)/g);
-  return <>{parts.map((p, i) => p.startsWith("【") ? <strong key={i} className="font-semibold text-[#f5e8d0]">{p}</strong> : p)}</>;
+function loadSavedChart(): ZiweiChart | null {
+  try {
+    const raw = localStorage.getItem("r7_ziwei_natal_report");
+    return raw ? JSON.parse(raw) as ZiweiChart : null;
+  } catch {
+    return null;
+  }
 }
 
-export default function DestinyFullReport() {
-  const { locale } = useI18n();
-  const navigate = useNavigate();
-  const isZh = locale === "zh-TW" || locale === "zh";
+function fallbackChart() {
+  return buildZiweiChart({
+    name: "User",
+    birthDate: "1995-03-15",
+    birthTime: "14:30",
+    calendarType: "solar",
+  });
+}
 
-  const sections = [
-    {
-      icon: "💼", title: isZh ? "事業發展" : "Career Development",
-      content: isZh
-        ? `綜合八字日柱丙火與本命星盤第十宮太陽落位，你的職業天賦指向需要「可見度」和「影響力」的領域。丙火日主天生自帶光芒——你不是那種適合躲在幕後埋頭苦幹的類型，而是需要在舞臺中央被看見、被認可的配置。\n\n【天賦方向】太陽第十宮與火星形成六分相，賦予你極強的執行力和公眾表達能力。適合的行業包括：品牌管理、公關媒體、教育培訓、創意總監、創業者——任何需要「站出來說話」的崗位都是你的主場。\n\n【職場優勢】八字中木火通明，印星有力——你的學習能力比同齡人快很多。進入新領域的前三個月是你的黃金期，你能迅速掌握別人需要半年才能理解的東西。\n\n【關鍵轉折點】30歲前後土星回歸期間，你會面臨一次重要的職業重新定位。不要害怕轉行——你的星盤配置支持跨界發展，而且往往在「看起來不相關」的領域之間找到獨特的結合點。印度占星中第十宮主星與木星產生關聯，暗示34歲左右會有一次事業上的重大躍升。`
-        : `Based on your Bazi Bing Fire Day Master and Natal Chart 10th House Sun placement, your career talents point toward fields requiring "visibility" and "influence." Bing Fire individuals are born radiant — you're not built for backstage anonymity but for center-stage impact.\n\n【Talent Direction】Sun in 10th House sextile Mars grants exceptional execution and public expression. Suitable industries: brand management, PR/media, education, creative direction, entrepreneurship.\n\n【Career Edge】Wood-Fire thriving in your Bazi with strong Seal star — your learning speed surpasses peers. First 3 months in a new field are your golden window.\n\n【Key Turning Point】Saturn return around age 30 brings career recalibration. Vedic 10th lord connected to Jupiter suggests a major leap around age 34.`
-    },
-    {
-      icon: "💰", title: isZh ? "財富運勢" : "Wealth & Finance",
-      content: isZh
-        ? `本命星盤中第二宮木星入廟，這是非常罕見的財富配置——你對金錢的直覺天生準確。你賺的每一筆錢背後都有你的邏輯，不是運氣好，是你的潛意識在做對的判斷。\n\n【正財偏財格局】八字中正財星坐於月柱，偏財星見於時柱——你的收入結構是「穩定工資+副業或投資收益」的組合。不要滿足於單一收入來源，你的配置天生適合雙軌甚至多軌收入模式。\n\n【財富積累方式】金星與木星的三分相賦予你「透過合作和人脈放大財富」的能力。比起自己埋頭苦幹，你更適合通過建立團隊、整合資源或利用社交網絡來創造財富。\n\n【破財風險】火星八宮的配置警示你要注意合夥財務、借貸和投資中的風險。你比較容易因為信任對方而忽略必要的審查和合約——建議所有涉及金錢的合作都要經過第三方審核。\n\n【財富轉折點】36歲前後，流年木星進入第二宮時，會有一次顯著的財富提升機會。保持你目前的積累節奏，不要因為短期的波動而打亂長期規劃。`
-        : `Your Natal Chart shows Jupiter in the 2nd House — a rare wealth configuration. Your intuition about money is naturally accurate.\n\n【Income Structure】Bazi shows Stable Wealth in Month Pillar and Speculative Wealth in Hour Pillar — your income is "stable salary + side/investment income."\n\n【Wealth Method】Venus trine Jupiter grants ability to "amplify wealth through partnerships and networks."\n\n【Risk Alert】Mars in 8th House warns caution in partnerships — always get third-party review for money-related collaborations.\n\n【Key Window】Around age 36, transiting Jupiter enters your 2nd House — expect a significant wealth boost.`
-    },
-    {
-      icon: "💕", title: isZh ? "感情姻緣" : "Love & Relationships",
-      content: isZh
-        ? `金星落在第五宮——你對愛情的理解從來不只是「被愛」，而是「共同創造」。你需要的是能在精神層面與你共鳴的伴侶，而不僅僅是生活搭檔。\n\n【正緣特徵】八字日支帶寅或午（與你的丙火形成良好互動）、星盤中太陽或月亮落在火象或風象星座、職業上具有一定創造性或公眾屬性。你們的相遇往往發生在與「學習、旅行、社交活動」相關的場合。\n\n【戀愛模式】月亮與水星的柔和相位讓你在感情中擅長表達——這很加分。但太陽與土星的對沖可能讓你一開始顯得有些距離感，需要時間才會真正打開心扉。你屬於「慢熱但持久」的類型。\n\n【婚姻走勢】印度占星中第七宮主星的位置暗示，你的婚姻會在30-35歲之間進入穩定階段。不要因為年齡焦慮而倉促決定——你的星盤顯示「晚婚但婚姻質量高」的趨勢。\n\n【相處建議】你的月亮在第六宮，這讓你在關係中容易「用做事代替說愛」——你以為把對方照顧好就是愛，但對方可能需要的是你的時間和注意力。學會停下來，看著對方的眼睛，告訴Ta「我在這裡」。`
-        : `Venus in the 5th House — your definition of love isn't just "being loved" but "co-creating." You need a partner who resonates with you spiritually.\n\n【Partner Traits】Bazi + Chart shows your ideal partner has: Day Branch containing Yin or Wu, Sun/Moon in Fire/Air signs, and creative or public-facing career.\n\n【Love Pattern】Moon-Mercury soft aspect makes you emotionally expressive. You're "slow to warm but lasting."\n\n【Marriage Timing】Vedic 7th House lord suggests marriage stabilizes between ages 30-35. Your chart shows "later marriage but higher quality."\n\n【Advice】Moon in 6th House makes you "show love through doing" — learn to pause, look into their eyes, and simply say, "I'm here."`
-    },
-    {
-      icon: "🏥", title: isZh ? "健康狀況" : "Health & Wellness",
-      content: isZh
-        ? `火星在第一宮的人通常精力充沛，但你的意志力太強，強大到會覆蓋身體的疲勞信號。這不是優勢，是需要警惕的。\n\n【體質特點】八字中火旺木相，先天體質偏熱性。容易出現的問題集中在：心血管系統、肝膽功能、以及因為長期精神緊繃導致的偏頭痛或睡眠障礙。\n\n【易患疾病】印度占星中第六宮的配置提示需要特別關注消化系統——不是因為你吃得不好，而是因為你吃飯的時候在想別的事。你的腸胃問題多半是「情緒型」的。\n\n【日常養生】最適合你的是「穩定節奏」——固定時間吃飯、固定時間睡覺、每週2-3次中等強度的運動。瑜伽或太極比HIIT更適合你的體質。冥想或正念練習對你的幫助可能比你想像中大得多。`
-        : `Mars in 1st House gives abundant energy, but your willpower overrides fatigue signals. This needs attention.\n\n【Constitution】Bazi shows dominant Fire with Wood support — naturally warm constitution. Vulnerable areas: cardiovascular, liver/gallbladder, stress-induced migraines.\n\n【Risk Areas】Vedic 6th House points to digestive issues — your gut problems are largely emotional.\n\n【Daily Care】Steady rhythm suits you best — fixed meal times, fixed sleep times, 2-3 moderate workouts weekly. Yoga or Tai Chi suit your constitution better than HIIT. Meditation may help more than you think.`
-    },
-  ];
+function parseBodyBlock(paragraph: string) {
+  const match = paragraph.match(/^【([^】]+)】([\s\S]*)$/);
+  if (!match) {
+    return {
+      title: "",
+      body: paragraph,
+    };
+  }
+
+  return {
+    title: match[1].trim(),
+    body: match[2].trim(),
+  };
+}
+
+function ReportSectionCard({
+  section,
+  defaultOpen = false,
+  isZh = false,
+}: {
+  section: ZiweiReportSection;
+  defaultOpen?: boolean;
+  isZh?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group relative overflow-hidden rounded-2xl border border-[#d8b87480] bg-[#fffaf0] text-[#3d3328] shadow-[0_18px_44px_rgba(91,55,18,0.12)]"
+    >
+      <summary className="relative flex cursor-pointer list-none items-start gap-4 p-5 sm:p-6 [&::-webkit-details-marker]:hidden">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#d4a85366] bg-[#fff0c9] text-xl text-[#8b5a14]">
+          {section.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 h-0.5 w-10 rounded-full bg-[#b87a22]" />
+          <h3 className="font-display text-xl font-bold tracking-[0.02em] text-[#3f2d1a] sm:text-2xl">
+            {section.title}
+          </h3>
+          <p className="mt-1 text-xs leading-relaxed text-[#7b6b58] sm:text-sm">
+            {section.subtitle}
+          </p>
+        </div>
+        <ChevronDown className="mt-2 h-5 w-5 shrink-0 text-[#9a6b24] transition-transform duration-300 group-open:rotate-180" />
+      </summary>
+
+      <div className="space-y-5 border-t border-[#e7d7bb] px-5 pb-5 sm:px-6 sm:pb-6">
+        <div className="rounded-xl border border-[#d4a85355] bg-[#fff3d7] px-4 py-3">
+          <div className="mb-2 inline-flex rounded-full border border-[#c69235]/30 bg-[#fffaf0] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#8a5b18]">
+            {isZh ? "核心结论 · 先看这里" : "Section Insight"}
+          </div>
+          <p className="text-[13px] font-semibold leading-[1.75] text-[#5a3a12] sm:text-[14px]">
+            {section.highlight}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {section.body.map((paragraph, index) => {
+            const block = parseBodyBlock(paragraph);
+            return (
+              <div
+                key={index}
+                className="rounded-2xl border border-[#e7d7bb] bg-[#fffdf7] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:px-5"
+              >
+                {block.title ? (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex rounded-full border border-[#e8b9a9] bg-[#f7e1d8] px-2.5 py-1 text-[11px] font-bold tracking-[0.08em] text-[#87445a]">
+                      {block.title}
+                    </span>
+                  </div>
+                ) : null}
+                <p className="text-[15px] font-[460] leading-[1.95] tracking-[0.01em] text-[#3d3328]">
+                  {block.body}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {section.bullets?.length ? (
+          <div className="rounded-xl border border-[#e8b9a966] bg-[#fff6ed] p-4">
+            <div className="mb-2 inline-flex rounded-full border border-[#e8b9a9] bg-[#fffaf0] px-2.5 py-1 text-[11px] font-bold tracking-[0.16em] text-[#87445a]">
+              {isZh ? "盘面依据 · 对照逻辑" : "Data Mapping"}
+            </div>
+            <ul className="space-y-2">
+              {section.bullets.map((item) => (
+                <li key={item} className="flex gap-2 text-[13px] leading-relaxed text-[#6b5d4e]">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#b87a22]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+export default function DestinyFullReport({ previewUnlocked = false }: { previewUnlocked?: boolean }) {
+  useI18n();
+  const navigate = useNavigate();
+  const isZh = true;
+  const [isUnlocked, setIsUnlocked] = useState(() => previewUnlocked || isReportPaid("natal_full_report"));
+  const chart = useMemo(() => loadSavedChart() || fallbackChart(), []);
+  const sections = useMemo(() => buildZiweiNatalReport(chart), [chart]);
+
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/destiny");
+  };
 
   return (
     <div className="min-h-screen">
       <Navbar />
       <main className="pt-20 pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-[#8a8aad] hover:text-[#FFB6C1] transition-colors mb-6">
-            <ArrowLeft className="w-4 h-4" />{isZh ? "返回上一頁" : "Back"}
-          </button>
+        <ErrorBoundary fallbackMessage="紫微斗數個人報告載入異常">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <button onClick={goBack} className="mb-6 flex items-center gap-1.5 text-xs text-[#8a8aad] transition-colors hover:text-[#FFB6C1]">
+              <ArrowLeft className="h-4 w-4" />{isZh ? "返回上一頁" : "Back"}
+            </button>
 
-          <div className="glass rounded-2xl p-5 sm:p-6 border-2 border-[#FFB6C133] space-y-6">
-            <div className="text-center">
-              <Sparkles className="w-8 h-8 text-[#FFB6C1] mx-auto mb-2" />
-              <h2 className="font-display text-xl font-bold text-[#FFB6C1]">
-                {isZh ? "🔮 綜合命理完整報告" : "🔮 Comprehensive Destiny Report"}
-              </h2>
-              <p className="text-[10px] text-[#8a8aad44] mt-1">
-                {isZh ? "八字 · 本命星盤 · 印度占星 交叉驗證分析" : "Bazi · Natal · Vedic Cross-Validation"}
-              </p>
-            </div>
-            {sections.map((s, i) => (
-              <div key={i} className="bg-[#151520] rounded-xl p-4 border border-[#FFB6C108]">
-                <h3 className="text-base font-bold text-[#FFB6C1] mb-3 flex items-center gap-2">
-                  <span>{s.icon}</span> {s.title}
-                </h3>
-                <p className="text-xs text-[#f0e6d3] font-[450] leading-[1.6] tracking-[0.5px] whitespace-pre-line"><BoldBrackets text={s.content} /></p>
+            <section className="overflow-hidden rounded-3xl border border-[#d4a85366] bg-gradient-to-b from-[#fbf6ea] via-[#f6ecd9] to-[#efe0c5] text-[#3d3328] shadow-[0_24px_80px_rgba(47,28,8,0.22)]">
+              <div className="border-b border-[#d4a85340] bg-[#fffaf0]/80 px-5 py-7 text-center sm:px-7">
+                <Sparkles className="mx-auto mb-3 h-8 w-8 text-[#FFB6C1]" />
+                <div className="mx-auto mb-3 inline-flex rounded-full border border-emerald-700/15 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+                  {isZh ? "東方傳統性格分析與人生規劃參考" : "Traditional personality and planning reference"}
+                </div>
+                <h2 className="font-display text-2xl font-bold tracking-[0.02em] text-[#6f3f16] sm:text-4xl">
+                  {isZh ? "紫微斗數個人完整解析" : "Ziwei Doushu Natal Report"}
+                </h2>
+                <p className="mt-3 text-[12px] uppercase tracking-[0.22em] text-[#8a6d3b]">
+                  {isZh ? "命宮身宮 · 十二宮位 · 主星四化 · 大運流年" : "Life Palace · 12 Palaces · Main Stars · Transformations"}
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs text-[#5f4630]">
+                  <span className="rounded-full border border-[#d4a85345] bg-[#fff4d8] px-3 py-1">{chart.name}</span>
+                  <span className="rounded-full border border-[#d4a85345] bg-[#fff4d8] px-3 py-1">{chart.birthLabel}</span>
+                  <span className="rounded-full border border-[#d4a85345] bg-[#fff4d8] px-3 py-1">{chart.mingPalace}</span>
+                  <span className="rounded-full border border-[#d4a85345] bg-[#fff4d8] px-3 py-1">{chart.elementBureau}</span>
+                </div>
               </div>
-            ))}
+
+              <div className="space-y-5 p-4 sm:p-7">
+                {!previewUnlocked && (
+                  <div className="rounded-2xl border border-[#d4a85366] bg-[#fffaf0] p-4 shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a5b18]">
+                          {isZh ? "免費版報告" : "Free Preview Report"}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-relaxed text-[#5f4630]">
+                          {isZh
+                            ? "已開放命格核心摘要。完整版將展開事業、財富、感情、十二宮與流年節點。"
+                            : "The core life-pattern summary is free. The full report expands career, wealth, relationships, 12 palaces, and timing cycles."}
+                        </p>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full border border-[#d4a85355] bg-[#fff3d7] px-3 py-1 text-[11px] font-bold text-[#6f3f16]">
+                        {isZh ? "排盤免費" : "Chart is free"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {sections.slice(0, 1).map((section) => (
+                  <ReportSectionCard key={section.id} section={section} defaultOpen isZh={isZh} />
+                ))}
+
+                {!previewUnlocked && (
+                  <div className="rounded-2xl border border-[#e8b9a966] bg-[#fff6ed] p-4 text-center shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
+                    <p className="text-sm font-black text-[#87445a]">
+                      {isZh ? "完整版報告" : "Full Report"}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#6b5d4e]">
+                      {isZh
+                        ? "完整解析屬於付費內容；目前支付通道準備中，將以「即將上線」狀態展示。"
+                        : "The complete interpretation is a paid feature and is currently shown as Coming Soon while payment is being prepared."}
+                    </p>
+                  </div>
+                )}
+
+                <ReportLock
+                  isUnlocked={isUnlocked}
+                  reportType="natal"
+                  reportKey="natal_full_report"
+                  onUnlocked={() => setIsUnlocked(true)}
+                >
+                  <div className="space-y-5">
+                    {sections.slice(1).map((section, index) => (
+                      <ReportSectionCard
+                        key={section.id}
+                        section={section}
+                        defaultOpen={previewUnlocked || index < 2 || section.id === "cycles"}
+                        isZh={isZh}
+                      />
+                    ))}
+                  </div>
+                </ReportLock>
+
+                <p className="rounded-2xl border border-[#d4a85355] bg-[#fffaf0]/88 p-4 text-center text-[12px] font-medium leading-relaxed text-[#6b5d4e]">
+                  {isZh
+                    ? "本內容為傳統文化研究參考，不構成人生決策唯一依據；重要醫療、法律、投資與人生決策請結合現實資訊與專業意見。"
+                    : "This content is for traditional culture research reference and should not be the sole basis for major life decisions."}
+                </p>
+              </div>
+            </section>
           </div>
-        </div>
+        </ErrorBoundary>
       </main>
       <Footer />
       <CustomerService />

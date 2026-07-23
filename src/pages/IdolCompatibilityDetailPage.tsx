@@ -8,7 +8,7 @@ import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
 import {
   Heart, Star, ArrowLeft, Sparkles, Share2, Download, Crown,
-  Flame, Droplets, Mountain, Wind, Loader2
+  Flame, Droplets, Mountain, Wind, Loader2, Trophy
 } from "lucide-react";
 
 const ELEMENT_CONFIG: Record<string, { icon: typeof Flame; color: string; label: string }> = {
@@ -45,25 +45,83 @@ export default function IdolCompatibilityDetailPage() {
   const [showShare, setShowShare] = useState(false);
   const artistId = parseInt(id || "0");
   const state = location.state as any;
-  const { data: artist, isLoading } = trpc.artist.getById.useQuery({ id: artistId });
   const result = state?.result;
+  const { data: artist, isLoading } = trpc.artist.getById.useQuery(
+    { id: artistId },
+    { enabled: Boolean(result && artistId) }
+  );
 
-  if (isLoading) {
+  if (!result) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[#d4a853] animate-spin" />
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="pt-24 pb-16 px-4">
+          <div className="mx-auto max-w-md rounded-3xl border border-[#d4a85320] bg-[#10101b]/90 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            <Heart className="w-10 h-10 text-[#d4a853] mx-auto mb-3" />
+            <h1 className="font-display text-xl font-bold text-[#f0e6d3]">
+              {locale === "zh-TW" ? "需要先生成合盤結果" : "Generate a report first"}
+            </h1>
+            <p className="mt-2 text-sm leading-7 text-[#8a8aad]">
+              {locale === "zh-TW"
+                ? "此頁需要從愛豆合盤列表帶入你的出生資料與匹配結果。請返回列表重新生成，不會出現空白頁。"
+                : "This page needs birth data and match results from the compatibility flow. Please return to the list and generate it again."}
+            </p>
+            <button
+              onClick={() => navigate("/idol-compatibility")}
+              className="mt-5 rounded-xl bg-[#d4a853] px-5 py-3 text-sm font-bold text-[#0a0a0f] hover:bg-[#e0b860] transition-colors"
+            >
+              {locale === "zh-TW" ? "返回合盤列表" : "Go to Compatibility Zone"}
+            </button>
+          </div>
+        </main>
+        <Footer />
+        <CustomerService />
       </div>
     );
   }
 
-  if (!artist || !result) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <Heart className="w-8 h-8 text-[#8a8aad22]" />
-        <p className="text-[#8a8aad]">Please go to the compatibility zone to generate results first</p>
-        <button onClick={() => navigate("/idol-compatibility")} className="text-[#d4a853] text-sm">
-          Go to Compatibility Zone
-        </button>
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3 px-4 text-center">
+          <Loader2 className="w-8 h-8 text-[#d4a853] animate-spin" />
+          <p className="text-sm text-[#f0e6d3]">
+            {locale === "zh-TW" ? "正在載入合盤資料..." : "Loading compatibility report..."}
+          </p>
+          <p className="text-xs text-[#8a8aad]">
+            {locale === "zh-TW" ? "若等待過久，可返回合盤列表重新生成。" : "If this takes too long, return and generate a fresh report."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!artist) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="pt-24 pb-16 px-4">
+          <div className="mx-auto max-w-md rounded-3xl border border-[#d4a85320] bg-[#10101b]/90 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            <Heart className="w-10 h-10 text-[#d4a853] mx-auto mb-3" />
+            <h1 className="font-display text-xl font-bold text-[#f0e6d3]">
+              {locale === "zh-TW" ? "未找到愛豆資料" : "Artist not found"}
+            </h1>
+            <p className="mt-2 text-sm leading-7 text-[#8a8aad]">
+              {locale === "zh-TW"
+                ? "此愛豆資料可能已更新或不存在，請返回合盤列表重新選擇。"
+                : "This artist may have been updated or removed. Please return to the list and choose again."}
+            </p>
+            <button
+              onClick={() => navigate("/idol-compatibility")}
+              className="mt-5 rounded-xl bg-[#d4a853] px-5 py-3 text-sm font-bold text-[#0a0a0f] hover:bg-[#e0b860] transition-colors"
+            >
+              {locale === "zh-TW" ? "返回合盤列表" : "Go to Compatibility Zone"}
+            </button>
+          </div>
+        </main>
+        <Footer />
+        <CustomerService />
       </div>
     );
   }
@@ -84,30 +142,39 @@ export default function IdolCompatibilityDetailPage() {
           </button>
 
           {/* Header Score Card */}
-          <div className="glass rounded-2xl p-6 border border-[#d4a85310] mb-6">
-            <div className="flex items-center justify-center gap-6">
+          <div className="relative overflow-hidden glass rounded-3xl p-6 border border-[#c99aa624] mb-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#c99aa610] blur-3xl" />
+            <div className="relative text-center mb-5">
+              <div className="inline-flex items-center gap-1 rounded-full border border-[#b99a6220] bg-[#b99a620c] px-2.5 py-1 text-[10px] font-bold text-[#cdbb98]">
+                <Trophy className="w-3 h-3" /> IDOL MATCH REPORT
+              </div>
+            </div>
+            <div className="relative flex items-center justify-center gap-6">
               <div className="text-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#d4a85310] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2">
-                  <Star className="w-8 h-8 sm:w-10 sm:h-10 text-[#d4a853]" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-[#c99aa610] flex items-center justify-center border-2 border-[#c99aa62c] mx-auto mb-2">
+                  <Star className="w-8 h-8 sm:w-10 sm:h-10 text-[#d8b8c0]" />
                 </div>
                 <p className="text-sm text-[#f0e6d3] font-medium">You</p>
                 <p className="text-xs text-[#8a8aad44]">{state.userPillar}</p>
               </div>
               <div className="text-center px-4">
-                <div className="text-4xl sm:text-5xl font-display font-bold text-[#d4a853]">{result.overallScore}</div>
-                <div className="h-0.5 w-12 bg-[#d4a85322] mx-auto my-1.5" />
+                <div className="text-4xl sm:text-5xl font-display font-bold text-[#d8b8c0]">{result.overallScore}</div>
+                <div className="h-0.5 w-12 bg-[#c99aa633] mx-auto my-1.5" />
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tagConfig.bg} ${tagConfig.color} border border-current border-opacity-20`}>
                   {tagConfig.label}
                 </span>
               </div>
               <div className="text-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border-2 border-[#d4a85322] mx-auto mb-2 overflow-hidden">
-                  {result.artistAvatar ? <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" /> : <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-[#d4a853]" />}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-[#c99aa620] to-[#1a1a2e] flex items-center justify-center border-2 border-[#c99aa62c] mx-auto mb-2 overflow-hidden">
+                  {result.artistAvatar ? <img src={result.artistAvatar} alt="" className="w-full h-full object-cover" /> : <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-[#d8b8c0]" />}
                 </div>
                 <p className="text-sm text-[#f0e6d3] font-medium truncate max-w-[120px]">{result.artistName}</p>
                 <p className="text-xs text-[#8a8aad44]">{artistEl}</p>
               </div>
             </div>
+            <p className="relative mt-5 text-center text-xs text-[#8a8aad] leading-relaxed">
+              这份报告综合西方星盘、四柱五行与二十八星宿，重点看你们之间的吸引力、互动舒适度和关系张力。
+            </p>
           </div>
 
           {/* 1. Western Synastry — expanded */}

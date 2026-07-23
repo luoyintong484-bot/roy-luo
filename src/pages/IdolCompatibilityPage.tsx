@@ -6,10 +6,11 @@ import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ } from "@/lib/location-data";
 import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
+import PrivacyNotice from "@/components/PrivacyNotice";
 import {
   Heart, Sparkles, Search, Crown,
   Star, Users,
-  ChevronRight, Lock, MapPin, Clock, ChevronDown
+  ChevronRight, Lock, MapPin, Clock, ChevronDown, Trophy, Wand2
 } from "lucide-react";
 
 const RELATION_TAGS = [
@@ -91,6 +92,7 @@ export default function IdolCompatibilityPage() {
         (r.artistGroup || "").toLowerCase().includes(searchQuery.toLowerCase())
       )
     : filteredResults;
+  const topResult = results[0];
 
   return (
     <div className="min-h-screen">
@@ -109,6 +111,26 @@ export default function IdolCompatibilityPage() {
             <p className="mt-2 text-sm text-[#8a8aad]">
               输入你的生日，探索与数百位爱豆的星盘缘分
             </p>
+            <div className="mt-5 grid grid-cols-3 gap-2 max-w-2xl mx-auto">
+              {[
+                { n: "01", t: "填写生日", d: "Birth data" },
+                { n: "02", t: "生成榜单", d: "Match ranking" },
+                { n: "03", t: "查看详情", d: "Deep reading" },
+              ].map((item, idx) => (
+                <div
+                  key={item.n}
+                  className={`rounded-2xl border px-3 py-2 text-left ${
+                    (step === "input" && idx === 0) || step === "loading" || step === "results"
+                      ? "border-[#c99aa630] bg-[#c99aa60c]"
+                      : "border-[#d4a8530a] bg-[#10101a]/70"
+                  }`}
+                >
+                  <p className="text-[10px] text-[#d8b8c0] font-bold">{item.n}</p>
+                  <p className="text-xs text-[#f0e6d3]">{item.t}</p>
+                  <p className="hidden sm:block text-[9px] text-[#8a8aad55]">{item.d}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Ziwei Premium Entry */}
@@ -132,11 +154,16 @@ export default function IdolCompatibilityPage() {
 
           {/* Step 1: Input Form */}
           {step === "input" && (
-            <div className="glass rounded-2xl p-6 sm:p-8 border border-[#d4a85308] max-w-lg mx-auto">
-              <h2 className="text-lg font-semibold text-[#f0e6d3] mb-6 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#d4a853]" />
-                你的出生信息
-              </h2>
+            <div className="glass rounded-3xl p-5 sm:p-7 border border-[#c99aa615] max-w-xl mx-auto shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
+              <div className="mb-6 flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#c99aa610] border border-[#c99aa624] flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-[#d8b8c0]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#f0e6d3]">你的出生信息</h2>
+                  <p className="text-xs text-[#8a8aad] mt-1">生成你的命盘底层参数后，会自动匹配全站爱豆缘分榜单。</p>
+                </div>
+              </div>
 
               <div className="space-y-4">
                 <div>
@@ -242,11 +269,12 @@ export default function IdolCompatibilityPage() {
                 <button
                   onClick={handleGenerate}
                   disabled={!birthDate || !dayPillar}
-                  className="w-full mt-4 px-6 py-3 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-lg text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full mt-4 px-6 py-3.5 bg-gradient-to-r from-[#c99aa6] to-[#b99a62] text-[#0a0a0f] rounded-2xl text-sm font-bold hover:from-[#d8b8c0] hover:to-[#cdbb98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_16px_40px_rgba(201,154,166,0.10)]"
                 >
-                  <Heart className="w-4 h-4" />
-                  生成爱豆合盘
+                  <Wand2 className="w-4 h-4" />
+                  生成爱豆缘分榜单
                 </button>
+                <PrivacyNotice compact />
               </div>
             </div>
           )}
@@ -286,6 +314,42 @@ export default function IdolCompatibilityPage() {
                   修改
                 </button>
               </div>
+
+              {topResult && (
+                <div className="relative overflow-hidden rounded-3xl border border-[#c99aa624] bg-gradient-to-br from-[#1a1119]/95 via-[#11111d]/95 to-[#0a0a0f]/95 p-5 mb-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                  <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#c99aa610] blur-3xl" />
+                  <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-3xl bg-[#c99aa610] border border-[#c99aa62c] flex items-center justify-center overflow-hidden">
+                        {topResult.artistAvatar ? (
+                          <img src={topResult.artistAvatar} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <Heart className="w-7 h-7 text-[#d8b8c0]" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="inline-flex items-center gap-1 rounded-full border border-[#b99a6220] bg-[#b99a620c] px-2.5 py-1 text-[10px] font-bold text-[#cdbb98]">
+                          <Trophy className="w-3 h-3" /> TOP MATCH
+                        </div>
+                        <h2 className="mt-2 font-display text-2xl font-bold text-[#f0e6d3]">{topResult.artistName}</h2>
+                        <p className="text-xs text-[#8a8aad]">{topResult.artistGroup} · {topResult.relationLabel} · {topResult.starMansionRelation}</p>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="text-4xl font-bold text-[#d8b8c0]">{topResult.overallScore}</p>
+                      <p className="text-xs text-[#cdbb98]">综合缘分指数</p>
+                      <button
+                        onClick={() => navigate(`/idol-compatibility/${topResult.artistId}`, {
+                          state: { userBirth: birthDate, userTime: birthTime, userPlace: composedBirthPlace || birthPlace, userPillar: dayPillar, userMansion: starMansion, userCountry: country, userProvince: province, userCity: city || cityInput, userTimezone: timezone, result: topResult }
+                        })}
+                        className="mt-3 rounded-full border border-[#c99aa62c] px-4 py-2 text-xs text-[#d8b8c0] hover:bg-[#c99aa610] transition-colors"
+                      >
+                        查看深度报告
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Search + Filter */}
               <div className="flex flex-col sm:flex-row gap-3 mb-6">

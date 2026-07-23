@@ -7,11 +7,25 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
+import {
+  createAlipayCheckout,
+  getAlipayOrderStatus,
+  getPaymentUserStatus,
+  handleAlipayNotify,
+  handleAlipayReturn,
+} from "./alipay";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
+app.post("/api/alipay/create", createAlipayCheckout);
+app.get("/api/alipay/status", getAlipayOrderStatus);
+// Compatibility aliases used by the deployment verification checklist.
+app.post("/payment/create", createAlipayCheckout);
+app.get("/api/user/status", getPaymentUserStatus);
+app.post("/payment/notify", handleAlipayNotify);
+app.get("/payment/return", handleAlipayReturn);
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",

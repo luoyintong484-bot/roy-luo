@@ -76,7 +76,7 @@ async function seed() {
     { name: "卢玧我", stageName: "Yunah", groupName: "ILLIT", birthDate: "2004-01-15", zodiacSign: "摩羯座", baziDayPillar: "壬午", starMansion: "参宿", avatar: "/idols/yunah.jpg" },
     { name: "朴敏珠", stageName: "Minju", groupName: "ILLIT", birthDate: "2004-05-11", zodiacSign: "金牛座", baziDayPillar: "戊辰", starMansion: "井宿", avatar: "/idols/minju-illit.jpg" },
     { name: "境萌花", stageName: "Moka", groupName: "ILLIT", birthDate: "2004-10-08", zodiacSign: "天秤座", baziDayPillar: "丙申", starMansion: "鬼宿", avatar: "/idols/moka.jpg" },
-    { name: "李沅禧", stageName: "Wonhee", groupName: "ILLIT", birthDate: "2007-06-26", zodiacSign: "巨蟹座", baziDayPillar: "丁亥", starMansion: "柳宿", avatar: "/idols/wonhee.jpg" },
+    { name: "李沅禧", stageName: "Wonhee", groupName: "ILLIT", birthDate: "2007-06-26", zodiacSign: "巨蟹座", baziDayPillar: "辛卯", starMansion: "尾宿", avatar: "/idols/wonhee.jpg" },
     { name: "外园彩羽", stageName: "Iroha", groupName: "ILLIT", birthDate: "2008-02-04", zodiacSign: "水瓶座", baziDayPillar: "乙丑", starMansion: "星宿", avatar: "/idols/iroha.jpg" },
 
     // ===== BABYMONSTER =====

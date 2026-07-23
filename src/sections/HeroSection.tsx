@@ -4,7 +4,7 @@ import { useI18n } from "@/contexts/I18nContext"
 import { ChevronDown, Sparkles, Heart } from "lucide-react"
 
 const HOT_BADGE = (
-  <span className="absolute -top-2 -right-7 px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[8px] font-bold rounded-full shadow-lg shadow-pink-500/30 animate-pulse">
+  <span className="home-hot-badge absolute -top-2 -right-5 px-1.5 py-0.5 border border-[#ffb6d950] bg-[#130b12]/75 text-[#ffd6e8] text-[8px] font-bold rounded-full shadow-[0_0_18px_rgba(255,182,217,0.14)]">
     HOT
   </span>
 )
@@ -138,30 +138,35 @@ export default function HeroSection() {
   ]
 
   return (
-    <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section id="hero" className="home-hero relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 pb-12 sm:pt-0 sm:pb-0">
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
-      <div className="absolute inset-0 z-[1] pointer-events-none" style={{ background: "radial-gradient(ellipse at 30% 50%, transparent 0%, rgba(10,10,15,0.4) 100%)" }} />
+      <div className="home-hero-vignette absolute inset-0 z-[1] pointer-events-none" style={{ background: "radial-gradient(ellipse at 30% 50%, transparent 0%, rgba(10,10,15,0.4) 100%)" }} />
+      <div className="home-hero-glow absolute inset-x-4 top-24 z-[1] h-72 rounded-full bg-[radial-gradient(circle,rgba(255,182,217,0.20),rgba(212,168,83,0.10)_42%,transparent_72%)] blur-2xl sm:hidden" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="max-w-2xl">
-          <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-black italic text-[#f0e6d3] leading-[1.1] animate-fade-in-up"
+      <div className="home-hero-inner relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="home-hero-content max-w-2xl mx-auto text-center sm:mx-0 sm:text-left">
+          <div className="home-kicker mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffb6d92b] bg-[#ff8fbd12] px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#ffd6e8] shadow-[0_0_35px_rgba(255,182,217,0.12)] sm:hidden">
+            <Sparkles className="h-3.5 w-3.5" />
+            R7 Fortune
+          </div>
+          <h1 className="home-hero-title font-display text-[3.45rem] sm:text-6xl lg:text-7xl font-black italic text-[#f0e6d3] leading-[0.94] sm:leading-[1.1] tracking-wide animate-fade-in-up"
             style={{ textShadow: "0 0 80px rgba(212,168,83,0.2), 0 4px 20px rgba(0,0,0,0.5)", animationDelay: "0.2s" }}>
             Meet Your
             <br />
-            <span className="text-[#d4a853]">Future</span>
+            <span className="bg-gradient-to-r from-[#ffd36a] via-[#ffb6d9] to-[#d8c3ff] bg-clip-text text-transparent">Future</span>
           </h1>
 
-          <p className="mt-6 text-base sm:text-lg font-light leading-relaxed max-w-lg animate-fade-in-up rounded-lg px-3 py-2"
-            style={{ animationDelay: "0.4s", color: "#f0e6d3", backgroundColor: "rgba(0,0,0,0.6)", textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+          <p className="home-hero-desc mt-5 sm:mt-6 text-[15px] sm:text-lg font-light leading-7 max-w-lg mx-auto sm:mx-0 animate-fade-in-up rounded-2xl border border-[#ffb6d914] px-4 py-3 backdrop-blur-md"
+            style={{ animationDelay: "0.4s", color: "#f0e6d3", backgroundColor: "rgba(8,5,12,0.68)", textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
             {t("hero.desc")}
           </p>
 
-          <div className="mt-10 flex items-center gap-4 animate-fade-in-up flex-wrap" style={{ animationDelay: "0.6s" }}>
+          <div className="home-cta-grid mt-7 sm:mt-10 grid grid-cols-3 gap-2.5 sm:flex sm:items-center sm:gap-4 animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
             {buttons.map((btn) => (
               <button
                 key={btn.key}
                 onClick={() => navigate(btn.path)}
-                className="relative px-7 py-3 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-full text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg shadow-[#d4a85325]"
+                className="home-primary-btn relative px-3 sm:px-7 py-3.5 sm:py-3 bg-gradient-to-r from-[#d8b463] via-[#d1a251] to-[#bd8f35] text-[#0a0a0f] rounded-2xl sm:rounded-full text-xs sm:text-sm font-black hover:from-[#e0b860] hover:to-[#d4a853] hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg shadow-[#d4a85325]"
               >
                 {t(`hero.btn.${btn.key}`)}
                 {btn.hot && HOT_BADGE}
@@ -170,40 +175,40 @@ export default function HeroSection() {
           </div>
 
           {/* Idol Zone Entry Banners */}
-          <div className="mt-6 flex flex-col sm:flex-row gap-3 animate-fade-in-up" style={{ animationDelay: "0.8s" }}>
+          <div className="home-feature-stack mt-5 sm:mt-6 flex flex-col sm:flex-row gap-3 animate-fade-in-up" style={{ animationDelay: "0.8s" }}>
             <button
-              onClick={() => navigate("/idol")}
-              className="flex-1 glass rounded-xl px-5 py-3.5 border border-[#d4a85312] hover:border-[#d4a85330] transition-all text-left group flex items-center gap-3"
+              onClick={() => navigate("/tarot?mode=idol")}
+              className="home-feature-card flex-1 rounded-2xl sm:rounded-xl px-4 sm:px-5 py-4 sm:py-3.5 border border-[#ffb6d922] bg-[#100a14]/72 hover:border-[#d4a85330] transition-all text-left group flex items-center gap-3 shadow-[0_18px_45px_rgba(255,143,189,0.10)]"
             >
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#d4a85318] to-[#d4a85305] flex items-center justify-center border border-[#d4a85312] flex-shrink-0">
+              <div className="home-feature-icon w-10 h-10 sm:w-9 sm:h-9 rounded-2xl sm:rounded-lg bg-gradient-to-br from-[#ffb6d91e] to-[#d4a8530a] flex items-center justify-center border border-[#ffb6d922] flex-shrink-0">
                 <Sparkles className="w-4 h-4 text-[#d4a853] group-hover:scale-110 transition-transform" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors">{locale === "zh-TW" ? "愛豆玄學" : "Idol Fortune"}</p>
-                <p className="text-[9px] text-[#8a8aad33] mt-0.5">{locale === "zh-TW" ? "星盤密碼 · 專屬運勢解讀" : "Star charts · Fortune readings"}</p>
+                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors">{locale === "zh-TW" ? "Idol Destiny · 愛豆塔羅" : "Idol Destiny · Dual Tarot"}</p>
+                <p className="text-[9px] text-[#8a8aad66] mt-0.5">{locale === "zh-TW" ? "紫微塔羅 × 韋特塔羅 · 免費抽牌" : "Zi Wei × Rider–Waite · Free draw"}</p>
               </div>
-              <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full">HOT</span>
+              <span className="home-card-badge px-1.5 py-0.5 border border-[#ffb6d94a] bg-[#1a0d16]/70 text-[#ffd6e8] text-[7px] font-bold rounded-full">HOT</span>
             </button>
           </div>
 
           {/* CP Fate Report Banner */}
           <div className="mt-3 animate-fade-in-up" style={{ animationDelay: "1.0s" }}>
             <button onClick={() => navigate("/cp-report")}
-              className="w-full glass rounded-xl px-5 py-3.5 border border-[#FFB6C115] hover:border-[#FFB6C130] transition-all text-left group flex items-center gap-3 relative">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#FFB6C120] to-[#FFB6C105] flex items-center justify-center border border-[#FFB6C115] flex-shrink-0">
+              className="home-feature-card w-full rounded-2xl sm:rounded-xl px-4 sm:px-5 py-4 sm:py-3.5 border border-[#FFB6C125] bg-[#100a14]/72 hover:border-[#FFB6C130] transition-all text-left group flex items-center gap-3 relative shadow-[0_18px_45px_rgba(255,182,193,0.10)]">
+              <div className="home-feature-icon w-10 h-10 sm:w-9 sm:h-9 rounded-2xl sm:rounded-lg bg-gradient-to-br from-[#FFB6C120] to-[#FFB6C105] flex items-center justify-center border border-[#FFB6C120] flex-shrink-0">
                 <Heart className="w-4 h-4 text-[#FFB6C1] group-hover:scale-110 transition-transform" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#FFB6C1] transition-colors">{locale === "zh-TW" ? "CP 宿命合盤" : "CP Fate Report"}</p>
                 <p className="text-[9px] text-[#8a8aad33] mt-0.5">{locale === "zh-TW" ? "宇宙雙人星盤 · 緣分解讀" : "Cosmic Pair Reading · Two-Idol Destiny Chart"}</p>
               </div>
-              <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-gradient-to-r from-red-500 to-rose-400 text-white text-[8px] font-bold rounded-full shadow-lg shadow-red-500/30 animate-pulse">HOT</span>
+              <span className="home-card-badge absolute -top-2 -right-2 px-1.5 py-0.5 border border-[#ffb6d94a] bg-[#1a0d16]/78 text-[#ffd6e8] text-[8px] font-bold rounded-full">HOT</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
+      <div className="home-scroll-cue absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
         <span className="text-[10px] text-[#8a8aad] uppercase tracking-[0.2em]">{t("hero.scroll")}</span>
         <div className="w-px h-8 bg-gradient-to-b from-[#d4a85366] to-transparent relative">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#d4a853] animate-scroll-dot" />

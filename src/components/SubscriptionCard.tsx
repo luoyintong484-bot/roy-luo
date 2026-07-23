@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 import { getSubscription, getAvailableReadings, applyReferral, type SubscriptionState } from "@/lib/subscription";
 import { getInviteProgress } from "@/lib/share-points";
+import { PAYMENT_COMING_SOON } from "@/const";
 import { Crown, Gift, Copy, Check, Users, Zap, Share2 } from "lucide-react";
 
 /** Inline subscription info + referral bar — shown in Tarot / CP Report pages */
@@ -52,14 +53,14 @@ export default function SubscriptionCard({ onPurchase }: { onPurchase?: (type: "
                 onClick={() => onPurchase?.("single")}
                 className="px-3 py-1.5 text-[10px] font-medium rounded-lg border border-[#FFB6C115] text-[#FFB6C1] hover:bg-[#FFB6C108] transition-all"
               >
-                $2.99 {isZh ? "單次" : "Single"}
+                {PAYMENT_COMING_SOON ? (isZh ? "單次即將上線" : "Single Coming Soon") : `$2.99 ${isZh ? "單次" : "Single"}`}
               </button>
               <button
                 onClick={() => onPurchase?.("monthly")}
                 className="px-3 py-1.5 text-[10px] font-medium rounded-lg bg-[#FFB6C1] text-[#0a0a0f] hover:bg-[#f0a0b8] transition-all flex items-center gap-1"
               >
                 <Zap className="w-3 h-3" />
-                $9.90 {isZh ? "月度" : "/mo"}
+                {PAYMENT_COMING_SOON ? (isZh ? "會員即將上線" : "VIP Soon") : `$9.90 ${isZh ? "月度" : "/mo"}`}
               </button>
             </div>
           )}

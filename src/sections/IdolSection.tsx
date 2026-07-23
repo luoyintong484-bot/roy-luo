@@ -7,15 +7,26 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
-  ALL_ARTISTS, getGroupedArtists, GROUP_META,
+  ALL_ARTISTS, getArtistDisplayName, getGroupedArtists, GROUP_META,
   ZODIAC_EMOJIS, ELEMENT_COLORS,
 } from "@/data/artists"
+import type { ArtistStatic } from "@/data/artists"
 
 const HOT_BADGE = (
   <span className="ml-1.5 px-1 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full shadow-lg shadow-pink-500/20">
     HOT
   </span>
 )
+
+function dedupeArtistsForDisplay(members: ArtistStatic[]) {
+  const seen = new Set<string>()
+  return members.filter((artist) => {
+    const key = `${artist.groupName}:${(artist.stageName || artist.name).toLowerCase()}:${artist.birthDate}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
 
 export default function IdolSection() {
   const { t, locale } = useI18n()
@@ -66,7 +77,7 @@ export default function IdolSection() {
   // If search returns exactly 1 artist, auto-navigate
   useEffect(() => {
     if (searchQuery && grouped.length === 1) {
-      const members = grouped[0][1]
+      const members = dedupeArtistsForDisplay(grouped[0][1])
       if (members.length === 1) {
         const timer = setTimeout(() => {
           navigate(`/artist/${members[0].id}`)
@@ -121,19 +132,32 @@ export default function IdolSection() {
 
             {/* Idol Match Entry */}
             <button onClick={() => navigate("/idol-match")}
-              className="w-full glass rounded-xl p-3 border border-[#FFB6C115] hover:border-[#FFB6C140] transition-all text-left group flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FFB6C120] to-[#FFB6C105] flex items-center justify-center border border-[#FFB6C115] flex-shrink-0">
-                <Heart className="w-5 h-5 text-[#FFB6C1] group-hover:scale-110 transition-transform" />
+              className="relative w-full overflow-hidden rounded-[28px] p-5 sm:p-6 border border-[#ffb6d94a] bg-gradient-to-br from-[#fff0f518] via-[#2a172d]/95 to-[#0a0a0f]/95 hover:border-[#ff9fc8] transition-all text-left group flex items-center gap-4 mb-3 shadow-[0_24px_80px_rgba(255,143,189,0.14)]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ffd1e4] to-transparent" />
+              <div className="absolute -right-14 -top-16 h-44 w-44 rounded-full bg-[#ff8fbd1e] blur-3xl" />
+              <div className="absolute right-6 bottom-4 hidden text-5xl opacity-15 sm:block">✨</div>
+              <div className="relative w-16 h-16 rounded-[24px] bg-gradient-to-br from-[#ff8fbd2a] to-[#d8c7ff18] flex items-center justify-center border border-[#ffb6d955] flex-shrink-0 shadow-[0_14px_42px_rgba(255,143,189,0.16)]">
+                <Heart className="w-7 h-7 text-[#ffd9e9] group-hover:scale-110 transition-transform" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#f0e6d3] group-hover:text-[#FFB6C1] transition-colors">
-                  {locale === "zh-TW" ? "偶像配对合盘 · Idol Match" : "Idol Match · Cosmic Connection"}
+              <div className="relative flex-1 min-w-0">
+                <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-[#ffd1e433] bg-[#fff7fb10] px-2.5 py-1 text-[9px] font-black tracking-[0.14em] text-[#ffd9e9]">
+                  HOT TEST
+                </div>
+                <p className="text-lg sm:text-xl font-black text-[#fff7ef] group-hover:text-[#ffd9e9] transition-colors">
+                  {locale === "zh-TW" ? "生日追星推荐 · Idol Match" : "Idol Match · Cosmic Connection"}
                 </p>
-                <p className="text-[9px] text-[#8a8aad33] mt-0.5">
-                  {locale === "zh-TW" ? "输入四柱信息 → 选择爱豆 → 解锁宇宙缘分图谱" : "Enter Saju → Pick Idols → Unlock Cosmic Connection Map"}
+                <p className="text-xs sm:text-sm text-[#d7cbe6] mt-1 leading-relaxed">
+                  {locale === "zh-TW" ? "输入生日，系统从隐藏艺人库里揭晓最适合你追的爱豆" : "Enter your birthday and reveal your best idol matches from the hidden library"}
                 </p>
+                <div className="mt-2 flex gap-1.5">
+                  {["Birthday", "Hidden Library", "Reveal"].map((tag) => (
+                    <span key={tag} className="rounded-full border border-[#ffd1e424] bg-[#fff7fb0d] px-2.5 py-1 text-[9px] font-semibold text-[#ffd9e9]">{tag}</span>
+                  ))}
+                </div>
               </div>
-              <span className="px-1.5 py-0.5 bg-gradient-to-r from-pink-500 to-rose-400 text-white text-[7px] font-bold rounded-full">NEW</span>
+              <span className="relative hidden sm:inline-flex px-4 py-2 bg-gradient-to-r from-[#ff9fc8] via-[#ffd1e4] to-[#d8c7ff] text-[#211427] text-xs font-black rounded-full shadow-[0_14px_34px_rgba(255,143,189,0.22)] group-hover:brightness-110">
+                START
+              </span>
             </button>
 
             {/* Category filter tabs */}
@@ -167,10 +191,11 @@ export default function IdolSection() {
           {/* Groups */}
           <div className="space-y-3">
             {grouped.map(([groupName, members]) => {
+              const displayMembers = dedupeArtistsForDisplay(members)
               const meta = GROUP_META[groupName]
               const isExpanded = expandedGroup === groupName
               const isHOT = ["BLACKPINK", "aespa", "IVE", "NewJeans", "LE SSERAFIM"].includes(groupName)
-              const region = members[0]?.region
+              const region = displayMembers[0]?.region
 
               return (
                 <div key={groupName} className="glass rounded-xl overflow-hidden border border-[#d4a85308] hover:border-[#d4a85315] transition-all">
@@ -181,7 +206,7 @@ export default function IdolSection() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#d4a85320] to-[#14142a] flex items-center justify-center text-lg border border-[#d4a85315]">
-                        {ZODIAC_EMOJIS[members[0]?.zodiacSign || ""] || "✨"}
+                        {ZODIAC_EMOJIS[displayMembers[0]?.zodiacSign || ""] || "✨"}
                       </div>
                       <div>
                         <div className="flex items-center">
@@ -203,7 +228,7 @@ export default function IdolSection() {
                               Element: {meta.element}
                             </span>
                           )}
-                          <span className="text-[10px] text-[#8a8aad33]">{members.length} members</span>
+                          <span className="text-[10px] text-[#8a8aad33]">{displayMembers.length} members</span>
                           {meta?.company && (
                             <span className="text-[9px] text-[#8a8aad22]">{meta.company}</span>
                           )}
@@ -218,7 +243,7 @@ export default function IdolSection() {
                     <div className="px-4 pb-4">
                       <div className="border-t border-[#d4a85306] pt-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {members.map((artist) => (
+                          {displayMembers.map((artist) => (
                             <button
                               key={artist.id}
                               onClick={() => navigate(`/artist/${artist.id}`)}
@@ -232,9 +257,8 @@ export default function IdolSection() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-xs font-medium text-[#f0e6d3] group-hover:text-[#d4a853] transition-colors truncate">
-                                    {artist.stageName || artist.name}
+                                    {getArtistDisplayName(artist, locale)}
                                   </span>
-                                  <span className="text-[8px] text-[#8a8aad22]">{artist.mbti}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                   <span className="text-[9px] text-[#8a8aad44]">{artist.birthDate}</span>

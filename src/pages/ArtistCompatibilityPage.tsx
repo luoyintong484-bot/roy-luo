@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import InnerPageLayout from "@/components/InnerPageLayout";
 import { getArtistById, ZODIAC_EMOJIS } from "@/data/artists";
@@ -6,10 +6,11 @@ import { calculateCompatibility } from "@/lib/compatibility-algo";
 import { COUNTRIES, TIMEZONES, COUNTRY_DEFAULT_TZ } from "@/lib/location-data";
 import {
   ArrowLeft, Heart, Star, Sparkles, Flame,
-  Lock, Crown, Calendar, MapPin, Clock, ChevronDown
+  Lock, Crown, Calendar, MapPin, Clock, ChevronDown, Trophy, Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import PrivacyNotice from "@/components/PrivacyNotice";
 
 // Lunar date converter (simplified)
 function solarToLunar(year: number, month: number, day: number): string {
@@ -100,24 +101,29 @@ export default function ArtistCompatibilityPage() {
   const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
   const [hourStr, minuteStr] = birthTime.split(":");
 
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
   const handleCalculate = () => {
     const dateStr = `${birthYear}-${String(birthMonth).padStart(2, "0")}-${String(birthDay).padStart(2, "0")}`;
     setStep("loading");
 
     setTimeout(() => {
+      if (!mountedRef.current) return;
       const calc = calculateCompatibility(
         dateStr,
         artist.birthDate,
         undefined,
-        "甲子", // Auto-determined
+        "甲子",
         artist.baziDayPillar || "甲子",
         starMansion,
         artist.starMansion || "角宿",
       );
-
+      if (!calc || !calc.overallTag?.tag) return;
       const tagConfig = RELATION_LABELS[calc.overallTag.tag] || RELATION_LABELS["good_vibes"];
       const relConfig = MANSION_RELATIONS[calc.starMansionRelation] || MANSION_RELATIONS["友衰"];
 
+      if (!mountedRef.current) return;
       setResult({ calc, tagConfig, relConfig, userEl: calc.bazi.userElement });
       setStep("result");
     }, 1500);
@@ -137,38 +143,60 @@ export default function ArtistCompatibilityPage() {
               <ArrowLeft className="w-4 h-4" />返回{artist.stageName}的资料页
             </button>
             <div className="text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#d4a85308] border border-[#d4a85315] rounded-full mb-3">
-                <Heart className="w-3 h-3 text-[#d4a853]" />
-                <span className="text-[10px] text-[#d4a853]">爱豆合盘专区 · 三级深度合盘</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#c99aa610] border border-[#c99aa624] rounded-full mb-3">
+                <Heart className="w-3 h-3 text-[#d8b8c0]" />
+                <span className="text-[10px] text-[#d8b8c0]">1:1 Idol Match · 单人合盘</span>
               </div>
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#f0e6d3]">
                 你与 {artist.stageName} 的缘分
               </h1>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {[
+                  { n: "01", t: "填生日" },
+                  { n: "02", t: "生成分数" },
+                  { n: "03", t: "看关系" },
+                ].map((item, idx) => (
+                  <div key={item.n} className={`rounded-2xl border px-3 py-2 text-left ${
+                    (step === "input" && idx === 0) || (step === "loading" && idx <= 1) || (step === "result" && idx <= 2)
+                      ? "border-[#c99aa630] bg-[#c99aa60c]"
+                      : "border-[#d4a8530a] bg-[#10101a]/70"
+                  }`}>
+                    <p className="text-[10px] text-[#d8b8c0] font-bold">{item.n}</p>
+                    <p className="text-xs text-[#f0e6d3]">{item.t}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Artist Mini Card */}
-          <div className="glass rounded-xl p-4 border border-[#d4a85308] mb-6 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#d4a85320] to-[#1a1a2e] flex items-center justify-center border border-[#d4a85315] flex-shrink-0">
+          <div className="relative overflow-hidden glass rounded-2xl p-4 border border-[#c99aa615] mb-6 flex items-center gap-4">
+            <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#c99aa610] blur-2xl" />
+            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-[#c99aa620] to-[#1a1a2e] flex items-center justify-center border border-[#c99aa624] flex-shrink-0">
               <span className="text-2xl">{ZODIAC_EMOJIS[artist.zodiacSign] || artist.stageName[0]}</span>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <p className="text-sm font-semibold text-[#f0e6d3]">{artist.stageName}</p>
               <p className="text-[10px] text-[#8a8aad]">{artist.groupName} · {artist.zodiacSign} {ZODIAC_EMOJIS[artist.zodiacSign]} · {artist.element} · {artist.starMansion}</p>
             </div>
-            <div className="text-right flex-shrink-0">
+            <div className="relative text-right flex-shrink-0">
               <p className="text-[10px] text-[#8a8aad33]">八字日柱</p>
-              <p className="text-xs text-[#d4a853]">{artist.baziDayPillar}</p>
+              <p className="text-xs text-[#d8b8c0]">{artist.baziDayPillar}</p>
             </div>
           </div>
 
           {/* ===== Input Form ===== */}
           {step === "input" && (
-            <div className="glass rounded-2xl p-6 border border-[#d4a85308]">
-              <h2 className="text-sm font-semibold text-[#f0e6d3] mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#d4a853]" />
-                输入你的出生信息
-              </h2>
+            <div className="glass rounded-3xl p-5 sm:p-6 border border-[#c99aa615] shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
+              <div className="mb-5 flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c99aa610] border border-[#c99aa624] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#d8b8c0]" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-[#f0e6d3]">输入你的出生信息</h2>
+                  <p className="text-xs text-[#8a8aad] mt-1">用于计算你与 {artist.stageName} 的星盘、五行与星宿连接。</p>
+                </div>
+              </div>
 
               <div className="space-y-4">
                 {/* Calendar Type Toggle */}
@@ -301,10 +329,11 @@ export default function ArtistCompatibilityPage() {
 
                 <Button
                   onClick={handleCalculate}
-                  className="w-full mt-2 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] font-bold hover:from-[#e0b860] hover:to-[#d4a853]"
+                  className="w-full mt-2 rounded-2xl bg-gradient-to-r from-[#c99aa6] to-[#b99a62] text-[#0a0a0f] font-bold hover:from-[#d8b8c0] hover:to-[#cdbb98]"
                 >
-                  <Heart className="w-4 h-4 mr-2" />开始合盘测算
+                  <Wand2 className="w-4 h-4 mr-2" />开始 1:1 合盘测算
                 </Button>
+                <PrivacyNotice compact />
               </div>
             </div>
           )}
@@ -322,15 +351,19 @@ export default function ArtistCompatibilityPage() {
           )}
 
           {/* Result */}
-          {step === "result" && result && (
+          {step === "result" && result?.calc && (
             <div className="space-y-5">
               {/* Score Hero */}
-              <div className="glass rounded-2xl p-6 border border-[#d4a85310] text-center">
-                <div className="text-5xl font-display font-bold text-[#d4a853] mb-2">{result.calc.overallScore}</div>
-                <div className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${result.tagConfig.bg} ${result.tagConfig.color} border-current border-opacity-20 mb-3`}>
+              <div className="relative overflow-hidden glass rounded-3xl p-6 border border-[#c99aa624] text-center shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full bg-[#c99aa610] blur-3xl" />
+                <div className="relative inline-flex items-center gap-1 rounded-full border border-[#b99a6220] bg-[#b99a620c] px-2.5 py-1 text-[10px] font-bold text-[#cdbb98] mb-3">
+                  <Trophy className="w-3 h-3" /> MATCH SCORE
+                </div>
+                <div className="relative text-5xl font-display font-bold text-[#d8b8c0] mb-2">{result.calc.overallScore}</div>
+                <div className={`relative inline-flex px-3 py-1 rounded-full text-xs font-medium border ${result.tagConfig.bg} ${result.tagConfig.color} border-current border-opacity-20 mb-3`}>
                   {result.tagConfig.label}
                 </div>
-                <p className="text-xs text-[#8a8aad55]">{result.tagConfig.desc}</p>
+                <p className="relative text-xs text-[#8a8aad55]">{result.tagConfig.desc}</p>
                 <div className="grid grid-cols-3 gap-2 mt-5">
                   {[
                     { label: "星盘", score: result.calc.synastry.score },

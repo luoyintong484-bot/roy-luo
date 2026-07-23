@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { payments, users } from "@db/schema";
+import { payments } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
+
+const PAYMENTS_COMING_SOON = true;
 
 export const paymentRouter = createRouter({
   create: authedQuery
@@ -13,6 +15,10 @@ export const paymentRouter = createRouter({
       description: z.string().max(200).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (PAYMENTS_COMING_SOON) {
+        return { id: 0, status: "coming_soon" };
+      }
+
       const db = getDb();
       const [result] = await db.insert(payments).values({
         userId: ctx.user.id,
@@ -21,7 +27,7 @@ export const paymentRouter = createRouter({
         amount: String(input.amount),
         description: input.description,
       }).$returningId();
-      return { id: (result as any)?.id ?? 0, status: "pending" };
+      return { id: result?.id ?? 0, status: "pending" };
     }),
 
   // Payment callback — unlock premium after successful payment
@@ -30,19 +36,10 @@ export const paymentRouter = createRouter({
       id: z.number().int().positive(),
       reportType: z.enum(["tarot", "synastry", "natal", "cp", "idol"]).optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = getDb();
-      // Mark payment completed
-      await db.update(payments)
-        .set({ status: "completed" })
-        .where(eq(payments.id, input.id));
-
-      // Unlock user: isPremium = true
-      await db.update(users)
-        .set({ isPremium: true })
-        .where(eq(users.id, ctx.user.id));
-
-      return { success: true, isPremium: true };
+    .mutation(async () => {
+      // A browser-authenticated mutation is never a trusted payment callback.
+      // Provider notifications are verified only by /payment/notify.
+      return { success: false, isPremium: false, message: "Provider callback verification required" };
     }),
 
   // Webhook endpoint for 3rd-party payment callback
@@ -52,23 +49,10 @@ export const paymentRouter = createRouter({
       amount: z.number().positive(),
       status: z.enum(["completed", "failed"]),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = getDb();
-      if (input.status === "completed") {
-        // Record payment
-        await db.insert(payments).values({
-          userId: ctx.user.id,
-          type: "membership",
-          amount: String(input.amount),
-          status: "completed",
-          description: `Webhook: ${input.orderId}`,
-        });
-        // Unlock premium
-        await db.update(users)
-          .set({ isPremium: true, membershipType: "monthly" })
-          .where(eq(users.id, ctx.user.id));
-      }
-      return { success: true };
+    .mutation(async () => {
+      // Kept only for API compatibility. Never trust provider status supplied
+      // by the browser; the signed Alipay notification is the sole authority.
+      return { success: false, message: "Provider callback verification required" };
     }),
 
   list: authedQuery

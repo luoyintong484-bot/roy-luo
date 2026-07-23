@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Share2, Link, Check, Copy, AlertTriangle } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
+import { getAppPath } from "@/lib/route-helpers";
 import SharePoster, { type PosterData } from "@/components/SharePoster";
 
 export default function ShareModal({
@@ -16,7 +17,7 @@ export default function ShareModal({
   const [error, setError] = useState("");
 
   const shareLink = typeof window !== "undefined"
-    ? `${window.location.origin}${sharePath || window.location.pathname}`
+    ? `${window.location.origin}/#${sharePath || getAppPath()}`
     : "";
   const shareBody = shareText || title;
 

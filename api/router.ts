@@ -7,6 +7,7 @@ import { userRouter } from "./user-router";
 import { i18nRouter } from "./i18n-router";
 import { idolCompatibilityRouter } from "./idol-compatibility-router";
 import { synastryAiRouter } from "./synastry-ai-router";
+import { idolMatchRouter } from "./idol-match-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -20,6 +21,7 @@ export const appRouter = createRouter({
   i18n: i18nRouter,
   idolCompatibility: idolCompatibilityRouter,
   synastryAi: synastryAiRouter,
+  idolMatch: idolMatchRouter,
 });
 
 export type AppRouter = typeof appRouter;

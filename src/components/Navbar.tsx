@@ -68,7 +68,7 @@ export default function Navbar() {
     if (/tarot|card|reading|塔罗|牌阵|cards|draw|spread/i.test(lower)) {
       navTo("/tarot");
     } else if (/destiny|fortune|match|compatibility|命理|合盘|星盘|synastry|natal|chart|birth|zodiac/i.test(lower)) {
-      navTo("/destiny");
+      navTo("/astrology");
     } else {
       navTo(`/idol?q=${encodeURIComponent(q)}`);
     }
@@ -88,8 +88,8 @@ export default function Navbar() {
     { key: "home",    path: "/" },
     { key: "tarot",   path: "/tarot" },
     { key: "idol",    path: "/idol", hot: true },
-    { key: "destiny", path: "/destiny" },
-    { key: "merch",  path: "#merch", badge: true },
+    { key: "destiny", path: "/astrology" },
+    { key: "merch",  path: "#merch", badge: false },
   ];
 
   // ================================================================
@@ -105,19 +105,19 @@ export default function Navbar() {
     { value: "zh-TW" as const, label: "繁體" },
     { value: "en" as const,    label: "EN" },
   ];
-  const currentLang = langOptions.find(o => o.value === locale) || langOptions[2];
+  const currentLang = langOptions.find(o => o.value === locale) || langOptions[0];
 
   // ======================== RENDER ========================
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+      className={`site-navbar fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
           ? "bg-[#0a0a0f]/92 backdrop-blur-xl border-b border-[#d4a85315] shadow-lg shadow-black/20"
           : "bg-transparent"
       }`}
     >
-      <div className="max-w-[95rem] mx-auto px-3 sm:px-4 lg:px-6">
-        <div className="flex items-center h-14 sm:h-16">
+      <div className="site-navbar-inner max-w-[95rem] mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="site-navbar-row flex items-center h-14 sm:h-16">
 
           {/* ================================================ */}
           {/*  LEFT SECTION: Logo + 4 Core Tabs                 */}
@@ -330,7 +330,7 @@ export default function Navbar() {
       </div>
 
       {/* ============ MOBILE SEARCH (hidden input, shown when icon clicked) ============ */}
-      <div className="sm:hidden px-3 pb-2 bg-[#0a0a0f]/92">
+      <div className="mobile-search-bar sm:hidden px-3 pb-2 bg-[#0a0a0f]/92">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a8aad44] pointer-events-none" />
           <input
@@ -340,7 +340,7 @@ export default function Navbar() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder={t("search.placeholder")}
-            className="w-full h-8 bg-[#0a0a0f] border border-[#d4a85315] rounded-lg pl-8 pr-3 text-xs text-[#f0e6d3] placeholder-[#8a8aad44] focus:outline-none focus:border-[#d4a85344] transition-colors"
+            className="mobile-search-input w-full h-8 bg-[#0a0a0f] border border-[#d4a85315] rounded-lg pl-8 pr-3 text-xs text-[#f0e6d3] placeholder-[#8a8aad44] focus:outline-none focus:border-[#d4a85344] transition-colors"
           />
         </div>
       </div>

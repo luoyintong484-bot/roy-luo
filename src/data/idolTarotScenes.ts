@@ -4,6 +4,8 @@
    Fansign(签售) / Concert(演唱会) / Ticketing(抢票)
    ============================================================ */
 
+import { TAROT_CARDS } from "@/data/tarotCards";
+
 type SceneKey = "fansign" | "concert" | "ticketing" | "career";
 
 interface SceneReading {
@@ -31,49 +33,49 @@ const SUIT_SCENES: Record<string, (rank: string, rankIdx: number, cn: string, kw
 
 function makeFansign(idx: number, cn: string, rev: boolean): SceneReading {
   const hookEn = rev
-    ? "This fansign may not go as planned — prepare for surprises"
-    : "He's likely to remember you this fansign";
+    ? "This fansign may have small timing issues — keep your interaction simple and warm"
+    : "This fansign has a warm interaction window — sincerity will be noticed";
   const hookZh = rev
-    ? "這次簽售可能不如預期——做好心理準備"
-    : "這次簽售他大概率會記住你";
+    ? "這次簽售可能有些小阻礙——互動保持簡短溫柔會更穩"
+    : "這次簽售有溫暖互動窗口——真誠表達更容易被看見";
   const paidEn = rev
-    ? `The ${cn} reversed suggests the fansign flow may feel rushed. Staff might hurry you through — keep your message short and impactful. Avoid complex questions; a warm, simple "thank you for your music" lands harder than a prepared speech. If you're doing a video call, test your connection beforehand — technical glitches are indicated. Buy fewer slots but make each one count.`
-    : `The ${cn} indicates a warm, memorable fansign interaction. Your prepared words will land with sincerity — he may pause to really read your sticky note, maybe even react visibly. To maximize impact: wear a distinctive color (red or bright pink works best with this card's energy), prepare a question only a real fan would ask, and if you have multiple slots, space them across the event for repeated recognition. 3-5 entries gives the highest probability of front-section placement.`;
+    ? `The ${cn} reversed suggests the fansign flow may feel slightly rushed or less smooth than expected. This does not mean the result is bad; it simply asks you to prepare a concise, heartfelt message. Avoid complicated questions and focus on one clear sentence of appreciation. If it is a video call, test your device, lighting, and connection in advance. The best approach is quality over quantity: one sincere moment will be more memorable than several over-rehearsed lines.`
+    : `The ${cn} indicates a warm and memorable fansign interaction. Your sincere words are likely to land well, especially if you prepare something personal but not invasive: a small detail from a performance, a short thank-you, or a question that shows real attention. If you are joining multiple rounds, keep the tone natural each time instead of repeating a script. The card favors genuine energy, clean preparation, and a calm heart.`;
   const paidZh = rev
-    ? `${cn}逆位提示簽售流程可能較趕。工作人員可能會催促——保持簡短有力的互動。避免複雜提問；一句溫暖的「謝謝你的音樂」比準備好的長篇演講更有力量。如果是視訊通話，提前測試網路——牌面顯示可能會有技術問題。少買幾張，但讓每張都發揮最大價值。`
-    : `${cn}正位顯示這次簽售會有溫暖且令人印象深刻的互動。你準備的話語會以真誠打動他——他可能會停下來認真看你的便利貼，甚至當場念出你的ID或做出明顯反應。最大化影響力：穿亮色衣服（紅色或亮粉最符合此牌能量），準備一個只有真粉才知道的問題，如果有多張抽選券，分散在整場活動中使用以增加重複辨識度。買3-5張抽選中前排機率最高。`;
+    ? `${cn}逆位提示簽售流程可能略趕，或現場節奏沒有你想像中那麼從容。這不代表結果不好，而是提醒你提前準備一句簡短、真誠、好接住的話。避免複雜提問，把重點放在一句清楚的感謝或支持上。如果是視訊簽售，提前測試設備、光線和網路。這次更適合重質不重量，一個自然的瞬間，比背好的長篇內容更容易被記住。`
+    : `${cn}正位顯示這次簽售有溫暖且值得期待的互動窗口。你準備的話如果足夠真誠，很容易被對方感受到。建議準備一個個人化但不冒犯的小內容，例如某個舞台細節、一句簡短感謝，或一個能看出你用心的問題。如果有多次互動，保持自然，不要完全照稿重複。牌面更偏向真誠、乾淨的準備和穩定心態。`;
   return { freeEn: hookEn, freeZh: hookZh, paidEn, paidZh };
 }
 
 function makeConcert(idx: number, cn: string, rev: boolean): SceneReading {
   const hookEn = rev
-    ? "Avoid the center pit — angle seats have better views this time"
-    : "Stage left, rows 1-12: your best spot for eye contact and photos";
+    ? "The concert energy is a little uneven — side or elevated areas may feel more comfortable"
+    : "The concert atmosphere looks supportive — prepare well and enjoy the live energy";
   const hookZh = rev
-    ? "避開正中間的搖滾區——側邊角度座位這次視野更好"
-    : "舞台左區12排以內：對視和出片的最佳位置";
+    ? "本次演出運勢略有波動——側邊或偏高視角反而更舒服"
+    : "本次演出氛圍值得期待——準備充分就能好好享受現場";
   const paidEn = rev
-    ? `The ${cn} reversed warns that the most obvious seats (dead center, front pit) may actually have obstructed views or heavy crowding this concert. Instead, aim for elevated side sections — especially stage-right balcony. Your light stick will be more visible from an angle. If you're bringing a banner, keep it compact: oversized signs get blocked by venue staff. Sound quality is actually better slightly off-center, so you're not missing anything.`
-    : `The ${cn} strongly favors stage-left positioning, rows 1-12. This zone captures his natural turning angle — you'll catch side-profile glances, small expressions, and maybe direct eye contact. Your fan light or banner is most visible here; photographers confirm this area has the highest "capture rate." Arrive early to secure the spot, and if there's a thrust stage, position yourself at its left corner for maximum interaction probability.`;
+    ? `The ${cn} reversed suggests the live event may have small disruptions: crowded entry, view changes, or a different atmosphere than expected. Try not to place all happiness on one "perfect" seat. Side or slightly elevated areas may give a calmer view and better overall experience. Keep fan items compact, check venue rules, and leave extra time for entry. The key is to reduce stress before the show begins.`
+    : `The ${cn} shows a supportive concert atmosphere. Your overall live experience is likely to be smooth if you prepare early: ticket, ID, route, battery, and fan items. If you are choosing seats or standing areas, prioritize clear sightline and comfort over chasing only the hottest zone. The card favors a balanced experience: good energy, stable mood, and moments that feel personally meaningful.`;
   const paidZh = rev
-    ? `${cn}逆位警示：最顯眼的座位（正中間、最前排搖滾區）這次可能反而視野受阻或過於擁擠。改選偏高側面區域——尤其是舞台右側看台。你的應援燈從側面角度更顯眼。如果要帶應援橫幅，保持緊湊尺寸：過大的標語容易被場館工作人員遮擋。音質在稍微偏離中心的位置反而更好，你不會錯過任何精彩。`
-    : `${cn}正位強烈指向舞台左側12排以內區域。這個位置正好捕捉他自然轉身的角度——你會看到側臉微表情、不經意的小動作，甚至可能對到眼。你的應援燈或手幅在這裡最顯眼；站姐們實測這個區域出片率最高。提前入場卡位，如果有延伸舞台，站在左角位置互動機率最大化。`;
+    ? `${cn}逆位提示本次線下演出可能會有一些小波動，例如入場擁擠、視野變化，或現場氛圍和預期略有差距。不要把全部快樂壓在某個「完美座位」上。側邊或偏高位置反而可能有更穩定的視野與更舒服的觀看體驗。應援物保持輕便，提前確認場館規則，並給自己留足入場時間，降低開場前的焦慮。`
+    : `${cn}正位顯示本次演出整體氛圍值得期待。只要提前確認票務、證件、路線、電量和應援物，現場體驗大概率會比較順。若涉及選座或站位，建議把視野清晰和身體舒適放在第一位，不要只追熱門區域。這張牌更偏向一種平衡的好運：氛圍在線、情緒穩定，也會有讓你覺得「來得值得」的瞬間。`;
   return { freeEn: hookEn, freeZh: hookZh, paidEn, paidZh };
 }
 
 function makeTicketing(idx: number, cn: string, rev: boolean): SceneReading {
   const hookEn = rev
-    ? "Skip the hot zones — try edge sections for better success rate"
-    : "Wi-Fi + fast fingers: your ticket window opens with strong odds";
+    ? "Ticketing has both chance and resistance — prepare backup options"
+    : "Ticketing energy is supportive — preparation will increase your success rate";
   const hookZh = rev
-    ? "跳過熱門區域——試試邊角座位，成功率更高"
-    : "Wi-Fi 滿格 + 手速：你的搶票窗口有強運加持";
+    ? "本次搶票機遇與阻力並存——提前準備備選方案更穩"
+    : "本次搶票運勢有支撐——準備越充分，成功率越高";
   const paidEn = rev
-    ? `The ${cn} reversed signals that popular sections will sell out instantly — don't fight the crowd. Instead, target seats at the edges of premium zones: aisle seats in sections adjacent to VIP often have nearly identical views at lower competition. If using a ticketing app, pre-save your payment method and avoid bundled packages (they glitch more). The sweet spot is 3-5 minutes after the initial rush, when failed payments release good seats back into the pool.`
-    : `The ${cn} shows strong ticketing energy. Position yourself near your router 5 minutes before sales open, with payment pre-authorized. Your best odds are in the first 90 seconds — don't hesitate on seat selection. Avoid "best available" auto-pick; manually select left-section seats for better results. If buying multiple tickets, use two devices on different networks (one Wi-Fi, one 5G) to double your chances. Mid-tier pricing often has less competition than the cheapest or most expensive bands.`;
+    ? `The ${cn} reversed shows ticketing pressure and possible small technical delays. Do not rely on a single platform or one ideal section. Prepare 2-3 backup zones, log in early, save your payment method, and keep your network stable. If the first attempt fails, do not panic; released seats or failed payments may create a second chance shortly after the initial rush.`
+    : `The ${cn} shows supportive ticketing luck, especially if you prepare ahead. Log in early, confirm your payment method, set alarms, and keep at least one backup device or platform ready. Your best strategy is not blind speed, but clear priority: know your target section, acceptable backup sections, and budget before the sale opens. A steady hand will help more than anxiety.`;
   const paidZh = rev
-    ? `${cn}逆位顯示熱門區域會秒殺——別跟人群硬碰硬。改瞄準VIP區邊緣的座位：緊鄰VIP的普通區走道位，視野幾乎一樣但競爭少很多。如果用搶票APP，提前預存付款方式，避開捆綁套餐（容易卡單）。黃金撿漏時間是開搶後3-5分鐘，失敗付款釋出的好座位會回流。`
-    : `${cn}正位顯示強勢搶票運。開搶前5分鐘蹲在路由器旁邊，付款方式提前授權。最佳命中窗口在前90秒——選座時不要猶豫。避開「最佳可選」自動分配，手動選左區座位效果更好。如果要買多張，用兩台裝置連不同網路（一台Wi-Fi，一台5G）雙倍機率。中間價位票通常比最便宜或最貴的檔次競爭更小。`;
+    ? `${cn}逆位顯示本次搶票有壓力，也可能出現小型技術延遲。不要只依賴單一平台或唯一理想區域，提前準備2-3個備選區，提早登入帳號、保存付款方式，並確認網路穩定。若第一波沒有成功，不要立刻慌，開搶後短時間內可能會有未付款釋出的二次機會。`
+    : `${cn}正位顯示本次搶票運勢有支撐，尤其適合提前做好準備的人。建議提前登入、確認付款方式、設定鬧鐘，並準備至少一個備用設備或平台。最好的策略不是盲目拼手速，而是先明確目標區域、可接受備選區和預算範圍。穩住心態，比焦慮狂點更有幫助。`;
   return { freeEn: hookEn, freeZh: hookZh, paidEn, paidZh };
 }
 
@@ -102,7 +104,7 @@ function makeMinor(suit: string, idx: number, cn: string, kwEn: string[], kwZh: 
         : `${cn} upright aligns with smart concert strategy. ${s === "wands" ? "Take initiative — arrive early and claim your optimal position confidently. The energy of this card rewards bold action." : s === "cups" ? "The emotional connection transcends physical distance — but being closer amplifies it. Choose seats where you can see his expressions clearly." : s === "swords" ? "Study the venue layout beforehand. Your analytical approach to seat selection will give you an edge over those who choose impulsively." : "Practical preparation wins. Charge your devices, pack light, and have your ticket ready. The details make the difference."}`,
       paidZh: rev
         ? `${cn}逆位：最明顯的選擇可能令人失望。避開最擁擠的區域——視線會受阻。改選偏高側面區域，視野出乎意料地親密，競爭也少。應援物要輕巧緊湊，方便長時間舉著。`
-        : `${cn}正位與聰明的演唱會策略一致。${s === "wands" ? "主動出擊——早到現場，自信地佔據最佳位置。這張牌的能量獎勵大膽行動。" : s === "cups" ? "情感連結超越物理距離——但靠得更近會放大它。選擇能清楚看到他表情的座位。" : s === "cups" ? "事先研究場地佈局。你對座位的分析性選擇會讓你比衝動選座的人更有優勢。" : "務實的準備致勝。充飽電、輕裝上陣、票準備好。細節決定成敗。"}`,
+        : `${cn}正位與聰明的演唱會策略一致。${s === "wands" ? "主動出擊——早到現場，自信地佔據最佳位置。這張牌的能量獎勵大膽行動。" : s === "cups" ? "情感連結超越物理距離——但靠得更近會放大它。選擇能清楚看到他表情的座位。" : s === "swords" ? "事先研究場地佈局。你對座位的分析性選擇會讓你比衝動選座的人更有優勢。" : "務實的準備致勝。充飽電、輕裝上陣、票準備好。細節決定成敗。"}`,
     },
     ticketing: {
       freeEn: rev ? "Avoid peak-competition seats — look for overlooked gems" : "Strong ticket energy: trust your instincts on seat selection",
@@ -132,7 +134,8 @@ export function getIdolSceneReading(cardId: number, scene: SceneKey, reversed: b
   else if (cardId <= 63) { suit = "swords"; idx = cardId - 50; }
   else { suit = "pentacles"; idx = cardId - 64; }
 
-  const cn = `Card #${cardId}`;
+  const card = TAROT_CARDS.find(c => c.id === cardId);
+  const cn = card?.nameCn || card?.name || `第 ${cardId} 张牌`;
   const gen = SUIT_SCENES[suit];
   if (!gen) {
     return {

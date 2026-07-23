@@ -144,6 +144,28 @@ export const payments = mysqlTable("payments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
+// Provider-facing checkout orders. Kept separate from the legacy payment table
+// so guest checkout can be verified without weakening authenticated records.
+export const paymentProviderOrders = mysqlTable("payment_provider_orders", {
+  id: serial("id"),
+  outTradeNo: varchar("out_trade_no", { length: 64 }).notNull().unique(),
+  provider: mysqlEnum("provider", ["alipay"]).default("alipay").notNull(),
+  userId: bigint("user_id", { mode: "number" }),
+  readingId: bigint("reading_id", { mode: "number" }),
+  reportType: varchar("report_type", { length: 40 }).notNull(),
+  reportKey: varchar("report_key", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 200 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 8 }).default("CNY").notNull(),
+  status: mysqlEnum("status", ["pending", "completed", "failed", "refunded"]).default("pending").notNull(),
+  providerTradeNo: varchar("provider_trade_no", { length: 64 }),
+  accessTokenHash: varchar("access_token_hash", { length: 64 }).notNull(),
+  returnPath: varchar("return_path", { length: 500 }).notNull(),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
 export const readingUnlocks = mysqlTable("reading_unlocks", {
   id: serial("id"),
   userId: bigint("user_id", { mode: "number" }).notNull(),
@@ -230,6 +252,7 @@ export type Artist = typeof artists.$inferSelect;
 export type ArtistGroup = typeof artistGroups.$inferSelect;
 export type Reading = typeof readings.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type PaymentProviderOrder = typeof paymentProviderOrders.$inferSelect;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type ArtistSchedule = typeof artistSchedules.$inferSelect;
 export type CompatibilityResult = typeof compatibilityResults.$inferSelect;

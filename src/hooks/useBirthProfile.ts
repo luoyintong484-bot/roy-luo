@@ -41,7 +41,14 @@ const EMPTY_PROFILE: BirthProfile = {
 function loadProfile(): BirthProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...EMPTY_PROFILE, ...JSON.parse(raw) };
+    if (raw) {
+      const loaded = { ...EMPTY_PROFILE, ...JSON.parse(raw) };
+      const derived = computeDerivedFields(loaded.birthYear, loaded.birthMonth, loaded.birthDay);
+      if (derived.baziDayPillar) {
+        return { ...loaded, ...derived };
+      }
+      return loaded;
+    }
   } catch {}
   return { ...EMPTY_PROFILE };
 }
@@ -66,14 +73,25 @@ const MANSIONS = [
   "井宿", "鬼宿", "柳宿", "星宿", "张宿", "翼宿", "轸宿",
 ];
 
+function isValidDate(year: number, month: number, day: number): boolean {
+  const targetDate = new Date(Date.UTC(year, month - 1, day));
+  return (
+    targetDate.getUTCFullYear() === year &&
+    targetDate.getUTCMonth() === month - 1 &&
+    targetDate.getUTCDate() === day
+  );
+}
+
 function computeBaziDayPillar(year: number, month: number, day: number): string {
-  // Simplified stem-branch calculation based on known reference date (1900-01-01 = 甲戌)
-  const refDate = new Date(1900, 0, 1);
-  const targetDate = new Date(year, month - 1, day);
+  if (!isValidDate(year, month, day)) return "";
+
+  // 1900-01-01 is a Jia-Xu day. Use UTC noon-neutral dates so browser timezone
+  // differences do not shift the day pillar for users outside China.
+  const refDate = new Date(Date.UTC(1900, 0, 1));
+  const targetDate = new Date(Date.UTC(year, month - 1, day));
   const diffDays = Math.floor((targetDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24));
-  const stemIdx = ((diffDays % 10) + 10) % 10;
-  const branchIdx = ((diffDays % 12) + 12) % 12;
-  return HEAVENLY_STEMS[stemIdx] + EARTHLY_BRANCHES[branchIdx];
+  const cycleIdx = ((10 + diffDays) % 60 + 60) % 60;
+  return HEAVENLY_STEMS[cycleIdx % 10] + EARTHLY_BRANCHES[cycleIdx % 12];
 }
 
 function computeZodiacSign(month: number, day: number): string {
@@ -111,7 +129,7 @@ export function computeDerivedFields(
   const y = parseInt(birthYear);
   const m = parseInt(birthMonth);
   const d = parseInt(birthDay);
-  if (!y || !m || !d) return { baziDayPillar: "", starMansion: "", zodiacSign: "" };
+  if (!y || !m || !d || !isValidDate(y, m, d)) return { baziDayPillar: "", starMansion: "", zodiacSign: "" };
   const baziDayPillar = computeBaziDayPillar(y, m, d);
   const starMansion = computeStarMansion(baziDayPillar);
   const zodiacSign = computeZodiacSign(m, d);

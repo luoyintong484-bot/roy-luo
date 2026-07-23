@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
-/** Black starry-sky background for all non-Home pages.
- *  Pure black base #000000 with silver + soft pink sparkles.
+/** Soft starry-sky background for all non-Home pages.
+ *  Deep plum-black base with silver + soft pink sparkles.
  *  Gentle twinkle + slow drift — elegant, understated. */
 export default function SubtlePinkBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -40,7 +40,11 @@ export default function SubtlePinkBg() {
     let raf: number;
     const draw = () => {
       const t = Date.now() * 0.001;
-      ctx.fillStyle = "#000000";
+      const base = ctx.createRadialGradient(w * 0.48, h * 0.12, 0, w * 0.5, h * 0.8, Math.max(w, h) * 0.98);
+      base.addColorStop(0, w < 768 ? "#15101f" : "#0c0a12");
+      base.addColorStop(0.45, w < 768 ? "#0b0913" : "#05050a");
+      base.addColorStop(1, "#020205");
+      ctx.fillStyle = base;
       ctx.fillRect(0, 0, w, h);
 
       for (const s of stars) {
@@ -103,7 +107,7 @@ export default function SubtlePinkBg() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 0, background: "#000000" }}
+      style={{ zIndex: 0, background: "#07050b" }}
     />
   );
 }

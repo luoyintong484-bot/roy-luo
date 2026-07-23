@@ -4,9 +4,9 @@ import InnerPageLayout from "@/components/InnerPageLayout";
 import { getArtistById, ZODIAC_EMOJIS } from "@/data/artists";
 import { useI18n } from "@/contexts/I18nContext";
 import {
-  ArrowLeft, Calendar, MapPin, Sparkles, Heart, Star,
+  ArrowLeft, Calendar, Sparkles, Heart, Star,
   Lock, Crown, ChevronRight,
-  Flame, User, Sunrise, Shield, Gem
+  Flame, User, Sunrise, Gem
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -43,12 +43,11 @@ export default function ArtistDetail() {
     );
   }
 
-  // 8 profile tags
+  // Profile tags exposed in public artist pages.
   const profileTags = [
     { label: t("artist.sunSign"), value: `${artist.zodiacSign} ${ZODIAC_EMOJIS[artist.zodiacSign] || ""}`, icon: <Sunrise className="w-3 h-3" />, detail: `${t("artist.moonSign")}: ${artist.zodiacMoon}` },
     { label: t("artist.baziDayPillar"), value: artist.baziDayPillar, icon: <Gem className="w-3 h-3" />, detail: `${artist.element} · ${artist.chineseZodiac}` },
     { label: t("artist.starMansion"), value: artist.starMansion, icon: <Star className="w-3 h-3" />, detail: "" },
-    { label: t("artist.mbti"), value: artist.mbti, icon: <Shield className="w-3 h-3" />, detail: "" },
     { label: t("artist.chineseZodiac"), value: artist.chineseZodiac, icon: <Sparkles className="w-3 h-3" />, detail: "" },
     { label: t("artist.element"), value: artist.element, icon: <Flame className="w-3 h-3" />, detail: "" },
     { label: t("artist.debut"), value: artist.debutDate, icon: <Calendar className="w-3 h-3" />, detail: artist.agency },
@@ -95,7 +94,6 @@ export default function ArtistDetail() {
                 <div className="flex flex-wrap gap-2 mt-4 justify-center sm:justify-start">
                   {[
                     `${artist.zodiacSign} ${ZODIAC_EMOJIS[artist.zodiacSign] || ""}`,
-                    artist.mbti,
                     artist.element,
                     artist.baziDayPillar,
                     artist.starMansion,
@@ -138,11 +136,6 @@ export default function ArtistDetail() {
                   {artist.birthTime !== "00:00" && (
                     <span className="text-[10px] text-[#d4a85344]">{artist.birthTime}</span>
                   )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-[#d4a85333]" />
-                  <span className="text-[10px] text-[#8a8aad33]">{t("artist.birthplace")}</span>
-                  <span className="text-xs text-[#d4a85366]">{artist.birthPlace}</span>
                 </div>
               </div>
             </div>

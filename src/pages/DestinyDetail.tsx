@@ -4,19 +4,24 @@ import { useI18n } from "@/contexts/I18nContext"
 import { trpc } from "@/providers/trpc"
 import PayModal, { PAYWALL_CONFIGS } from "@/components/PayModal"
 import ShareModal from "@/components/ShareModal"
-import { isReportPaid, unlockReport } from "@/lib/payment-service"
+import { ZiweiDoushuPanel, ZiweiSynastryPanel } from "@/components/ZiweiDoushuPanel"
+import { unlockReport } from "@/lib/payment-service"
+import { getLocalPrice } from "@/lib/pricing"
+import { buildZiweiChart, buildZiweiSynastry } from "@/lib/ziwei-doushu"
+import { PAYMENT_COMING_SOON } from "@/const"
 import Navbar from "@/components/Navbar"
 import CustomerService from "@/components/CustomerService"
 import Footer from "@/sections/Footer"
 import {
   ArrowLeft, Star, Sparkles, Calendar, MapPin, Clock, Moon,
   Sun, ChevronRight, TrendingUp, Heart, Coins, Activity, BookOpen,
-  Crown, Lock, ChevronDown, Users
+  Crown, Users
 } from "lucide-react"
 
 const aspectIcons: Record<string, typeof TrendingUp> = {
   "事业": TrendingUp, "感情": Heart, "财运": Coins, "健康": Activity, "学业": BookOpen,
 }
+const PREVIEW_FULL_DESTINY = false;
 
 // Western-style circular natal chart (placeholder SVG)
 function NatalChartSvg() {
@@ -98,9 +103,37 @@ function NatalChartSvg() {
   )
 }
 
-function BoldBrackets({ text }: { text: string }) {
-  const parts = text.split(/(【[^】]+】)/g);
-  return <>{parts.map((p, i) => p.startsWith("【") ? <strong key={i} className="font-semibold text-[#f5e8d0]">{p}</strong> : p)}</>;
+function ReportBody({ text }: { text: string }) {
+  const paragraphs = text.split(/\n\n+/).filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      {paragraphs.map((paragraph, index) => {
+        const match = paragraph.match(/^(【[^】]+】)\s*(.*)$/s);
+        if (!match) {
+          return (
+            <p key={index} className="text-[15px] leading-[1.9] text-[#2f261d] font-[520] tracking-[0.2px]">
+              {paragraph}
+            </p>
+          );
+        }
+
+        return (
+          <div key={index} className="rounded-xl border border-[#d4a85325] bg-[#faf3e0] p-4 shadow-[inset_3px_0_0_rgba(212,168,83,0.72)]">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d4a853]" />
+              <span className="rounded-full border border-[#d4a85330] bg-[#d4a85320] px-3 py-1 text-[13px] font-bold leading-none text-[#8a5a16]">
+                {match[1]}
+              </span>
+            </div>
+            <p className="text-[14px] leading-[1.85] text-[#2f261d] font-[480] tracking-[0.15px]">
+              {match[2]}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function ComprehensiveReport({ isZh }: { isZh: boolean }) {
@@ -132,22 +165,132 @@ function ComprehensiveReport({ isZh }: { isZh: boolean }) {
   ];
 
   return (
-    <div className="glass rounded-2xl p-5 sm:p-6 border-2 border-[#d4a85333] space-y-6 animate-fade-in">
-      <div className="text-center">
-        <h2 className="font-display text-xl font-bold text-[#d4a853]">
+    <div className="glass rounded-3xl p-5 sm:p-7 border border-[#d4a85335] space-y-6 animate-fade-in shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+      <div className="text-center border-b border-[#d4a85318] pb-5">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#d4a853] tracking-[0.2px]">
           {isZh ? "🔮 綜合命理完整報告" : "🔮 Comprehensive Destiny Report"}
         </h2>
-        <p className="text-[10px] text-[#8a8aad44] mt-1">
+        <p className="text-[11px] text-[#8a8aad88] mt-2 tracking-[0.18em] uppercase">
           {isZh ? "八字 · 本命星盤 · 印度占星 交叉驗證分析" : "Bazi · Natal · Vedic Cross-Validation"}
         </p>
       </div>
       {sections.map((s, i) => (
-        <div key={i} className="bg-[#151520] rounded-xl p-4 border border-[#FFB6C108]">
-          <h3 className="text-base font-bold text-[#FFB6C1] mb-3 flex items-center gap-2">
-            <span>{s.icon}</span> {s.title}
-          </h3>
-          <p className="text-xs text-[#f0e6d3] font-[450] leading-[1.6] tracking-[0.5px] whitespace-pre-line"><BoldBrackets text={s.content} /></p>
+        <div key={i} className="relative overflow-hidden rounded-2xl border border-[#d4a8531f] bg-[#151520]/92 p-5 sm:p-6 shadow-[0_14px_36px_rgba(0,0,0,0.24)]">
+          <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 bg-[#d4a85308] blur-2xl" />
+          <div className="relative mb-5 flex items-center gap-3 border-b border-[#d4a85314] pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4a85326] bg-[#d4a85312] text-xl shadow-[0_0_24px_rgba(212,168,83,0.08)]">
+              {s.icon}
+            </div>
+            <div>
+              <div className="h-0.5 w-8 rounded-full bg-[#d4a853] mb-2" />
+              <h3 className="font-display text-xl sm:text-2xl font-bold text-[#f7d9a8] tracking-[0.4px]">
+                {s.title}
+              </h3>
+            </div>
+          </div>
+          <ReportBody text={s.content} />
         </div>
+      ))}
+    </div>
+  );
+}
+
+function SynastryReportCard({ icon, title, content }: { icon: string; title: string; content: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#d4a85325] bg-[#faf3e0] p-5 sm:p-6 shadow-sm">
+      <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 bg-[#d4a85308] blur-2xl" />
+      <div className="relative mb-5 flex items-center gap-3 border-b border-[#d4a85320] pb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d4a85330] bg-[#d4a85315] text-xl">
+          {icon}
+        </div>
+        <div>
+          <div className="h-0.5 w-8 rounded-full bg-[#d4a853] mb-2" />
+          <h3 className="font-display text-xl sm:text-2xl font-bold text-[#2f261d] tracking-[0.4px]">
+            {title}
+          </h3>
+        </div>
+      </div>
+      <ReportBody text={content} />
+    </div>
+  );
+}
+
+function SynastryBasicReport({ p1, p2, elementRel, isZh }: { p1: any; p2: any; elementRel: string; isZh: boolean }) {
+  const p1Name = p1?.name || (isZh ? "你" : "You");
+  const p2Name = p2?.name || (isZh ? "對方" : "Partner");
+  const sections = [
+    {
+      icon: "💞",
+      title: isZh ? "合盤普通版報告" : "Basic Synastry Report",
+      content: isZh
+        ? `${p1Name}與${p2Name}的基礎合盤顯示，這段關係不是單純靠新鮮感推動，而是帶有明顯的互補與牽引。${p1Name}的${p1.zodiac}能量更像是關係裡的主動感受源，${p2Name}的${p2.zodiac}能量則會影響關係的穩定節奏；兩個人靠近時，容易先感受到「被看見」或「被理解」，但真正走下去需要把情緒默契落到日常溝通裡。\n\n【關係定位】你們的日主組合為${p1.pillar}與${p2.pillar}，五行互動呈現「${elementRel}」。這代表兩個人在關係裡不是完全同頻，而是會透過差異來補足彼此：一方提供推動力，另一方提供校準感。這種配置適合從曖昧、相處、共同完成小目標開始累積信任，不適合一開始就用過高承諾壓迫關係。\n\n【核心優勢】${p1.mansion}與${p2.mansion}的星宿連結讓這段關係有一種「越了解越有內容」的特質。你們不是只適合短暫熱烈，而是適合在反覆交流中看到對方更深的一面。普通版先看結論：這段關係有吸引力，也有磨合點；如果雙方願意說清需求，它會比表面看起來更有延展性。\n\n【需要留意】你們的主要風險不是沒有感情，而是容易在關係節奏上誤會彼此。${p1Name}可能更在意當下回應，${p2Name}可能更需要時間確認安全感。不要用「對方不立刻回應」推導成「對方不在乎」，這會放大不必要的焦慮。`
+        : `${p1Name} and ${p2Name}'s basic synastry shows this relationship is not driven by novelty alone; it carries clear complementarity and pull. ${p1Name}'s ${p1.zodiac} energy acts as the active feeling source, while ${p2Name}'s ${p2.zodiac} energy shapes the relationship's rhythm. When you move closer, the first feeling is often being seen or understood, but long-term growth requires emotional resonance to become daily communication.\n\n【Relationship Positioning】Your Day Masters are ${p1.pillar} and ${p2.pillar}, with an elemental interaction of "${elementRel}". This means you are not fully identical in frequency; difference is exactly how you complete each other. One side brings movement, the other calibration. This configuration suits gradual trust-building through conversation and shared small goals, not pressure-heavy commitment at the very beginning.\n\n【Core Strength】The mansion link between ${p1.mansion} and ${p2.mansion} gives the bond a "deeper with time" quality. This is not only short-lived intensity; repeated exchange helps you discover richer layers in each other. Basic conclusion: attraction exists, friction exists too. If both sides can name their needs clearly, the relationship has more room to grow than it first appears.\n\n【Watch Point】The main risk is not lack of feeling, but mismatched pacing. ${p1Name} may care more about immediate response, while ${p2Name} may need time to confirm safety. Do not translate delayed response into lack of care; that would inflate unnecessary anxiety.`
+    },
+  ];
+
+  return (
+    <div className="bg-white/80 rounded-3xl p-5 sm:p-7 border border-[#d4a85325] space-y-6 animate-fade-in shadow-sm">
+      <div className="text-center border-b border-[#d4a85318] pb-5">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#d4a853] tracking-[0.2px]">
+          {isZh ? "💕 合盤普通版報告" : "💕 Basic Synastry Report"}
+        </h2>
+        <p className="text-[11px] text-[#8a8071] mt-2 tracking-[0.18em] uppercase">
+          {isZh ? "關係定位 · 核心優勢 · 相處提醒" : "Positioning · Strengths · Relationship Notes"}
+        </p>
+      </div>
+      {sections.map((section) => (
+        <SynastryReportCard key={section.title} icon={section.icon} title={section.title} content={section.content} />
+      ))}
+    </div>
+  );
+}
+
+function SynastryFullPreviewReport({ p1, p2, elementRel, isZh }: { p1: any; p2: any; elementRel: string; isZh: boolean }) {
+  const p1Name = p1?.name || (isZh ? "你" : "You");
+  const p2Name = p2?.name || (isZh ? "對方" : "Partner");
+  const sections = [
+    {
+      icon: "🧲",
+      title: isZh ? "核心吸引力與比較盤" : "Core Attraction & Synastry",
+      content: isZh
+        ? `完整版首先看比較盤，也就是兩個人的本命能量如何互相觸發。${p1Name}的${p1.zodiac}與${p2Name}的${p2.zodiac}並不是單純的星座配對，它更像兩套心理系統的接觸：一套負責主動靠近，一套負責判斷能不能長期停留。你們的吸引不是只有「喜歡」，而是對方身上有某種自己缺少、但又很想靠近的品質。\n\n【吸引來源】${p1Name}的日主${p1.pillar}與${p2Name}的日主${p2.pillar}形成${elementRel}，這代表兩個人在一起時會啟動彼此的補償機制。感情中最上頭的點，往往不是對方完美，而是對方剛好碰到了你內在長期空缺的地方。這種吸引力很強，但也容易讓人把「被觸動」誤認成「完全適合」。\n\n【金火互動話術】從合盤語境看，金星代表愛意表達與審美偏好，火星代表欲望、行動與衝突方式。你們的配置更像「先被氣場吸引，再透過互動確認」。如果關係處於曖昧期，對方可能不一定會用很直白的方式告白，但會透過靠近、試探、主動找話題或觀察你的反應來確認安全範圍。\n\n【專業判斷】這段關係的吸引力是真實存在的，但不是無條件穩定。它需要持續溝通來把吸引落地，否則容易停留在想像、猜測和情緒拉扯裡。`
+        : `The full report begins with synastry: how two natal systems trigger each other. ${p1Name}'s ${p1.zodiac} and ${p2Name}'s ${p2.zodiac} are not just a zodiac match; they are two psychological systems meeting. One initiates closeness, the other evaluates long-term safety. The attraction is not merely "liking"; the other person carries a quality you lack and instinctively want to move toward.\n\n【Attraction Source】${p1Name}'s ${p1.pillar} Day Master and ${p2Name}'s ${p2.pillar} Day Master form ${elementRel}, activating mutual compensation. The most intoxicating part is rarely that the other person is perfect; it is that they touch a long-empty inner space. This is powerful, but it can make you mistake being triggered for being fully compatible.\n\n【Venus-Mars Language】In synastry, Venus describes affection and taste; Mars describes desire, action, and conflict style. Your configuration reads as "drawn by aura first, confirmed through interaction later." If this is still a situationship, the other may not confess directly, but will test closeness through conversation, proximity, and watching your responses.\n\n【Professional Read】The attraction is real, but not automatically stable. It needs communication to become grounded; otherwise it can remain in imagination, guessing, and emotional push-pull.`
+    },
+    {
+      icon: "🌙",
+      title: isZh ? "情緒需求與相處模式" : "Emotional Needs & Daily Pattern",
+      content: isZh
+        ? `合盤真正能不能走長，不能只看吸引力，還要看月亮與水星象徵的情緒照顧和溝通節奏。你們的關係裡，一方更容易追求即時回應，另一方更容易先觀察再表態；這會讓互相喜歡的兩個人，因為節奏不同而誤以為對方冷淡或壓迫。\n\n【月亮需求】${p1Name}在關係裡更需要確認感：對方有沒有回應、情緒有沒有接住、說過的話是否被記得。${p2Name}則更需要空間感：不是不在乎，而是需要保留一點自己的節奏。當這兩種需求相遇時，最容易出現「一方追，一方退」的模式。\n\n【水星溝通】你們適合把關係裡的模糊感說清楚，但不適合在情緒最高點討論。水星代表信息交換，當情緒升高時，訊息會被安全感需求扭曲：一句普通的話可能被聽成拒絕，一次沉默可能被解讀為冷暴力。建議使用低壓表達，例如「我不是要你立刻給答案，我只是想知道你現在的狀態」。\n\n【相處建議】這段關係最需要建立「可預期性」。不是每天黏在一起，而是讓彼此知道：忙的時候怎麼說、需要空間時怎麼說、不舒服時怎麼說。可預期性一旦建立，吸引力會轉化成穩定感。`
+        : `Long-term potential is not measured by attraction alone; it depends on Moon and Mercury themes: emotional care and communication rhythm. In this relationship, one side seeks immediate response while the other observes before expressing. Two people can like each other and still misread pacing as coldness or pressure.\n\n【Moon Needs】${p1Name} needs confirmation in relationship: response, emotional reception, and remembered details. ${p2Name} needs breathing room: not because they do not care, but because they require their own rhythm. When these needs meet, a chase-withdraw pattern can appear.\n\n【Mercury Communication】You benefit from naming ambiguity, but not at emotional peaks. Mercury governs information exchange; when emotions rise, messages are distorted by safety needs. A normal sentence may sound like rejection; silence may be read as punishment. Use low-pressure phrasing: "I don't need an immediate answer, I just want to know where you are emotionally."\n\n【Advice】The relationship needs predictability. Not constant closeness, but clear rules for busyness, space, and discomfort. Once predictability exists, attraction can become stability.`
+    },
+    {
+      icon: "⚡",
+      title: isZh ? "矛盾點、業力課題與修復方式" : "Conflict, Karma & Repair",
+      content: isZh
+        ? `你們的合盤不是完全無摩擦型，而是「有吸引，也有功課」的配置。這類關係最容易讓人又心動又不安：靠近時很有感覺，但一旦涉及承諾、邊界、未來安排，就容易啟動防禦。\n\n【核心矛盾】${p1Name}與${p2Name}的五行互動為${elementRel}，這說明你們的矛盾不一定來自不愛，而是來自處理安全感的方式不同。一方可能想透過確認關係來安心，另一方可能想透過保留空間來安心。兩種方式都合理，但如果不說清楚，就會互相傷害。\n\n【業力課題】${p1.mansion}與${p2.mansion}的星宿關係帶有明顯的鏡像感：你們會把彼此最需要成長的地方照出來。這不是「孽緣」的簡單標籤，而是關係中的功課感。你在對方身上看到的刺痛點，往往也是你自己需要整合的部分。\n\n【修復方式】吵架時不要追求立刻贏，而要追求立刻降溫。建議設定三句安全句：「我現在情緒上來了，但我不是要放棄你」、「我們先停一下，等30分鐘再聊」、「我想解決問題，不是攻擊你」。這三句話比講道理更能保護關係。`
+        : `This is not a frictionless synastry; it is "attraction plus lessons." These relationships often feel both exciting and unsettling: closeness feels powerful, but commitment, boundaries, and future planning can activate defenses.\n\n【Core Conflict】The elemental interaction is ${elementRel}, which means conflict does not necessarily come from lack of love, but from different safety strategies. One person seeks certainty through definition; the other seeks safety through space. Both are reasonable, but unnamed differences can hurt.\n\n【Karmic Lesson】The ${p1.mansion}-${p2.mansion} mansion link has a mirror quality: you reflect each other's growth points. This is not a simplistic "bad karma" label; it is relationship coursework. What hurts in the other often reveals what you still need to integrate within yourself.\n\n【Repair Method】In conflict, do not aim to win quickly; aim to cool down quickly. Use safety sentences: "My emotions are high, but I am not giving up on you." "Let's pause and talk again in 30 minutes." "I want to solve the problem, not attack you." These protect the bond better than logic.`
+    },
+    {
+      icon: "🧭",
+      title: isZh ? "未來發展趨勢與行動建議" : "Future Trend & Action Guide",
+      content: isZh
+        ? `未來三到六個月，這段關係的重點不是突然定局，而是逐步看清雙方是否願意為關係投入穩定行動。合盤裡的吸引力已經存在，接下來要看的，是能不能從「情緒牽引」走向「現實配合」。\n\n【短期趨勢】如果你們正在曖昧，未來一段時間會出現一次更明確的互動窗口：可能是對方主動靠近、一次深聊、一次見面安排，或某個讓關係重新升溫的契機。你需要做的不是逼問結果，而是觀察對方是否有持續行動。\n\n【中期趨勢】如果你們已經在一起，接下來會進入生活節奏磨合期。這時候不要只看甜不甜，而要看能不能處理壓力、時間安排、金錢觀與邊界。真正有長期潛力的關係，不是永遠不吵，而是吵完之後能不能更懂彼此。\n\n【行動建議】第一，不要用測試對方的方式尋找安全感；直接表達需求更有效。第二，不要把所有問題都歸因於「不夠愛」；很多問題其實是節奏、表達和防禦方式不同。第三，保留自己的生活重心。你的穩定感越強，這段關係越不容易陷入拉扯。`
+        : `Over the next three to six months, the key is not sudden finality but whether both people can invest stable actions. The attraction already exists; the question is whether emotional pull can become real-life coordination.\n\n【Short-Term Trend】If this is a situationship, a clearer interaction window is likely: more initiative, a deep conversation, a meeting arrangement, or a moment that warms the connection again. Do not force a conclusion; observe whether action becomes consistent.\n\n【Mid-Term Trend】If you are already together, the next phase tests rhythm: pressure, time management, money values, and boundaries. Long-term potential is not about never fighting; it is about whether conflict produces more understanding.\n\n【Action Guide】First, do not seek safety through testing; direct needs work better. Second, do not reduce every problem to "not enough love"; many issues are pacing, expression, and defenses. Third, keep your own center. The more stable you are, the less the relationship falls into push-pull.`
+    },
+  ];
+
+  return (
+    <div className="bg-white/80 rounded-3xl p-5 sm:p-7 border border-[#d4a85325] space-y-6 animate-fade-in shadow-sm">
+      <div className="text-center border-b border-[#d4a85318] pb-5">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#d4a853] tracking-[0.2px]">
+          {isZh ? "💎 合盤完整版深度報告" : "💎 Full Synastry Deep Report"}
+        </h2>
+        <p className="text-[11px] text-[#8a8071] mt-2 tracking-[0.18em] uppercase">
+          {isZh ? "比較盤 · 情緒需求 · 業力課題 · 發展建議" : "Synastry · Moon Needs · Karmic Lessons · Action Guide"}
+        </p>
+      </div>
+      {sections.map((section) => (
+        <SynastryReportCard key={section.title} icon={section.icon} title={section.title} content={section.content} />
       ))}
     </div>
   );
@@ -158,7 +301,6 @@ export default function DestinyDetail() {
   const navigate = useNavigate();
   const isZh = locale === "zh-TW" || locale === "zh";
   const [activeTab, setActiveTab] = useState<"overview" | "bazi" | "vedic" | "ziwei">("overview")
-  const [showZiwei, setShowZiwei] = useState(false)
   const [showPayModal, setShowPayModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
 
@@ -167,6 +309,10 @@ export default function DestinyDetail() {
   const state = location.state as any
   const isSynastry = state?.type === "synastry"
   const isNatal = state?.type === "natal" || !state?.type
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1)
+    else navigate("/destiny")
+  }
 
   // ---- Helper: compute zodiac, bazi, element, mansion from birth date ----
   function getZodiacSign(date: Date): string {
@@ -256,6 +402,55 @@ export default function DestinyDetail() {
     } catch { return null }
   }, [isSynastry, state?.birthDate, state?.birthDate2, state?.name, state?.name2, isZh])
 
+  const ziweiChart1 = useMemo(() => {
+    if (!synastryData?.p1) {
+      return buildZiweiChart({
+        name: state?.name || "User",
+        birthDate: state?.birthDate || "1995-03-15",
+        birthTime: state?.birthTime || "14:30",
+        gender: state?.gender || "male",
+      });
+    }
+    return buildZiweiChart({
+      name: synastryData.p1.name,
+      birthDate: synastryData.p1.birthDate,
+      birthTime: synastryData.p1.birthTime,
+      gender: state?.gender || "male",
+    });
+  }, [synastryData?.p1?.name, synastryData?.p1?.birthDate, synastryData?.p1?.birthTime, state?.name, state?.birthDate, state?.birthTime, state?.gender]);
+
+  const ziweiChart2 = useMemo(() => {
+    if (!synastryData?.p2) return null;
+    return buildZiweiChart({
+      name: synastryData.p2.name,
+      birthDate: synastryData.p2.birthDate,
+      birthTime: synastryData.p2.birthTime,
+      gender: state?.gender2 || "female",
+    });
+  }, [synastryData?.p2?.name, synastryData?.p2?.birthDate, synastryData?.p2?.birthTime, state?.gender2]);
+
+  const ziweiSynastry = useMemo(() => {
+    if (!ziweiChart1 || !ziweiChart2) return null;
+    return buildZiweiSynastry(ziweiChart1, ziweiChart2);
+  }, [ziweiChart1, ziweiChart2]);
+
+  useEffect(() => {
+    try {
+      if (ziweiChart1) {
+        localStorage.setItem("r7_ziwei_natal_report", JSON.stringify(ziweiChart1));
+      }
+      if (ziweiChart1 && ziweiChart2 && ziweiSynastry) {
+        localStorage.setItem("r7_ziwei_synastry_report", JSON.stringify({
+          chartA: ziweiChart1,
+          chartB: ziweiChart2,
+          result: ziweiSynastry,
+        }));
+      }
+    } catch (error) {
+      console.warn("[ziwei-report-cache] Failed to cache report payload:", error);
+    }
+  }, [ziweiChart1, ziweiChart2, ziweiSynastry]);
+
   // ---- Auto-save reading to user history (fire-once via ref) ----
   const readingCreate = trpc.reading.create.useMutation({
     onError: (err) => console.warn("[save-reading] API save failed, using localStorage fallback:", err.message),
@@ -332,13 +527,11 @@ export default function DestinyDetail() {
   ]
 
   const tabs = isSynastry ? [
-    { key: "bazi" as const, label: isZh ? "八字合盤" : "Bazi Synastry", icon: Calendar },
-    { key: "vedic" as const, label: isZh ? "印度占星合盤" : "Vedic Synastry", icon: Moon },
     { key: "overview" as const, label: isZh ? "關係總覽" : "Relationship Overview", icon: Star },
+    { key: "ziwei" as const, label: isZh ? "紫微合盤" : "Ziwei Synastry", icon: Crown },
   ] : [
     { key: "overview" as const, label: isZh ? "總覽" : "Overview", icon: Star },
-    { key: "bazi" as const, label: isZh ? "本八字星盤" : "Bazi Chart", icon: Calendar },
-    { key: "vedic" as const, label: isZh ? "印度占星星盤" : "Vedic Chart", icon: Moon },
+    { key: "ziwei" as const, label: isZh ? "紫微命盤" : "Ziwei Chart", icon: Crown },
   ]
 
   return (
@@ -347,33 +540,39 @@ export default function DestinyDetail() {
       <main className="pt-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Back */}
-          <button onClick={() => window.history.back()} className="inline-flex items-center gap-1.5 text-xs text-[#8a8aad] hover:text-[#FFB6C1] transition-colors mb-6">
+          <button onClick={goBack} className="inline-flex items-center gap-1.5 text-xs text-[#8a8071] hover:text-[#2f261d] transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" />{isZh ? "返回上一頁" : "Back"}
           </button>
 
           {/* Header */}
-          <div className="glass rounded-2xl p-6 mb-6 relative overflow-hidden">
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-[0.03]" style={{ background: "radial-gradient(circle, #d4a853 0%, transparent 70%)" }} />
+          <div className="bg-white/80 rounded-2xl p-6 mb-6 relative overflow-hidden border border-[#d4a85320] shadow-sm">
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-[0.04]" style={{ background: "radial-gradient(circle, #d4a853 0%, transparent 70%)" }} />
             <div className="flex items-center gap-4 relative">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#d4a85330] to-[#14142a] flex items-center justify-center text-2xl border border-[#d4a85320]">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#faf3e0] to-[#fffaf0] flex items-center justify-center text-2xl border border-[#d4a85325]">
                 <Sparkles className="w-7 h-7 text-[#d4a853]" />
               </div>
               <div>
                 <div className="flex items-center justify-between flex-1">
-                  <h1 className="font-display text-xl font-bold text-[#f0e6d3]">
+                  <h1 className="font-display text-xl font-bold text-[#2f261d]">
                     {isSynastry && synastryData?.p2
                       ? (isZh
                           ? `${synastryData.p1.name || "你"} × ${synastryData.p2.name || "對方"} 雙人合盤`
                           : `${synastryData.p1.name || "You"} × ${synastryData.p2.name || "Partner"} Synastry`)
-                      : `${userInfo.name}'s Bazi & Astrology Reading`
+                      : (isZh ? `${userInfo.name} 的紫微斗數命盤` : `${userInfo.name}'s Ziwei Doushu Chart`)
                     }
                   </h1>
-                  <button onClick={() => setShowPayModal(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all animate-pulse flex-shrink-0 ml-3">
-                    {isZh ? "解鎖完整報告 $9.99" : "Unlock Full Report $9.99"}
-                  </button>
+                  {!PREVIEW_FULL_DESTINY && (
+                    <button onClick={() => setShowPayModal(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all animate-pulse flex-shrink-0 ml-3">
+                      {PAYMENT_COMING_SOON
+                        ? (isZh ? "完整報告即將上線" : "Full Report Coming Soon")
+                        : (isZh
+                            ? `解鎖完整解析 ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`
+                            : `Unlock Full Reading ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`)}
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-[10px] text-[#8a8aad]">
+                <div className="flex items-center gap-3 mt-1 text-[10px] text-[#8a8071]">
                   {isSynastry && synastryData?.p2 ? (
                     <>
                       <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" />{synastryData.p1.birthDate?.slice(0,10)}</span>
@@ -393,7 +592,7 @@ export default function DestinyDetail() {
                        ...(synastryData.p2 ? [synastryData.p2.pillar, synastryData.p2.zodiac, synastryData.p2.mansion, synastryData.p2.element] : [])]
                     : ["丙火", "双鱼座", "壁宿", "火", "乙亥年"]
                   ).map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 bg-[#d4a85308] text-[#d4a85388] text-[9px] rounded-full border border-[#d4a85310]">{tag}</span>
+                    <span key={tag} className="px-2 py-0.5 bg-[#faf3e0] text-[#b8860b] text-[9px] rounded-full border border-[#d4a85325]">{tag}</span>
                   ))}
                 </div>
               </div>
@@ -408,8 +607,8 @@ export default function DestinyDetail() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                   activeTab === tab.key
-                    ? "bg-[#d4a853] text-[#0a0a0f]"
-                    : "bg-[#14142a]/60 text-[#8a8aad] hover:text-[#f0e6d3] border border-[#d4a85308]"
+                    ? "bg-[#d4a853] text-white shadow-sm"
+                    : "bg-[#faf3e0] text-[#8a8071] hover:text-[#2f261d] border border-[#d4a85325] hover:border-[#d4a85350]"
                 }`}
               >
                 <tab.icon className="w-3.5 h-3.5" />{tab.label}
@@ -420,15 +619,15 @@ export default function DestinyDetail() {
           {/* Content */}
           {/* Dual basic info bar — synastry only */}
           {isSynastry && synastryData?.p2 && (
-            <div className="mb-6 glass rounded-xl p-4 border border-[#d4a85310]">
-              <h3 className="text-xs font-semibold text-[#d4a853] mb-3 text-center">{isZh ? "雙方基礎資訊" : "Both Parties Basic Info"}</h3>
+            <div className="mb-6 bg-white/80 rounded-xl p-4 border border-[#d4a85320] shadow-sm">
+              <h3 className="text-xs font-semibold text-[#b8860b] mb-3 text-center">{isZh ? "雙方基礎資訊" : "Both Parties Basic Info"}</h3>
               <div className="grid grid-cols-2 gap-4">
                 {[synastryData.p1, synastryData.p2].map((person,pi) => (
-                  <div key={pi} className="bg-[#151520] rounded-lg p-3 border border-[#d4a85306]">
-                    <p className="text-xs font-bold text-[#f0e6d3] mb-2">{person.name}</p>
-                    <div className="text-[10px] text-[#8a8aad] space-y-0.5">
+                  <div key={pi} className="bg-[#faf3e0] rounded-lg p-3 border border-[#d4a85320]">
+                    <p className="text-xs font-bold text-[#2f261d] mb-2">{person.name}</p>
+                    <div className="text-[10px] text-[#6f6470] space-y-0.5">
                       <p>{isZh ? "出生" : "Born"}: {person.birthDate?.slice(0,10) || "-"} {person.birthTime || ""}</p>
-                      <p>{isZh ? "八字" : "Bazi"}: {person.pillar}</p>
+                      <p>{isZh ? "紫微参考" : "Ziwei Ref"}: {person.pillar}</p>
                       <p>{isZh ? "星座" : "Zodiac"}: {person.zodiac} · {person.element}</p>
                       <p>{isZh ? "星宿" : "Mansion"}: {person.mansion}</p>
                       <p>{isZh ? "上升" : "Rising"}: {getZodiacSign(new Date(new Date(person.birthDate).getTime()+43200000))}</p>
@@ -437,8 +636,8 @@ export default function DestinyDetail() {
                 ))}
               </div>
               {synastryData?.elementRel && (
-                <div className="mt-3 bg-[#d4a85306] rounded-lg p-2 text-center border border-[#d4a85310]">
-                  <p className="text-xs text-[#d4a853]">{synastryData.elementRel}</p>
+                <div className="mt-3 bg-[#faf3e0] rounded-lg p-2 text-center border border-[#d4a85325]">
+                  <p className="text-xs text-[#b8860b]">{synastryData.elementRel}</p>
                 </div>
               )}
             </div>
@@ -447,8 +646,8 @@ export default function DestinyDetail() {
           {activeTab === "overview" && (
             <div className="space-y-4 animate-fade-in">
               {/* Overall Score */}
-              <div className="glass rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-[#f0e6d3] mb-4">{isSynastry ? (isZh ? "關係總覽" : "Relationship Overview") : (isZh ? "總覽" : "Overview")}</h3>
+              <div className="bg-white/80 rounded-xl p-5 border border-[#d4a85320] shadow-sm">
+                <h3 className="text-sm font-semibold text-[#2f261d] mb-4">{isSynastry ? (isZh ? "關係總覽" : "Relationship Overview") : (isZh ? "總覽" : "Overview")}</h3>
                 {isSynastry && synastryData?.p2 ? (
                   <SynastryOverview p1={synastryData.p1} p2={synastryData.p2} elementRel={synastryData.elementRel} isZh={isZh} />
                 ) : synastryData?.p1 ? (
@@ -456,19 +655,19 @@ export default function DestinyDetail() {
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {aspects.map((a) => {
-                      const Icon = aspectIcons[a.name] || TrendingUp
+                      const Icon = (a.name && aspectIcons[a.name]) || TrendingUp
                       return (
-                        <div key={a.name} className="bg-[#151520] rounded-lg p-3 border border-[#d4a85306]">
+                        <div key={a.name} className="bg-[#faf3e0] rounded-lg p-3 border border-[#d4a85320]">
                           <div className="flex items-center gap-1.5 mb-2">
-                            <Icon className="w-3.5 h-3.5 text-[#8a8aad]" />
-                            <span className="text-xs text-[#8a8aad]">{a.name}</span>
+                            <Icon className="w-3.5 h-3.5 text-[#b8860b]" />
+                            <span className="text-xs text-[#6f6470]">{a.name}</span>
                           </div>
                           <div className="flex gap-0.5 mb-1.5">
                             {Array.from({ length: 5 }, (_, i) => (
-                              <div key={i} className={`w-4 h-1.5 rounded-full ${i < a.level ? "bg-[#d4a853]" : "bg-[#8a8aad15]"}`} />
+                              <div key={i} className={`w-4 h-1.5 rounded-full ${i < a.level ? "bg-[#d4a853]" : "bg-[#e5d5b0]"}`} />
                             ))}
                           </div>
-                          <p className="text-[10px] text-[#8a8aad55] leading-relaxed">{a.desc}</p>
+                          <p className="text-[10px] text-[#8a8071] leading-relaxed">{a.desc}</p>
                         </div>
                       )
                     })}
@@ -477,69 +676,109 @@ export default function DestinyDetail() {
               </div>
 
               {/* Key Insights — dynamic for synastry, fallback for natal */}
-              <div className="glass rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-[#f0e6d3] mb-3">{isZh ? "核心洞察" : "Core Insights"}</h3>
-                <div className="bg-[#d4a85308] rounded-lg p-4 border border-[#d4a85310]">
-                  <p className="text-sm text-[#f0e6d3]/90 leading-relaxed">
+              <div className="bg-white/80 rounded-xl p-5 border border-[#d4a85320] shadow-sm">
+                <h3 className="text-sm font-semibold text-[#2f261d] mb-3">{isZh ? "核心洞察" : "Core Insights"}</h3>
+                <div className="bg-[#faf3e0] rounded-lg p-4 border border-[#d4a85325]">
+                  <p className="text-sm text-[#2f261d] leading-relaxed">
                     {isSynastry && synastryData?.p2 ? (
                       isZh ? (
                         <>
-                          {synastryData.p1.name || "你"}的<span className="text-[#d4a853]">{synastryData.p1.pillar}日主</span>（{synastryData.p1.stemEl}命）
-                          與{synastryData.p2.name || "對方"}的<span className="text-[#d4a853]">{synastryData.p2.pillar}日主</span>（{synastryData.p2.stemEl}命）
-                          --{synastryData.elementRel}。
-                          {synastryData.p1.zodiac}與{synastryData.p2.zodiac}的組合
-                          在星盤中形成<span className="text-[#d4a853]">{
-                            synastryData.p1.element === synastryData.p2.element
-                              ? "同元素共振"
-                              : ["火","风"].includes(synastryData.p1.element) && ["火","风"].includes(synastryData.p2.element)
-                              ? "燃燒循環"
-                              : ["水","土"].includes(synastryData.p1.element) && ["水","土"].includes(synastryData.p2.element)
-                              ? "滋養根基"
-                              : "互補張力"
-                          }</span>。
-                          星宿{synastryData.p1.mansion}與{synastryData.p2.mansion}的連結
-                          揭示了這段關係的<span className="text-[#d4a853]">深層業力脈絡</span>。
+                          {ziweiChart1?.name || "你"}為<span className="text-[#d4a853]">{ziweiChart1?.mainStar}</span>坐命，
+                          {ziweiChart2?.name || "對方"}為<span className="text-[#d4a853]">{ziweiChart2?.mainStar}</span>坐命。
+                          這段合盤的重點不是單看分數，而是看雙方命宮、夫妻宮與四化互動是否能把吸引力落到日常相處。
+                          目前盤面顯示<span className="text-[#d4a853]">{ziweiSynastry?.label}</span>：
+                          {ziweiSynastry?.chemistry} {ziweiSynastry?.risk}
                         </>
                       ) : (
                         <>
-                          <span className="text-[#d4a853]">{synastryData.p1.pillar} Day Master</span> ({synastryData.p1.stemEl})
-                          meets <span className="text-[#d4a853]">{synastryData.p2.pillar} Day Master</span> ({synastryData.p2.stemEl})
-                          —{synastryData.elementRel}.
-                          The {synastryData.p1.zodiac}-{synastryData.p2.zodiac} pairing
-                          creates <span className="text-[#d4a853]">{
-                            synastryData.p1.element === synastryData.p2.element
-                              ? "same-element resonance"
-                              : ["火","风"].includes(synastryData.p1.element) && ["火","风"].includes(synastryData.p2.element)
-                              ? "a combustion cycle"
-                              : ["水","土"].includes(synastryData.p1.element) && ["水","土"].includes(synastryData.p2.element)
-                              ? "nourishing foundation"
-                              : "complementary tension"
-                          }</span>.
-                          The {synastryData.p1.mansion}-{synastryData.p2.mansion} mansion connection
-                          reveals <span className="text-[#d4a853]">deep karmic threads</span> in this relationship.
+                          {ziweiChart1?.name || "You"} has <span className="text-[#d4a853]">{ziweiChart1?.mainStar}</span> in the life palace,
+                          while {ziweiChart2?.name || "Partner"} has <span className="text-[#d4a853]">{ziweiChart2?.mainStar}</span>.
+                          This synastry focuses on life palaces, spouse palaces and transformation stars, not only a score.
+                          Current chart tone: <span className="text-[#d4a853]">{ziweiSynastry?.label}</span>. {ziweiSynastry?.chemistry} {ziweiSynastry?.risk}
                         </>
                       )
                     ) : (
                       isZh ? (
-                        <>你的<span className="text-[#d4a853]">丙火日主</span>生於卯月--木火通明，天生具備領導力與創造力。本月<span className="text-[#d4a853]">財星高照</span>，適合推進事業與財務計劃。桃花星進入感情宮位，單身者可主動出擊。健康方面需注意<span className="text-[#d4a853]">肝膽養護</span>，避免熬夜。</>
+                        <>你的紫微命盤以<span className="text-[#d4a853]">{ziweiChart1?.mainStar || "命宮主星"}</span>為核心，命宮落在<span className="text-[#d4a853]">{ziweiChart1?.mingPalace || "命宮"}</span>，身宮落在<span className="text-[#d4a853]">{ziweiChart1?.shenPalace || "身宮"}</span>。免費盤面先讓你看到十二宮與主星分布；完整解析會細拆事業、感情、財帛與未來節點。</>
                       ) : (
-                        <>Your <span className="text-[#d4a853]">Bing Fire Day Master</span> was born in the Mao month — Wood and Fire shine bright, granting natural leadership and creativity. This month, the <span className="text-[#d4a853]">Wealth star shines brightly</span>, making it an ideal time to advance your career and financial plans. A Romance star enters your relationship palace; singles should take initiative. For health, pay attention to <span className="text-[#d4a853]">liver and gallbladder care</span> and avoid staying up late.</>
+                        <>Your Ziwei chart centers on <span className="text-[#d4a853]">{ziweiChart1?.mainStar || "the life-palace star"}</span>, with the life palace at <span className="text-[#d4a853]">{ziweiChart1?.mingPalace || "Life Palace"}</span> and body palace at <span className="text-[#d4a853]">{ziweiChart1?.shenPalace || "Body Palace"}</span>. The free chart shows palace and star distribution; the full report expands career, love, wealth and timing.</>
                       )
                     )}
                   </p>
                 </div>
               </div>
 
-              {/* Full report access — synastry, always visible for testing */}
-              {isSynastry && synastryData?.p2 && (
-                <div className="glass rounded-xl p-4 border border-[#FFB6C120] text-center">
-                  <p className="text-xs text-[#f0e6d3] mb-2">{isZh ? "基於雙方八字、印度占星與西方占星的完整合盤報告" : "Full synastry report based on Bazi, Vedic & Western astrology"}</p>
+              {isSynastry && synastryData?.p2 ? (
+                <>
+                  <SynastryBasicReport p1={synastryData.p1} p2={synastryData.p2} elementRel={synastryData.elementRel} isZh={isZh} />
+                </>
+              ) : (
+                <div className="bg-white/80 rounded-xl p-5 border border-[#d4a85320] shadow-sm">
+                  <h3 className="text-sm font-semibold text-[#2f261d] mb-3">{isZh ? "先看这三点" : "Start With These 3 Points"}</h3>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      [isZh ? "命宮主軸" : "Life Palace", ziweiChart1?.summary || (isZh ? "先看命宫主星和身宫落点，快速抓到你的底层节奏。" : "Start from the life and body palaces to catch the chart's core rhythm.")],
+                      [isZh ? "事業方向" : "Career", isZh ? "官禄宫会告诉你更适合被看见、被认可，还是先稳扎稳打累积实力。" : "The career palace shows whether your path is visibility-led or strength-led."],
+                      [isZh ? "感情模式" : "Love", isZh ? "夫妻宫重点看你在关系里要安全感、节奏感，还是精神共鸣。" : "The spouse palace highlights your main relationship need and pacing."],
+                    ].map(([title, body]) => (
+                      <div key={title} className="rounded-xl border border-[#d4a85320] bg-[#faf3e0] p-3">
+                        <p className="text-xs font-bold text-[#b8860b]">{title}</p>
+                        <p className="mt-2 text-[11px] leading-relaxed text-[#6f6470]">{body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!PREVIEW_FULL_DESTINY && (
+                <div className="bg-gradient-to-br from-[#fff5f5] to-[#fef2f2] rounded-xl p-4 border border-[#e56b6f30] text-center shadow-sm">
+                  <p className="text-xs text-[#2f261d] mb-2">
+                    {isSynastry
+                      ? (isZh ? "基於雙方紫微命盤、夫妻宮、主星四化與關係宮位的完整合盤報告" : "Full synastry report based on Ziwei palaces, spouse houses, main stars and transformations")
+                      : (isZh ? "基於紫微十二宮、命宮身宮、主星四化與流年節點的個人完整解析" : "Full natal report based on Ziwei 12 palaces, life/body palaces, main stars and timing")}
+                  </p>
                   <button onClick={() => setShowPayModal(true)}
                     className="px-6 py-2.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all">
-                    {isZh ? "解鎖完整合盤報告 $9.99" : "Unlock Full Synastry Report $9.99"}
+                    {PAYMENT_COMING_SOON
+                      ? (isZh ? "完整解析即將上線" : "Full Report Coming Soon")
+                      : (isZh
+                          ? `解鎖${isSynastry ? "紫微合盤" : "紫微個人"}完整解析 ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`
+                          : `Unlock ${isSynastry ? "Ziwei Synastry" : "Ziwei Natal"} Report ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`)}
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "ziwei" && (
+            <div className="space-y-4 animate-fade-in">
+              {isSynastry && ziweiChart1 && ziweiChart2 && ziweiSynastry ? (
+                <>
+                  <ZiweiSynastryPanel chartA={ziweiChart1} chartB={ziweiChart2} result={ziweiSynastry} />
+                  <div className="glass rounded-xl p-4 border border-[#FFB6C120] text-center">
+                    <p className="text-xs text-[#f0e6d3] mb-2">
+                      {isZh ? "合盤盘面免费查看，完整版会展开夫妻宫、命宫互照、吸引力来源、长期磨合与关系建议。" : "The synastry chart is free. The full report expands spouse palaces, life-palace resonance, attraction, friction and long-term advice."}
+                    </p>
+                    <button onClick={() => setShowPayModal(true)}
+                      className="px-6 py-2.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all">
+                      {isZh ? `解鎖紫微合盤完整解析 ${getLocalPrice("synastry").display}` : `Unlock Ziwei Synastry ${getLocalPrice("synastry").display}`}
+                    </button>
+                  </div>
+                </>
+              ) : ziweiChart1 ? (
+                <>
+                  <ZiweiDoushuPanel chart={ziweiChart1} />
+                  <div className="glass rounded-xl p-4 border border-[#FFB6C120] text-center">
+                    <p className="text-xs text-[#f0e6d3] mb-2">
+                      {isZh ? "紫微命盘免费查看，完整版会展开命宫、身宫、十二宫、主星四化、事业感情财运与未来节点。" : "The Ziwei chart is free. The full report expands life/body palaces, 12 palaces, four transformations, career, love, wealth and timing."}
+                    </p>
+                    <button onClick={() => setShowPayModal(true)}
+                      className="px-6 py-2.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all">
+                      {isZh ? `解鎖紫微個人完整解析 ${getLocalPrice("natal").display}` : `Unlock Ziwei Natal Report ${getLocalPrice("natal").display}`}
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -652,62 +891,20 @@ export default function DestinyDetail() {
           )}
 
           {/* Share Section */}
-          <div className="mt-6 glass rounded-xl p-5 border border-[#d4a85315]">
-            <div className="border-t border-[#d4a85310]">
-              <p className="text-[10px] text-[#8a8aad] text-center mb-3 uppercase tracking-wider">{isZh ? "分享你的星盤" : "Share Your Destiny Chart"}</p>
+          <div className="mt-6 bg-white/80 rounded-xl p-5 border border-[#d4a85320] shadow-sm">
+            <div className="border-t border-[#d4a85320]">
+              <p className="text-[10px] text-[#8a8071] text-center mb-3 uppercase tracking-wider">{isZh ? "分享你的星盤" : "Share Your Destiny Chart"}</p>
               <div className="flex justify-center gap-3">
                 {["📷","🎵","📕","🔗"].map((icon,i) => (
                   <button key={i} onClick={() => setShowShareModal(true)}
-                    className="flex flex-col items-center gap-1 px-4 py-3 glass rounded-xl border border-[#d4a85310] hover:border-[#d4a85330] transition-all text-[#8a8aad] hover:text-[#f0e6d3] hover:scale-105">
+                    className="flex flex-col items-center gap-1 px-4 py-3 bg-[#faf3e0] rounded-xl border border-[#d4a85320] hover:border-[#d4a85350] transition-all text-[#8a8071] hover:text-[#2f261d] hover:scale-105">
                     <span className="text-lg">{icon}</span>
                     <span className="text-[9px]">{["Instagram","TikTok","Xiaohongshu",isZh?"分享":"Share"][i]}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-[8px] text-[#8a8aad33] text-center mt-2">Share to unlock a free reading credit! Auto-generated watermark included.</p>
+              <p className="text-[8px] text-[#8a8071]/50 text-center mt-2">Share to unlock a free reading credit! Auto-generated watermark included.</p>
             </div>
-          </div>
-
-          {/* Ziwei Entrance - Collapsible at bottom */}
-          <div className="mt-6">
-            <button
-              onClick={() => setShowZiwei(!showZiwei)}
-              className="w-full glass rounded-xl p-4 border border-[#d4a85315] hover:border-[#d4a85330] transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#d4a85310] to-[#1a1a2e] flex items-center justify-center border border-[#d4a85310]">
-                  <Crown className="w-5 h-5 text-[#d4a85355]" />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-[#f0e6d3] flex items-center gap-2">
-                    Ziwei Destiny Chart
-                    <span className="px-1.5 py-0.5 bg-[#d4a85310] text-[#d4a85366] text-[9px] rounded">Coming Later</span>
-                  </p>
-                  <p className="text-[10px] text-[#8a8aad33]">12 Palaces · Four Transformations · Life & Body Palaces · Annual Cycles</p>
-                </div>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-[#8a8aad] transition-transform ${showZiwei ? "rotate-180" : ""}`} />
-            </button>
-            {showZiwei && (
-              <div className="glass rounded-xl p-5 mt-2 border border-[#d4a85310] animate-fade-in">
-                <div className="grid grid-cols-4 gap-2">
-                  {(isZh
-                    ? ["命宮","兄弟","夫妻","子女","財帛","疾厄","遷移","交友","官祿","田宅","福德","父母"]
-                    : ["Life","Siblings","Spouse","Children","Wealth","Health","Travel","Friends","Career","Property","Fortune","Parents"]
-                  ).map((palace) => (
-                    <div key={palace} className="bg-[#151520] rounded-lg p-3 text-center border border-[#d4a85304]">
-                      <div className="text-[11px] text-[#b0b0c8]">{palace}</div>
-                      <div className="text-lg mt-1">🏛️</div>
-                      <div className="text-[8px] text-[#d4a85344] mt-0.5">Coming Soon</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 p-3 bg-[#d4a85304] rounded-lg border border-[#d4a85308] text-center">
-                  <Lock className="w-4 h-4 text-[#d4a85344] mx-auto mb-1" />
-                  <p className="text-[10px] text-[#8a8aad33]">Full Ziwei chart features coming in a future update</p>
-                </div>
-              </div>
-            )}
           </div>
 
         </div>
@@ -726,10 +923,21 @@ export default function DestinyDetail() {
           : `🌟 ${isZh ? "我的星盤" : "My Destiny Chart"} on R7 Fortune!`}
       />
       <PayModal
-        isOpen={showPayModal}
+        isOpen={!PREVIEW_FULL_DESTINY && showPayModal}
         onClose={() => setShowPayModal(false)}
-        onPaid={() => { unlockReport("synastry_full"); window.location.href = "/synastry-full-report"; }}
-        config={{ ...PAYWALL_CONFIGS.synastry, reportKey: "synastry_full" }}
+        onPaid={() => {
+          if (isSynastry) {
+            unlockReport("synastry_full_report");
+            navigate("/synastry-full-report");
+          } else {
+            unlockReport("natal_full_report");
+            navigate("/destiny-full-report");
+          }
+        }}
+        config={{
+          ...(isSynastry ? PAYWALL_CONFIGS.synastry : PAYWALL_CONFIGS.natal),
+          reportKey: isSynastry ? "synastry_full_report" : "natal_full_report",
+        }}
       />
       <Footer />
       <CustomerService />
@@ -758,34 +966,34 @@ function SynastryOverview({ p1, p2, elementRel, isZh }: {
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#151520] rounded-xl p-5 text-center border border-[#d4a85315]">
-        <p className="text-[10px] text-[#8a8aad] uppercase tracking-wider mb-2">{isZh ? "緣分深度評分" : "Destiny Depth Score"}</p>
-        <div className="text-5xl font-display font-bold text-[#d4a853] mb-2">{score}<span className="text-lg text-[#8a8aad]">/100</span></div>
-        <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden max-w-[200px] mx-auto mb-3"><div className="h-full bg-gradient-to-r from-[#d4a853] to-[#FFB6C1] rounded-full" style={{ width: score + "%" }} /></div>
-        <p className="text-sm text-[#f0e6d3] font-medium">{isZh ? tierLabelsZh[tier] : tierLabelsEn[tier]}</p>
+      <div className="bg-[#faf3e0] rounded-xl p-5 text-center border border-[#d4a85325]">
+        <p className="text-[10px] text-[#8a8071] uppercase tracking-wider mb-2">{isZh ? "緣分深度評分" : "Destiny Depth Score"}</p>
+        <div className="text-5xl font-display font-bold text-[#b8860b] mb-2">{score}<span className="text-lg text-[#8a8071]">/100</span></div>
+        <div className="h-2 bg-[#e5d5b0] rounded-full overflow-hidden max-w-[200px] mx-auto mb-3"><div className="h-full bg-gradient-to-r from-[#d4a853] to-[#FFB6C1] rounded-full" style={{ width: score + "%" }} /></div>
+        <p className="text-sm text-[#2f261d] font-medium">{isZh ? tierLabelsZh[tier] : tierLabelsEn[tier]}</p>
       </div>
-      <div className="bg-[#151520] rounded-xl p-4 border border-[#d4a85308]">
-        <h4 className="text-xs font-semibold text-[#d4a853] mb-3">💫 {isZh ? "緣分本質分析" : "Destiny Essence"}</h4>
-        <div className="space-y-2 text-xs text-[#8a8aad] leading-relaxed">
-          <p><span className="text-[#f0e6d3]">{isZh ? "前世業力連接" : "Past-Life Karmic Link"}</span>{isZh ? "：你們之間存在" + karmaType + "的前世業力連接，星宿" + p1.mansion + "-" + p2.mansion + "的關係揭示了你們靈魂深處的約定。" : ": Your " + karmaType + " past-life connection is revealed through mansion " + p1.mansion + "-" + p2.mansion + " - a soul-level agreement spanning lifetimes."}</p>
-          <p><span className="text-[#f0e6d3]">{isZh ? "吸引力來源" : "Source of Attraction"}</span>{isZh ? "：" + p1.zodiac + "與" + p2.zodiac + "的組合創造了" + attractType + "，" + p1.stemEl + "命與" + p2.stemEl + "命的" + elementRel + "是最本質的能量共振。" : ": " + p1.zodiac + "-" + p2.zodiac + " creates " + attractType + ". " + p1.stemEl + " and " + p2.stemEl + " elements form " + elementRel + " - the deepest resonance."}</p>
-          <p><span className="text-[#f0e6d3]">{isZh ? "緣分深淺" : "Depth of Connection"}</span>{isZh ? "：" + destinyLabel + "。" + (score >= 70 ? "你們的相遇絕非偶然，是靈魂在宇宙中的又一次匯合。" : "每段關係都有其意義和價值，珍惜當下的相遇。") : ": " + destinyLabel + ". " + (score >= 70 ? "Your meeting is no coincidence - another convergence of souls." : "Every connection has meaning - cherish this encounter.")}</p>
+      <div className="bg-[#faf3e0] rounded-xl p-4 border border-[#d4a85320]">
+        <h4 className="text-xs font-semibold text-[#b8860b] mb-3">💫 {isZh ? "緣分本質分析" : "Destiny Essence"}</h4>
+        <div className="space-y-2 text-xs text-[#6f6470] leading-relaxed">
+          <p><span className="text-[#2f261d] font-semibold">{isZh ? "前世業力連接" : "Past-Life Karmic Link"}</span>{isZh ? "：你們之間存在" + karmaType + "的前世業力連接，星宿" + p1.mansion + "-" + p2.mansion + "的關係揭示了你們靈魂深處的約定。" : ": Your " + karmaType + " past-life connection is revealed through mansion " + p1.mansion + "-" + p2.mansion + " - a soul-level agreement spanning lifetimes."}</p>
+          <p><span className="text-[#2f261d] font-semibold">{isZh ? "吸引力來源" : "Source of Attraction"}</span>{isZh ? "：" + p1.zodiac + "與" + p2.zodiac + "的組合創造了" + attractType + "，" + p1.stemEl + "命與" + p2.stemEl + "命的" + elementRel + "是最本質的能量共振。" : ": " + p1.zodiac + "-" + p2.zodiac + " creates " + attractType + ". " + p1.stemEl + " and " + p2.stemEl + " elements form " + elementRel + " - the deepest resonance."}</p>
+          <p><span className="text-[#2f261d] font-semibold">{isZh ? "緣分深淺" : "Depth of Connection"}</span>{isZh ? "：" + destinyLabel + "。" + (score >= 70 ? "你們的相遇絕非偶然，是靈魂在宇宙中的又一次匯合。" : "每段關係都有其意義和價值，珍惜當下的相遇。") : ": " + destinyLabel + ". " + (score >= 70 ? "Your meeting is no coincidence - another convergence of souls." : "Every connection has meaning - cherish this encounter.")}</p>
         </div>
       </div>
-      <div className="bg-[#151520] rounded-xl p-4 border border-[#d4a85308]">
-        <h4 className="text-xs font-semibold text-[#d4a853] mb-3">🎯 {isZh ? "最適合的關係類型" : "Best Relationship Types"}</h4>
-        <div className="flex flex-wrap gap-2">{relationTypes.map((t: string, i: number) => (<span key={i} className="px-3 py-2 bg-[#0a0a0f] rounded-lg text-xs text-[#f0e6d3] border border-[#d4a85315]">{i + 1}. {t}</span>))}</div>
+      <div className="bg-[#faf3e0] rounded-xl p-4 border border-[#d4a85320]">
+        <h4 className="text-xs font-semibold text-[#b8860b] mb-3">🎯 {isZh ? "最適合的關係類型" : "Best Relationship Types"}</h4>
+        <div className="flex flex-wrap gap-2">{relationTypes.map((t: string, i: number) => (<span key={i} className="px-3 py-2 bg-[#fffaf0] rounded-lg text-xs text-[#2f261d] border border-[#d4a85320]">{i + 1}. {t}</span>))}</div>
       </div>
-      <div className="bg-[#151520] rounded-xl p-4 border border-[#d4a85308]">
-        <h4 className="text-xs font-semibold text-[#d4a853] mb-3">⚠️ {isZh ? "相處核心注意事項" : "Key Relationship Cautions"}</h4>
-        <div className="space-y-2 text-xs text-[#8a8aad] leading-relaxed">
+      <div className="bg-[#faf3e0] rounded-xl p-4 border border-[#d4a85320]">
+        <h4 className="text-xs font-semibold text-[#b8860b] mb-3">⚠️ {isZh ? "相處核心注意事項" : "Key Relationship Cautions"}</h4>
+        <div className="space-y-2 text-xs text-[#6f6470] leading-relaxed">
           <p>1. {isZh ? "最容易產生矛盾的點" : "Most conflict-prone"}{isZh ? "：" + p1.zodiac + "的" + p1Style + "與" + p2.zodiac + "的" + p2Style + "可能導致溝通節奏不一致，建議矛盾時先暫停10分鐘再溝通。" : ": " + p1.zodiac + "'s " + p1Style + " vs " + p2.zodiac + "'s " + p2Style + " may cause rhythm mismatch - pause 10 min before discussing conflicts."}</p>
           <p>2. {isZh ? "最需要互相包容的地方" : "Most needing tolerance"}{isZh ? "：" + (p1.element === "火" || p1.element === "风" ? "主動方可能忽略被動方的細膩感受" : "被動方可能不理解主動方的表達方式") + "，彼此需要學習對方的'情感語言'。" : ": " + (p1.element === "火" || p1.element === "风" ? "The initiator may overlook subtle feelings" : "The receiver may misunderstand expression styles") + " - learn each other's emotional language."}</p>
           <p>3. {isZh ? "關係保鮮的關鍵方法" : "Keeping the spark"}{isZh ? "：定期安排專屬二人時間，一起嘗試新事物，保持溝通暢通，避免讓關係陷入慣性模式。" : ": Schedule regular quality time, try new experiences together, keep communication open, avoid relationship inertia."}</p>
           <p>4. {isZh ? "絕對不能觸碰的雷區" : "Absolute deal-breakers"}{isZh ? "：不要在爭吵時翻舊賬，不要拿對方和前任比較，不要輕易說分手。尊重是關係的基石。" : ": Don't bring up past grievances, don't compare to exes, don't threaten separation. Respect is the foundation."}</p>
         </div>
       </div>
-      <p className="text-[9px] text-[#8a8aad44] text-center">{isZh ? "* 以上分析僅供參考，最終決定權在您自己手中" : "* Analysis for reference only. The final decision is yours."}</p>
+      <p className="text-[9px] text-[#8a8071]/60 text-center">{isZh ? "* 以上分析僅供參考，最終決定權在您自己手中" : "* Analysis for reference only. The final decision is yours."}</p>
     </div>
   );
 }
@@ -805,31 +1013,31 @@ function NatalOverview({ p1, isZh }: { p1: any; isZh: boolean }) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#151520] rounded-xl p-5 text-center border border-[#d4a85315]">
-        <p className="text-[10px] text-[#8a8aad] uppercase tracking-wider mb-2">{isZh ? "整體命格評分" : "Destiny Score"}</p>
-        <div className="text-5xl font-display font-bold text-[#d4a853] mb-2">{elScore}<span className="text-lg text-[#8a8aad]">/100</span></div>
-        <div className="h-2 bg-[#0a0a0f] rounded-full overflow-hidden max-w-[200px] mx-auto mb-3"><div className="h-full bg-gradient-to-r from-[#d4a853] to-[#FFB6C1] rounded-full" style={{ width: elScore + "%" }} /></div>
-        <p className="text-sm text-[#f0e6d3] font-medium">{isZh ? tierLabelsZh[tier] : tierLabelsEn[tier]}</p>
+      <div className="bg-[#faf3e0] rounded-xl p-5 text-center border border-[#d4a85325]">
+        <p className="text-[10px] text-[#8a8071] uppercase tracking-wider mb-2">{isZh ? "整體命格評分" : "Destiny Score"}</p>
+        <div className="text-5xl font-display font-bold text-[#b8860b] mb-2">{elScore}<span className="text-lg text-[#8a8071]">/100</span></div>
+        <div className="h-2 bg-[#e5d5b0] rounded-full overflow-hidden max-w-[200px] mx-auto mb-3"><div className="h-full bg-gradient-to-r from-[#d4a853] to-[#FFB6C1] rounded-full" style={{ width: elScore + "%" }} /></div>
+        <p className="text-sm text-[#2f261d] font-medium">{isZh ? tierLabelsZh[tier] : tierLabelsEn[tier]}</p>
       </div>
-      <div className="bg-[#151520] rounded-xl p-4 border border-[#d4a85308]">
-        <h4 className="text-xs font-semibold text-[#d4a853] mb-3">📊 {isZh ? "五大維度核心結論" : "5 Dimensions Summary"}</h4>
-        <div className="space-y-2 text-xs text-[#8a8aad] leading-relaxed">
-          <p><span className="text-[#f0e6d3]">💼 {isZh ? "事業" : "Career"}</span>{isZh ? "：你適合" + careerZh + "，30歲前後事業逐步穩定，中年達到巔峰。" : ": Suited for " + careerEn + ". Career stabilizes around 30, peaks in middle age."}</p>
-          <p><span className="text-[#f0e6d3]">💕 {isZh ? "感情" : "Love"}</span>{isZh ? "：重感情，忠誠專一。最佳結婚年齡" + bestMarriageAge + "歲左右，配偶性格溫和，能力較強。" : ": Loyal and devoted. Best marriage age around " + bestMarriageAge + ". Partner will be gentle and capable."}</p>
-          <p><span className="text-[#f0e6d3]">🏥 {isZh ? "健康" : "Health"}</span>{isZh ? "：先天體質較好，需重點關注" + healthFocus + "，避免過度勞累和飲食不規律。" : ": Good innate constitution. Focus on " + healthFocus + ". Avoid overwork and irregular diet."}</p>
-          <p><span className="text-[#f0e6d3]">💰 {isZh ? "財富" : "Wealth"}</span>{isZh ? "：財富格局中等偏上，" + wealthStyle + "。中年後財運漸好。" : ": Above-average wealth potential. " + wealthStyle + ". Fortune improves after middle age."}</p>
-          <p><span className="text-[#f0e6d3]">📈 {isZh ? "發展" : "Development"}</span>{isZh ? "：人生整體上升趨勢，" + keyYears + "歲是三個關鍵轉折點，抓住機會可實現質的飛躍。" : ": Overall upward trajectory. Key turning points at ages " + keyYears + ". Seize these opportunities for breakthrough."}</p>
+      <div className="bg-[#faf3e0] rounded-xl p-4 border border-[#d4a85320]">
+        <h4 className="text-xs font-semibold text-[#b8860b] mb-3">📊 {isZh ? "五大維度核心結論" : "5 Dimensions Summary"}</h4>
+        <div className="space-y-2 text-xs text-[#6f6470] leading-relaxed">
+          <p><span className="text-[#2f261d] font-semibold">💼 {isZh ? "事業" : "Career"}</span>{isZh ? "：你適合" + careerZh + "，30歲前後事業逐步穩定，中年達到巔峰。" : ": Suited for " + careerEn + ". Career stabilizes around 30, peaks in middle age."}</p>
+          <p><span className="text-[#2f261d] font-semibold">💕 {isZh ? "感情" : "Love"}</span>{isZh ? "：重感情，忠誠專一。最佳結婚年齡" + bestMarriageAge + "歲左右，配偶性格溫和，能力較強。" : ": Loyal and devoted. Best marriage age around " + bestMarriageAge + ". Partner will be gentle and capable."}</p>
+          <p><span className="text-[#2f261d] font-semibold">🏥 {isZh ? "健康" : "Health"}</span>{isZh ? "：先天體質較好，需重點關注" + healthFocus + "，避免過度勞累和飲食不規律。" : ": Good innate constitution. Focus on " + healthFocus + ". Avoid overwork and irregular diet."}</p>
+          <p><span className="text-[#2f261d] font-semibold">💰 {isZh ? "財富" : "Wealth"}</span>{isZh ? "：財富格局中等偏上，" + wealthStyle + "。中年後財運漸好。" : ": Above-average wealth potential. " + wealthStyle + ". Fortune improves after middle age."}</p>
+          <p><span className="text-[#2f261d] font-semibold">📈 {isZh ? "發展" : "Development"}</span>{isZh ? "：人生整體上升趨勢，" + keyYears + "歲是三個關鍵轉折點，抓住機會可實現質的飛躍。" : ": Overall upward trajectory. Key turning points at ages " + keyYears + ". Seize these opportunities for breakthrough."}</p>
         </div>
       </div>
-      <div className="bg-[#151520] rounded-xl p-4 border border-[#d4a85308]">
-        <h4 className="text-xs font-semibold text-[#d4a853] mb-3">⚡ {isZh ? "關鍵人生提醒" : "Key Life Alerts"}</h4>
-        <div className="space-y-2 text-xs text-[#8a8aad] leading-relaxed">
+      <div className="bg-[#faf3e0] rounded-xl p-4 border border-[#d4a85320]">
+        <h4 className="text-xs font-semibold text-[#b8860b] mb-3">⚡ {isZh ? "關鍵人生提醒" : "Key Life Alerts"}</h4>
+        <div className="space-y-2 text-xs text-[#6f6470] leading-relaxed">
           <p>1. {isZh ? "最大優勢" : "Greatest Strength"}{isZh ? "：你的" + (p1.element==="火"?"行動力和執行力很強":"學習能力和適應力很強") + "，只要是你認定的事情，就一定會努力完成。" : ": Your " + (p1.element==="火"?"drive and execution":"learning ability and adaptability") + " ensure you accomplish what you commit to."}</p>
           <p>2. {isZh ? "最大挑戰" : "Greatest Challenge"}{isZh ? "：有時會過於追求完美，給自己太大壓力。學會放鬆，接受不完美，人生會更輕鬆。" : ": Sometimes pursuing perfection creates unnecessary pressure. Learning to relax and accept imperfection brings ease."}</p>
           <p>3. {isZh ? "最需注意的年份" : "Years to Watch"}{isZh ? "：" + keyYears + "歲，這些年份容易有事業變動和感情轉折，需提前做好準備。" : ": Ages " + keyYears + " - these years may bring career changes and relationship shifts. Prepare in advance."}</p>
         </div>
       </div>
-      <p className="text-[9px] text-[#8a8aad44] text-center">{isZh ? "* 僅供參考，命運不是注定的，而是先天傾向與後天努力的結合" : "* For reference only. Destiny is not fixed - it is the combination of innate tendencies and conscious effort."}</p>
+      <p className="text-[9px] text-[#8a8071]/60 text-center">{isZh ? "* 僅供參考，命運不是注定的，而是先天傾向與後天努力的結合" : "* For reference only. Destiny is not fixed - it is the combination of innate tendencies and conscious effort."}</p>
     </div>
   );
 }

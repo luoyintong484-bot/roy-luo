@@ -102,7 +102,7 @@ export const readingRouter = createRouter({
       }
 
       const result = await db.insert(readings).values({
-        userId: user.id,
+        userId,
         type: input.type,
         subtype: input.subtype,
         title: input.title,

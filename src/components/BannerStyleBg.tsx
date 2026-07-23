@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
-/** Global background — exact replica of HeroSection banner particle style.
- *  Pure black base (#000000) with pink-white orbital star trails.
+/** Global background — hero-style particle field.
+ *  Deep black/plum base with pink-white orbital star trails.
  *  3 tilted rings, 200 glow particles, 36 zodiac glyphs — matching HeroSection canvas 1:1. */
 export default function BannerStyleBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,8 +67,15 @@ export default function BannerStyleBg() {
     function draw() {
       timeRef.current += 0.008;
       const t = timeRef.current;
-      // Pure black base — matching banner
-      ctx!.fillStyle = "rgba(0, 0, 0, 0.25)";
+      if (w < 768) {
+        const base = ctx!.createRadialGradient(w * 0.62, h * 0.18, 0, w * 0.52, h * 0.72, Math.max(w, h));
+        base.addColorStop(0, "rgba(31, 20, 42, 0.44)");
+        base.addColorStop(0.5, "rgba(8, 7, 13, 0.92)");
+        base.addColorStop(1, "rgba(2, 2, 5, 1)");
+        ctx!.fillStyle = base;
+      } else {
+        ctx!.fillStyle = "rgba(0, 0, 0, 0.25)";
+      }
       ctx!.fillRect(0, 0, w, h);
 
       for (const ring of rings) {
@@ -123,5 +130,5 @@ export default function BannerStyleBg() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("mousemove", onMouseMove); };
   }, []);
 
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: "#000000" }} />;
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: "#07050b" }} />;
 }
