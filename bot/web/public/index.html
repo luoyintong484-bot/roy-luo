@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R7 Sanctuary - Private AI Emotional Growth Reports</title>
+<style>
+:root {
+  --ink: #f7f1e6;
+  --muted: rgba(247, 241, 230, .68);
+  --faint: rgba(247, 241, 230, .1);
+  --line: rgba(247, 241, 230, .16);
+  --deep: #080b0f;
+  --night: #0d1420;
+  --panel: #111a22;
+  --panel-2: #17252a;
+  --gold: #d8b56d;
+  --mint: #7ad7bf;
+  --sage: #8ea89a;
+  --coral: #d98e7d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--deep); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { overflow-x: hidden; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+.app {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 84% 10%, rgba(122,215,191,.16), transparent 28%),
+    radial-gradient(circle at 12% 18%, rgba(216,181,109,.13), transparent 24%),
+    linear-gradient(180deg, #080b0f, #0d1418 48%, #080b0f);
+}
+.hero {
+  min-height: 94vh;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, rgba(8,11,15,.95), rgba(8,11,15,.76) 45%, rgba(8,11,15,.5)),
+    url("/assets/r7-wellness-hero.png");
+  background-size: cover;
+  background-position: center;
+  opacity: .82;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(120deg, transparent 0 44%, rgba(216,181,109,.12) 45%, transparent 46%),
+    repeating-linear-gradient(135deg, rgba(247,241,230,.03) 0 1px, transparent 1px 22px);
+  pointer-events: none;
+}
+.topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px clamp(18px, 5vw, 60px);
+}
+.brand { display: flex; align-items: center; gap: 11px; font-weight: 760; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: grid; place-items: center; color: #07100f; font-weight: 900;
+  background: linear-gradient(135deg, var(--mint), var(--gold));
+}
+.top-actions { display: flex; align-items: center; gap: 10px; }
+.segmented { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,11,15,.52); }
+.segmented button { border: 0; background: transparent; color: var(--muted); padding: 8px 11px; min-width: 42px; }
+.segmented button.active { background: var(--mint); color: #06100f; font-weight: 780; }
+.ghost-btn, .primary-btn, .pay-btn, .icon-btn {
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(247,241,230,.07);
+  color: var(--ink);
+}
+.primary-btn, .pay-btn {
+  border-color: transparent;
+  background: var(--mint);
+  color: #07100f;
+  font-weight: 800;
+}
+.pay-btn { width: 100%; min-height: 50px; }
+.ghost-btn:hover, .icon-btn:hover { background: rgba(247,241,230,.13); }
+.primary-btn:hover, .pay-btn:hover { filter: brightness(1.06); }
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(360px, .72fr);
+  gap: 34px;
+  align-items: end;
+  padding: 44px clamp(18px, 5vw, 60px) 74px;
+}
+.hero-copy { max-width: 820px; padding-bottom: 18px; }
+.eyebrow { color: var(--gold); font-size: 12px; font-weight: 820; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
+h1 { margin: 0; font-size: clamp(40px, 7.4vw, 88px); line-height: .96; letter-spacing: 0; max-width: 850px; }
+.lede { margin: 22px 0 0; max-width: 670px; color: rgba(247,241,230,.78); font-size: clamp(16px, 1.7vw, 20px); line-height: 1.58; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.trust-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; font-size: 12px; color: rgba(247,241,230,.72); }
+.trust-row span { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: rgba(8,11,15,.42); }
+.landing-strip {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 clamp(18px, 5vw, 60px) 34px;
+}
+.landing-chip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(8,11,15,.54);
+  padding: 12px;
+  color: rgba(247,241,230,.78);
+  line-height: 1.42;
+}
+.landing-chip b { display: block; color: var(--gold); margin-bottom: 5px; font-size: 13px; }
+.price-panel {
+  border: 1px solid rgba(216,181,109,.42);
+  border-radius: 8px;
+  background: rgba(17,26,34,.82);
+  backdrop-filter: blur(18px);
+  padding: 18px;
+}
+.price-panel h2 { margin: 0; font-size: 23px; }
+.price-panel p { margin: 8px 0 15px; color: var(--muted); line-height: 1.5; }
+.mini-list { display: grid; gap: 9px; }
+.mini-item { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.mini-item strong { color: var(--ink); }
+.mini-item span { color: var(--gold); font-weight: 800; }
+.section { padding: 66px clamp(18px, 5vw, 60px); }
+.section-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+.section-head h2 { margin: 0; font-size: clamp(30px, 4.2vw, 52px); letter-spacing: 0; }
+.section-head p { margin: 0; max-width: 650px; color: var(--muted); line-height: 1.55; }
+.split-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.audience-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(23,37,42,.84), rgba(13,20,26,.92));
+}
+.audience-card h3 { margin: 0 0 10px; font-size: 25px; }
+.audience-card p { margin: 0; color: var(--muted); line-height: 1.55; }
+.audience-card ul { margin: 14px 0 0; padding-inline-start: 18px; color: rgba(247,241,230,.78); line-height: 1.65; }
+.products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.product {
+  min-height: 336px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(23,37,42,.98), rgba(13,20,26,.98));
+}
+.product.featured { border-color: rgba(216,181,109,.56); background: linear-gradient(180deg, rgba(36,45,42,.98), rgba(12,20,23,.98)); }
+.product-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.tag { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: rgba(247,241,230,.76); }
+.tag.gold { color: #160f03; background: var(--gold); border-color: transparent; font-weight: 820; }
+.tag.mint { color: #06100f; background: var(--mint); border-color: transparent; font-weight: 820; }
+.tag.micro { padding: 4px 7px; font-size: 10px; background: rgba(216,181,109,.12); border-color: rgba(216,181,109,.35); color: rgba(247,241,230,.78); }
+.product-visual {
+  min-height: 178px;
+  border: 1px solid rgba(216,181,109,.25);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at 88% 16%, rgba(216,181,109,.22), transparent 30%),
+    linear-gradient(135deg, var(--card-start), var(--card-end));
+  position: relative;
+  overflow: hidden;
+}
+.product-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .14;
+  background-image:
+    linear-gradient(30deg, transparent 46%, rgba(247,241,230,.38) 47%, transparent 49%),
+    linear-gradient(150deg, transparent 46%, rgba(247,241,230,.24) 47%, transparent 49%);
+  background-size: 56px 56px;
+}
+.product-visual > * { position: relative; z-index: 1; }
+.product-visual small { color: var(--gold); font-weight: 780; line-height: 1.35; }
+.product-visual h3 { margin: 12px 0 0; color: #fff; font-size: 25px; line-height: 1.08; }
+.product h3 { margin: 14px 0 0; font-size: 25px; line-height: 1.08; }
+.product p { color: var(--muted); line-height: 1.5; margin: 10px 0 0; }
+.keyword-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.keyword-row .tag { border-color: rgba(216,181,109,.42); background: rgba(216,181,109,.08); color: rgba(247,241,230,.82); font-size: 12px; }
+.keyword-row.compact { margin-top: 12px; }
+.deliverables { display: grid; gap: 6px; margin-top: 12px; color: rgba(247,241,230,.72); font-size: 12px; }
+.deliverables span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-inline-end: 7px; vertical-align: 1px; }
+.hook { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink); font-size: 14px; line-height: 1.45; }
+.compare { color: rgba(247,241,230,.58); text-decoration: line-through; margin-inline-end: 8px; }
+.price { color: var(--gold); font-size: 20px; font-weight: 850; }
+.card-actions { display: grid; gap: 8px; }
+.flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.step { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: rgba(247,241,230,.045); }
+.step b { display: block; margin-bottom: 8px; color: var(--gold); }
+.step p { margin: 0; color: var(--muted); line-height: 1.45; }
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  background: rgba(3,5,7,.18);
+  backdrop-filter: blur(0);
+  z-index: 20;
+  transition: background .3s ease, backdrop-filter .3s ease;
+}
+.modal.open { display: flex; background: rgba(3,5,7,.78); backdrop-filter: blur(10px); }
+body.panel-open { overflow: hidden; }
+.dialog {
+  width: min(80vw, 1240px);
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: #0e151b;
+  box-shadow: 0 26px 80px rgba(0,0,0,.5);
+  transform: translateX(34px);
+  opacity: 0;
+  transition: transform .4s ease, opacity .32s ease;
+}
+.modal.open .dialog { transform: translateX(0); opacity: 1; }
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(13,20,26,.94);
+  backdrop-filter: blur(16px);
+}
+.panel-title { text-align: center; font-weight: 850; color: rgba(247,241,230,.86); }
+.mini-start { padding: 10px 13px; }
+.panel-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.detail-view { min-height: 100%; padding-bottom: 18px; }
+.detail-banner {
+  min-height: 300px;
+  padding: clamp(28px, 5vw, 58px);
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(216,181,109,.24), transparent 28%),
+    linear-gradient(135deg, var(--card-start), var(--card-end));
+  position: relative;
+  overflow: hidden;
+}
+.detail-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .12;
+  background-image:
+    linear-gradient(30deg, transparent 46%, rgba(247,241,230,.38) 47%, transparent 49%),
+    linear-gradient(150deg, transparent 46%, rgba(247,241,230,.24) 47%, transparent 49%);
+  background-size: 72px 72px;
+}
+.detail-banner > * { position: relative; z-index: 1; }
+.detail-banner small { color: var(--gold); font-size: 16px; font-weight: 850; }
+.detail-banner h2 { max-width: 820px; margin: 0; color: #fff; font-size: clamp(36px, 6vw, 70px); line-height: .98; }
+.detail-content { width: min(860px, calc(100% - 36px)); margin: 0 auto; padding: 28px 0 120px; }
+.detail-block {
+  border-top: 1px solid var(--line);
+  padding: 22px 0;
+}
+.detail-block h3 { margin: 0 0 12px; font-size: 16px; color: var(--gold); }
+.detail-block p, .detail-block li { color: rgba(247,241,230,.78); line-height: 1.65; }
+.detail-block ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 8px; }
+.value-anchors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.value-anchor { border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: rgba(247,241,230,.045); }
+.value-anchor b { display: block; margin-bottom: 6px; color: var(--mint); }
+.value-anchor span { color: rgba(247,241,230,.66); font-size: 12px; line-height: 1.42; }
+.module-bars { display: grid; gap: 10px; }
+.module-bar { border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; color: rgba(247,241,230,.8); background: linear-gradient(90deg, rgba(122,215,191,.13), rgba(216,181,109,.08)); }
+.sticky-order {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(216,181,109,.28);
+  background: rgba(13,20,26,.94);
+  backdrop-filter: blur(18px);
+}
+.sticky-price { display: grid; gap: 2px; min-width: 220px; }
+.sticky-price small { color: rgba(247,241,230,.6); line-height: 1.35; }
+.detail-disclaimer { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 8px; }
+.dialog-main { padding: 20px; max-width: 980px; margin: 0 auto; }
+.dialog-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 16px; }
+.dialog-head h3 { margin: 0; font-size: 19px; }
+.icon-btn { width: 42px; padding: 0; display: grid; place-items: center; font-size: 18px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field.full { grid-column: 1 / -1; }
+.field label { display: block; color: rgba(247,241,230,.72); font-size: 12px; margin-bottom: 6px; }
+.field input, .field textarea, .field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(8,11,15,.72);
+  color: var(--ink);
+  padding: 12px;
+  outline: none;
+}
+.field input:focus, .field textarea:focus, .field select:focus { border-color: rgba(122,215,191,.6); }
+.questionnaire { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: 4px; }
+.q-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: rgba(247,241,230,.035); }
+.q-row span { color: rgba(247,241,230,.82); line-height: 1.38; }
+.q-row select { width: 118px; padding: 9px; }
+.report-preview { display: none; margin-top: 18px; }
+.report-preview.open { display: grid; gap: 12px; }
+.report-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 15px;
+  background: rgba(247,241,230,.045);
+  line-height: 1.58;
+  color: rgba(247,241,230,.88);
+}
+.report-section h4 { margin: 0 0 8px; color: var(--mint); font-size: 15px; }
+.full-cover {
+  border: 1px solid rgba(216,181,109,.52);
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(216,181,109,.12), rgba(122,215,191,.08));
+}
+.full-cover h3 { margin: 6px 0 8px; font-size: 28px; line-height: 1.1; }
+.full-cover p { margin: 0; color: var(--muted); line-height: 1.5; }
+.signal-bars { display: grid; gap: 8px; margin-top: 14px; }
+.signal { display: grid; gap: 6px; }
+.signal label { display: flex; justify-content: space-between; color: rgba(247,241,230,.72); font-size: 12px; }
+.signal i { display: block; height: 8px; border-radius: 999px; background: rgba(247,241,230,.1); overflow: hidden; }
+.signal i::after { content: ""; display: block; height: 100%; width: var(--w); background: linear-gradient(90deg, var(--mint), var(--gold)); }
+.unlock-panel, .companion-panel {
+  border: 1px solid rgba(216,181,109,.5);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(216,181,109,.08);
+}
+.unlock-panel p, .companion-panel p { color: var(--muted); margin: 8px 0 12px; line-height: 1.48; }
+.value-list { margin: 10px 0 12px; padding-inline-start: 18px; color: rgba(247,241,230,.78); line-height: 1.55; }
+.paywall-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.paywall-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: rgba(8,11,15,.28); }
+.paywall-box b { color: var(--gold); }
+.paywall-box ul { margin: 8px 0 0; padding-inline-start: 18px; color: rgba(247,241,230,.76); line-height: 1.55; }
+.companion-log { display: grid; gap: 9px; max-height: 260px; overflow-y: auto; margin-top: 12px; }
+.bubble { max-width: 86%; border-radius: 8px; padding: 11px 13px; line-height: 1.5; font-size: 14px; }
+.bubble.bot { justify-self: start; background: rgba(247,241,230,.09); }
+.bubble.user { justify-self: end; background: rgba(122,215,191,.18); }
+.companion-form { display: flex; gap: 8px; margin-top: 10px; }
+.companion-form input { flex: 1; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,11,15,.72); color: var(--ink); padding: 12px; }
+.related-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.related-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: rgba(247,241,230,.045); }
+.related-card b { color: var(--mint); }
+.related-card p { color: var(--muted); margin: 6px 0 10px; line-height: 1.42; }
+.fineprint { font-size: 12px; color: rgba(247,241,230,.56); line-height: 1.48; }
+.hidden { display: none !important; }
+.footer { padding: 42px clamp(18px, 5vw, 60px); border-top: 1px solid var(--line); color: rgba(247,241,230,.58); display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+[dir="rtl"] body { font-family: Cairo, Tahoma, Arial, sans-serif; }
+[dir="rtl"] .hero-inner, [dir="rtl"] .dialog { direction: rtl; }
+[dir="rtl"] .dialog { transform: translateX(-34px); }
+[dir="rtl"] .modal.open .dialog { transform: translateX(0); }
+[dir="rtl"] .dialog-side { border-right: 0; border-left: 1px solid var(--line); }
+@media (max-width: 980px) {
+  .hero { min-height: auto; }
+  .hero-inner { grid-template-columns: 1fr; padding-bottom: 36px; }
+  .landing-strip { grid-template-columns: 1fr; }
+  .split-grid { grid-template-columns: 1fr; }
+  .products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flow { grid-template-columns: repeat(2, 1fr); }
+  .dialog { width: 100vw; }
+  .value-anchors { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .topbar { padding: 14px; }
+  .brand span:last-child { display: none; }
+  .hero-inner, .section { padding-left: 14px; padding-right: 14px; }
+  .products, .flow, .form-grid { grid-template-columns: 1fr; }
+  .paywall-grid, .related-grid { grid-template-columns: 1fr; }
+  .section-head { align-items: start; flex-direction: column; }
+  .q-row { grid-template-columns: 1fr; }
+  .q-row select { width: 100%; }
+  .companion-form { flex-direction: column; }
+  .modal.open { background: rgba(3,5,7,.9); }
+  .dialog { width: 100vw; border-left: 0; border-right: 0; }
+  .panel-top { min-height: 58px; padding: 10px 12px; }
+  .mini-start { padding: 9px 10px; font-size: 12px; }
+  .detail-banner { min-height: 230px; padding: 24px 16px; }
+  .detail-content { width: calc(100% - 28px); padding-bottom: 150px; }
+  .value-anchors { grid-template-columns: 1fr; }
+  .sticky-order { align-items: stretch; flex-direction: column; gap: 10px; }
+  .sticky-price { min-width: 0; text-align: center; }
+  .product-visual { min-height: 156px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hero">
+    <nav class="topbar">
+      <div class="brand"><div class="brand-mark">R7</div><span>R7 Sanctuary</span></div>
+      <div class="top-actions">
+        <div class="segmented" aria-label="Language">
+          <button class="active" id="langEn" onclick="setLang('en')">EN</button>
+          <button id="langAr" onclick="setLang('ar')">AR</button>
+        </div>
+        <button class="ghost-btn" onclick="scrollToReports()" data-i18n="topStart">Begin</button>
+      </div>
+    </nav>
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="eyebrow" data-i18n="eyebrow">Premium private AI emotional growth</div>
+        <h1 data-i18n="heroTitle">For the life that looks full, but feels quiet inside.</h1>
+        <p class="lede" data-i18n="heroCopy">A luxury-level AI emotional insight report for GCC users who want privacy, depth, and a calmer way to understand inner emptiness, relationship needs, and personal meaning.</p>
+        <div class="hero-cta">
+          <button class="primary-btn" onclick="openReport('relationship-emotional-growth')" data-i18n="heroPrimary">Create my private preview</button>
+          <button class="ghost-btn" onclick="scrollToReports()" data-i18n="heroSecondary">View report collection</button>
+        </div>
+        <div class="trust-row">
+          <span data-i18n="trust1">Anonymous by design</span>
+          <span data-i18n="trust2">One-time purchase only</span>
+          <span data-i18n="trust3">40+ page report value</span>
+          <span data-i18n="trust4">8 guided AI companion turns</span>
+        </div>
+      </div>
+      <aside class="price-panel">
+        <h2 data-i18n="quickTitle">High-touch digital delivery</h2>
+        <p data-i18n="quickCopy">Each purchase includes a full emotional report, PDF export value, permanent access, and a private AI companion flow. No subscription. No auto-renewal.</p>
+        <div class="mini-list">
+          <div class="mini-item"><strong data-i18n="mini1">Emotional State</strong><span>$49</span></div>
+          <div class="mini-item"><strong data-i18n="mini2">Inner Richness</strong><span>$99</span></div>
+          <div class="mini-item"><strong data-i18n="mini3">Relationship Care</strong><span>$129</span></div>
+        </div>
+      </aside>
+    </div>
+    <div class="landing-strip">
+      <div class="landing-chip"><b data-i18n="adChip1Title">From Reels to report</b><span data-i18n="adChip1Copy">The first screen matches the emotional question in your ad, with no extra navigation.</span></div>
+      <div class="landing-chip"><b data-i18n="adChip2Title">15% private preview</b><span data-i18n="adChip2Copy">Name the surface state first, then unlock the deeper emotional map only if it feels relevant.</span></div>
+      <div class="landing-chip"><b data-i18n="adChip3Title">No personal identity trail</b><span data-i18n="adChip3Copy">No birth data, no real name, no public profile, no recurring payment.</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="section-head">
+        <h2 data-i18n="audienceTitle">Two tones, one private emotional need.</h2>
+        <p data-i18n="audienceCopy">GCC users often express emotional pressure differently. The report adapts the scenario language after gender selection while keeping the same respectful self-growth framework.</p>
+      </div>
+      <div class="split-grid">
+        <article class="audience-card">
+          <h3 data-i18n="maleTitle">For men carrying responsibility quietly</h3>
+          <p data-i18n="maleCopy">A steadier tone for success pressure, private loneliness, work meaning, and the fatigue behind being constantly reliable.</p>
+          <ul>
+            <li data-i18n="malePoint1">Action-oriented inner enrichment steps</li>
+            <li data-i18n="malePoint2">Less emotional exaggeration, more precise recognition</li>
+            <li data-i18n="malePoint3">Work, family role, and private pressure scenarios</li>
+          </ul>
+        </article>
+        <article class="audience-card">
+          <h3 data-i18n="femaleTitle">For women whose needs deserve to be seen</h3>
+          <p data-i18n="femaleCopy">A warmer tone for emotional absence, relationship safety, self-worth, daily emotional labor, and quiet self-acceptance.</p>
+          <ul>
+            <li data-i18n="femalePoint1">Gentle validation before guidance</li>
+            <li data-i18n="femalePoint2">Relationship, self-care, and inner worth scenarios</li>
+            <li data-i18n="femalePoint3">Private language for needs that are hard to name</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="reports">
+      <div class="section-head">
+        <h2 data-i18n="productsTitle">Choose the question your heart keeps returning to.</h2>
+        <p data-i18n="productsCopy">Six premium reports for emotional emptiness, meaning, body-mind balance, work value, relationship care, and dream-based emotional reflection. All reports are framed as self-growth reference only.</p>
+      </div>
+      <div class="products" id="productGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 data-i18n="flowTitle">Short path, high privacy.</h2>
+        <p data-i18n="flowCopy">Social click to private landing, gender-based questionnaire, 15% preview, one-time payment, full report, then eight private AI companion turns tied to the report result.</p>
+      </div>
+      <div class="flow">
+        <div class="step"><b>01</b><p data-i18n="step1">Choose a premium report based on the emotional question that feels most present.</p></div>
+        <div class="step"><b>02</b><p data-i18n="step2">Answer 24 structured questions. Only gender is required; nickname is optional.</p></div>
+        <div class="step"><b>03</b><p data-i18n="step3">Read a concise free preview that names your surface emotional state.</p></div>
+        <div class="step"><b>04</b><p data-i18n="step4">Unlock the complete report and private AI emotional companion with one payment.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>R7 Sanctuary</div>
+    <div data-i18n="disclaimer">This content is for self-growth and emotional regulation reference only. It is not medical diagnosis, religious guidance, or professional psychotherapy advice.</div>
+  </footer>
+</div>
+
+<div class="modal" id="reportModal" aria-hidden="true" onclick="handleBackdropClick(event)">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="panel-top">
+      <button class="icon-btn" onclick="closeReport()" aria-label="Back">←</button>
+      <div class="panel-title" id="panelShortTitle">Report</div>
+      <button class="ghost-btn mini-start" onclick="showQuestionnaire()" data-i18n="miniStart">Start now</button>
+    </div>
+    <div class="panel-scroll" id="panelScroll">
+      <section class="detail-view" id="detailView">
+        <div class="detail-banner" id="detailBanner">
+          <span class="tag micro" data-i18n="genderBadge">Gender-adapted versions</span>
+          <small id="detailSlogan">Private emotional question</small>
+          <h2 id="detailTitle">Report</h2>
+        </div>
+        <div class="detail-content">
+          <div class="keyword-row" id="detailKeywords"></div>
+          <section class="detail-block">
+            <h3 data-i18n="painTitle">Core emotional question</h3>
+            <p id="detailIntro"></p>
+          </section>
+          <section class="detail-block">
+            <h3 data-i18n="audienceFitTitle">Who this is for</h3>
+            <ul id="detailAudience"></ul>
+          </section>
+          <section class="detail-block">
+            <h3 data-i18n="youGetTitle">What you will receive</h3>
+            <ul id="detailGets"></ul>
+          </section>
+          <section class="detail-block">
+            <h3 data-i18n="valueAnchorTitle">Why it feels premium</h3>
+            <div class="value-anchors">
+              <div class="value-anchor"><b data-i18n="anchorDepth">Deep structure</b><span data-i18n="anchorDepthCopy">A multi-layer emotional map, not a quick entertainment score.</span></div>
+              <div class="value-anchor"><b data-i18n="anchorLocal">GCC scenarios</b><span data-i18n="anchorLocalCopy">Language adapted for family roles, privacy, success pressure, and quiet emotional needs.</span></div>
+              <div class="value-anchor"><b data-i18n="anchorPlan">Personal plan</b><span data-i18n="anchorPlanCopy">Practical inner-richness steps you can start without public exposure.</span></div>
+              <div class="value-anchor"><b data-i18n="anchorAI">AI companion</b><span data-i18n="anchorAICopy">Eight calm companion turns tied to your report result after purchase.</span></div>
+            </div>
+          </section>
+          <section class="detail-block">
+            <h3 data-i18n="depthTitle">Content depth</h3>
+            <div class="module-bars">
+              <div class="module-bar" data-i18n="moduleCount">7 complete report modules</div>
+              <div class="module-bar" data-i18n="pageDepth">40+ page depth value with PDF export</div>
+              <div class="module-bar" data-i18n="companionDepth">8 AI emotional companion turns</div>
+              <div class="module-bar" data-i18n="keepForever">One-time purchase, permanent access</div>
+            </div>
+            <p id="detailDepth"></p>
+          </section>
+          <p class="fineprint detail-disclaimer" data-i18n="disclaimer">This content is for self-growth and emotional regulation reference only. It is not medical diagnosis, religious guidance, or professional psychotherapy advice.</p>
+        </div>
+      </section>
+      <section class="form-view hidden" id="formView">
+        <div class="dialog-main">
+          <div class="dialog-head">
+            <h3 data-i18n="formTitle">Create your private emotional preview</h3>
+          </div>
+          <form id="reportForm" class="form-grid" onsubmit="generateReport(event)">
+            <div class="field">
+              <label data-i18n="fieldGender">Gender</label>
+              <select name="gender" required>
+                <option value="female" data-i18n="genderFemale">Female</option>
+                <option value="male" data-i18n="genderMale">Male</option>
+              </select>
+            </div>
+            <div class="field">
+              <label data-i18n="fieldName">Nickname (optional)</label>
+              <input name="name" placeholder="Aisha">
+            </div>
+            <div class="field full">
+              <label id="contextLabel">What feels emotionally empty or unresolved right now?</label>
+              <textarea name="relationshipContext" placeholder="Write one private sentence if you want."></textarea>
+            </div>
+            <div class="questionnaire" id="questionnaire"></div>
+            <div class="field full">
+              <button class="primary-btn" type="submit" id="generateBtn" data-i18n="generate">Generate private preview</button>
+            </div>
+          </form>
+          <div class="report-preview" id="reportPreview"></div>
+        </div>
+      </section>
+    </div>
+    <div class="sticky-order" id="stickyOrder">
+      <div class="sticky-price">
+        <span><span class="compare" id="stickyAnchor">$119</span><span class="price" id="stickyPrice">$79</span></span>
+        <small data-i18n="trustLine">7-day refund · encrypted data · permanent access</small>
+      </div>
+      <button class="pay-btn" onclick="showQuestionnaire()" data-i18n="detailCta">Start anonymous assessment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const i18n = {
+  en: {
+    topStart: "Begin",
+    eyebrow: "Premium private AI emotional growth",
+    heroTitle: "For the life that looks full, but feels quiet inside.",
+    heroCopy: "A luxury-level AI emotional insight report for GCC users who want privacy, depth, and a calmer way to understand inner emptiness, relationship needs, and personal meaning.",
+    heroPrimary: "Create my private preview",
+    heroSecondary: "View report collection",
+    trust1: "Anonymous by design",
+    trust2: "One-time purchase only",
+    trust3: "40+ page report value",
+    trust4: "8 guided AI companion turns",
+    adChip1Title: "From Reels to report",
+    adChip1Copy: "The first screen matches the emotional question in your ad, with no extra navigation.",
+    adChip2Title: "15% private preview",
+    adChip2Copy: "Name the surface state first, then unlock the deeper emotional map only if it feels relevant.",
+    adChip3Title: "No personal identity trail",
+    adChip3Copy: "No birth data, no real name, no public profile, no recurring payment.",
+    quickTitle: "High-touch digital delivery",
+    quickCopy: "Each purchase includes a full emotional report, PDF export value, permanent access, and a private AI companion flow. No subscription. No auto-renewal.",
+    mini1: "Emotional State",
+    mini2: "Inner Richness",
+    mini3: "Relationship Care",
+    productsTitle: "Choose the question your heart keeps returning to.",
+    productsCopy: "Six premium reports for emotional emptiness, meaning, body-mind balance, work value, relationship care, and dream-based emotional reflection. All reports are framed as self-growth reference only.",
+    audienceTitle: "Two tones, one private emotional need.",
+    audienceCopy: "GCC users often express emotional pressure differently. The report adapts the scenario language after gender selection while keeping the same respectful self-growth framework.",
+    maleTitle: "For men carrying responsibility quietly",
+    maleCopy: "A steadier tone for success pressure, private loneliness, work meaning, and the fatigue behind being constantly reliable.",
+    malePoint1: "Action-oriented inner enrichment steps",
+    malePoint2: "Less emotional exaggeration, more precise recognition",
+    malePoint3: "Work, family role, and private pressure scenarios",
+    femaleTitle: "For women whose needs deserve to be seen",
+    femaleCopy: "A warmer tone for emotional absence, relationship safety, self-worth, daily emotional labor, and quiet self-acceptance.",
+    femalePoint1: "Gentle validation before guidance",
+    femalePoint2: "Relationship, self-care, and inner worth scenarios",
+    femalePoint3: "Private language for needs that are hard to name",
+    flowTitle: "Short path, high privacy.",
+    flowCopy: "Social click to private landing, gender-based questionnaire, 15% preview, one-time payment, full report, then eight private AI companion turns tied to the report result.",
+    step1: "Choose a premium report based on the emotional question that feels most present.",
+    step2: "Answer 24 structured questions. Only gender is required; nickname is optional.",
+    step3: "Read a concise free preview that names your surface emotional state.",
+    step4: "Unlock the complete report and private AI emotional companion with one payment.",
+    disclaimer: "This content is for self-growth and emotional regulation reference only. It is not medical diagnosis, religious guidance, or professional psychotherapy advice.",
+    inc1: "40+ page depth value",
+    inc2: "8 AI emotional companion turns",
+    inc3: "One-time payment, permanent access",
+    inc4: "Anonymous generation, 7-day refund policy",
+    formTitle: "Create your private emotional preview",
+    fieldGender: "Gender",
+    genderFemale: "Female",
+    genderMale: "Male",
+    fieldName: "Nickname (optional)",
+    generate: "Generate private preview",
+    previewLabel: "Free private preview",
+    unlockTitle: "Unlock the complete premium report",
+    unlockCopy: "Free preview shows only the surface state. The complete version reveals the deeper emotional need, the inner emptiness pattern, practical enrichment steps, and the private AI companion flow.",
+    previewSide: "Free preview",
+    fullSide: "Complete report",
+    fullCoverKicker: "Complete premium report",
+    relatedTitle: "Recommended next exploration",
+    pay: "Unlock with one-time payment",
+    paid: "I have paid - show full report",
+    previewMode: "Preview checkout mode: add report payment links in .env to open real checkout.",
+    opened: "Checkout opened. After payment, return here and tap the unlock button.",
+    companionTitle: "AI Private Emotional Companion",
+    companionIntro: "I read the pattern in your report. We can use eight quiet turns to name what has felt empty, without judgment.",
+    companionPlaceholder: "Write what you have not said out loud...",
+    companionSend: "Send",
+    back: "Back to reports",
+    viewDetails: "View details",
+    miniStart: "Start now",
+    genderBadge: "Gender-adapted versions",
+    painTitle: "Core emotional question",
+    audienceFitTitle: "Who this is for",
+    youGetTitle: "What you will receive",
+    valueAnchorTitle: "Why it feels premium",
+    anchorDepth: "Deep structure",
+    anchorDepthCopy: "A multi-layer emotional map, not a quick entertainment score.",
+    anchorLocal: "GCC scenarios",
+    anchorLocalCopy: "Language adapted for family roles, privacy, success pressure, and quiet emotional needs.",
+    anchorPlan: "Personal plan",
+    anchorPlanCopy: "Practical inner-richness steps you can start without public exposure.",
+    anchorAI: "AI companion",
+    anchorAICopy: "Eight calm companion turns tied to your report result after purchase.",
+    depthTitle: "Content depth",
+    moduleCount: "7 complete report modules",
+    pageDepth: "40+ page depth value with PDF export",
+    companionDepth: "8 AI emotional companion turns",
+    keepForever: "One-time purchase, permanent access",
+    trustLine: "7-day refund · encrypted data · permanent access",
+    detailCta: "Start anonymous assessment"
+  },
+  ar: {
+    topStart: "ابدأ",
+    eyebrow: "نمو عاطفي خاص بالذكاء الاصطناعي",
+    heroTitle: "للحياة التي تبدو ممتلئة، لكنها هادئة من الداخل.",
+    heroCopy: "تقرير عاطفي عميق بمستوى فاخر لمستخدمي الخليج الذين يريدون الخصوصية والعمق وطريقة أهدأ لفهم الفراغ الداخلي واحتياجات العلاقة والمعنى الشخصي.",
+    heroPrimary: "إنشاء معاينة خاصة",
+    heroSecondary: "عرض مجموعة التقارير",
+    trust1: "مصمم للخصوصية",
+    trust2: "شراء مرة واحدة فقط",
+    trust3: "قيمة تقرير 40+ صفحة",
+    trust4: "8 جولات مرافقة عاطفية ذكية",
+    adChip1Title: "من الريلز إلى التقرير",
+    adChip1Copy: "الشاشة الأولى تطابق السؤال العاطفي في الإعلان دون تنقل زائد.",
+    adChip2Title: "معاينة خاصة 15%",
+    adChip2Copy: "سمّ الحالة السطحية أولًا، ثم افتح الخريطة الأعمق فقط إذا شعرت أنها قريبة منك.",
+    adChip3Title: "بدون أثر هوية شخصية",
+    adChip3Copy: "بدون بيانات ميلاد، بدون اسم حقيقي، بدون ملف عام، وبدون دفع متكرر.",
+    quickTitle: "تسليم رقمي عالي العناية",
+    quickCopy: "كل عملية شراء تشمل تقريرًا عاطفيًا كاملًا وقيمة تصدير PDF ووصولًا دائمًا ومسار مرافقة ذكي خاص. لا اشتراك ولا تجديد تلقائي.",
+    mini1: "الحالة العاطفية",
+    mini2: "الثراء الداخلي",
+    mini3: "رعاية العلاقة",
+    productsTitle: "اختر السؤال الذي يعود إليه قلبك.",
+    productsCopy: "ستة تقارير فاخرة للفراغ العاطفي والمعنى والتوازن الجسدي النفسي وقيمة العمل ورعاية العلاقة والتأمل العاطفي في الأحلام. كل التقارير مرجع للنمو الذاتي فقط.",
+    audienceTitle: "نبرتان، واحتياج عاطفي خاص واحد.",
+    audienceCopy: "يعبر مستخدمو الخليج عن الضغط العاطفي بطرق مختلفة. يتكيف التقرير بعد اختيار الجنس مع بقاء الإطار محترمًا ومخصصًا للنمو الذاتي.",
+    maleTitle: "للرجال الذين يحملون المسؤولية بصمت",
+    maleCopy: "نبرة أكثر اتزانًا لضغط النجاح والوحدة الخاصة ومعنى العمل والتعب خلف الاعتماد الدائم عليهم.",
+    malePoint1: "خطوات عملية للثراء الداخلي",
+    malePoint2: "اعتراف دقيق دون مبالغة عاطفية",
+    malePoint3: "سيناريوهات العمل والدور العائلي والضغط الخاص",
+    femaleTitle: "للنساء اللواتي تستحق احتياجاتهن أن تُرى",
+    femaleCopy: "نبرة أدفأ للغياب العاطفي وأمان العلاقة وقيمة الذات والعمل العاطفي اليومي والتقبل الهادئ.",
+    femalePoint1: "احتواء لطيف قبل الإرشاد",
+    femalePoint2: "سيناريوهات العلاقة والعناية بالذات وقيمة الداخل",
+    femalePoint3: "لغة خاصة للاحتياجات التي يصعب تسميتها",
+    flowTitle: "مسار قصير وخصوصية عالية.",
+    flowCopy: "من رابط اجتماعي إلى صفحة خاصة، أسئلة حسب الجنس، معاينة 15%، دفع مرة واحدة، تقرير كامل، ثم ثماني جولات مرافقة عاطفية خاصة مرتبطة بالنتيجة.",
+    step1: "اختر تقريرًا فاخرًا حسب السؤال العاطفي الأكثر حضورًا.",
+    step2: "أجب عن 24 سؤالًا منظمًا. الجنس مطلوب فقط والاسم المستعار اختياري.",
+    step3: "اقرأ معاينة قصيرة تسمي حالتك العاطفية السطحية.",
+    step4: "افتح التقرير الكامل والمرافق العاطفي الذكي بدفعة واحدة.",
+    disclaimer: "هذا المحتوى مرجع للنمو الذاتي وتنظيم المشاعر فقط، وليس تشخيصًا طبيًا أو إرشادًا دينيًا أو نصيحة علاج نفسي متخصص.",
+    inc1: "قيمة عمق 40+ صفحة",
+    inc2: "8 جولات مرافقة عاطفية ذكية",
+    inc3: "دفع مرة واحدة ووصول دائم",
+    inc4: "إنشاء مجهول وسياسة استرداد 7 أيام",
+    formTitle: "أنشئ معاينتك العاطفية الخاصة",
+    fieldGender: "الجنس",
+    genderFemale: "أنثى",
+    genderMale: "ذكر",
+    fieldName: "اسم مستعار (اختياري)",
+    generate: "إنشاء معاينة خاصة",
+    previewLabel: "معاينة خاصة مجانية",
+    unlockTitle: "افتح التقرير الفاخر الكامل",
+    unlockCopy: "تعرض المعاينة المجانية الحالة السطحية فقط. النسخة الكاملة تكشف الاحتياج العاطفي الأعمق ونمط الفراغ الداخلي وخطوات الإثراء ومسار المرافق الذكي الخاص.",
+    previewSide: "المعاينة المجانية",
+    fullSide: "التقرير الكامل",
+    fullCoverKicker: "تقرير فاخر كامل",
+    relatedTitle: "استكشاف مقترح لاحق",
+    pay: "فتح بدفعة واحدة",
+    paid: "تم الدفع - عرض التقرير الكامل",
+    previewMode: "وضع معاينة الدفع: أضف روابط الدفع في .env لفتح الدفع الحقيقي.",
+    opened: "تم فتح الدفع. بعد الدفع، ارجع هنا واضغط زر الفتح.",
+    companionTitle: "مرافق عاطفي ذكي خاص",
+    companionIntro: "قرأت النمط في تقريرك. يمكننا استخدام ثماني جولات هادئة لتسمية ما بدا فارغًا دون حكم.",
+    companionPlaceholder: "اكتب ما لم تقله بصوت عالٍ...",
+    companionSend: "إرسال",
+    back: "العودة إلى التقارير",
+    viewDetails: "عرض التفاصيل",
+    miniStart: "ابدأ الآن",
+    genderBadge: "نسختان مناسبتان للجنس",
+    painTitle: "السؤال العاطفي الأساسي",
+    audienceFitTitle: "لمن يناسب هذا التقرير",
+    youGetTitle: "ما الذي ستحصل عليه",
+    valueAnchorTitle: "لماذا يبدو فاخرًا",
+    anchorDepth: "بنية عميقة",
+    anchorDepthCopy: "خريطة عاطفية متعددة الطبقات، وليست درجة ترفيهية سريعة.",
+    anchorLocal: "مشاهد خليجية",
+    anchorLocalCopy: "لغة تراعي أدوار العائلة والخصوصية وضغط النجاح والاحتياجات العاطفية الهادئة.",
+    anchorPlan: "خطة شخصية",
+    anchorPlanCopy: "خطوات عملية للثراء الداخلي تبدأ بها دون انكشاف اجتماعي.",
+    anchorAI: "مرافق ذكي",
+    anchorAICopy: "ثماني جولات هادئة مرتبطة بنتيجة تقريرك بعد الشراء.",
+    depthTitle: "عمق المحتوى",
+    moduleCount: "7 وحدات تقرير كاملة",
+    pageDepth: "قيمة عمق 40+ صفحة مع تصدير PDF",
+    companionDepth: "8 جولات مرافقة عاطفية ذكية",
+    keepForever: "شراء مرة واحدة ووصول دائم",
+    trustLine: "استرداد 7 أيام · بيانات مشفرة · وصول دائم",
+    detailCta: "ابدأ التقييم المجهول"
+  }
+};
+
+const products = [
+  {
+    id: "emotional-depth",
+    title: "Deep Emotional State Assessment",
+    arTitle: "تقييم عميق للحالة العاطفية",
+    short: "Emotional State",
+    arShort: "الحالة العاطفية",
+    price: "$49",
+    sar: "184 SAR",
+    anchor: "$99",
+    tag: "Entry premium",
+    arTag: "مدخل فاخر",
+    slogan: "See the fatigue you keep hidden beneath composure.",
+    arSlogan: "انظر إلى التعب الذي تخفيه خلف التماسك.",
+    keywords: ["Hidden strain", "Emptiness source", "Emotional repair", "21-day plan"],
+    arKeywords: ["إجهاد خفي", "مصدر الفراغ", "ترميم عاطفي", "خطة 21 يومًا"],
+    subtitle: "Map the hidden emotional depletion beneath a polished life and rebuild inner steadiness.",
+    arSubtitle: "ارسم خريطة الاستنزاف العاطفي الخفي خلف حياة أنيقة وأعد بناء الاتزان الداخلي.",
+    intro: "This report names the quiet depletion that can sit behind comfort, achievement, and social composure. It traces where loneliness and inner emptiness begin, then turns recognition into a private emotional enrichment plan.",
+    arIntro: "يسمي هذا التقرير الاستنزاف الهادئ الذي قد يختبئ خلف الراحة والإنجاز والتماسك الاجتماعي. ثم يحدد أين يبدأ الشعور بالوحدة والفراغ الداخلي ويحوله إلى خطة خاصة للثراء العاطفي.",
+    audience: ["People who look fine but feel tired inside", "High-responsibility users with little space to express emotion", "Users who want a private first step before deeper support", "Anyone needing a calm 21-day emotional reset"],
+    arAudience: ["من يبدون بخير لكنهم متعبون داخليًا", "أصحاب المسؤولية العالية وقلة مساحة التعبير", "من يريد خطوة خاصة قبل دعم أعمق", "من يحتاج إعادة اتزان عاطفي هادئة خلال 21 يومًا"],
+    gets: ["Emotional pressure level and fulfillment map", "Hidden emptiness source analysis", "Body-mood impact overview", "21-day inner richness action manual", "8 AI emotional companion turns after unlock"],
+    arGets: ["مستوى الضغط العاطفي وخريطة الإشباع", "تحليل مصدر الفراغ الخفي", "نظرة على أثر الجسد والمزاج", "دليل عمل للثراء الداخلي خلال 21 يومًا", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "When everything looks fine, why does it still feel hollow?",
+    arHook: "عندما يبدو كل شيء جيدًا، لماذا يبقى الشعور فارغًا؟",
+    featured: true,
+    contextLabel: "What emotional state feels hardest to explain?",
+    deliverables: ["Emotional fulfillment map", "21-day inner richness plan", "8 companion turns"],
+    maleAngle: "Responsibility pressure and private heaviness",
+    femaleAngle: "Emotional labor and the need to be seen",
+    cardStart: "#182a2d",
+    cardEnd: "#0a1118"
+  },
+  {
+    id: "dream-emotion",
+    title: "Dream Emotional Mapping",
+    arTitle: "رسم الخريطة العاطفية للأحلام",
+    short: "Dream Mapping",
+    arShort: "خريطة الأحلام",
+    price: "$59",
+    sar: "221 SAR",
+    anchor: "$119",
+    tag: "Reflective",
+    arTag: "تأملي",
+    slogan: "A dream can be your unnoticed inner monologue.",
+    arSlogan: "قد يكون الحلم حوارك الداخلي غير الملحوظ.",
+    keywords: ["Inner signal", "Emotional projection", "Self-awareness", "Psychological reading"],
+    arKeywords: ["إشارة داخلية", "إسقاط عاطفي", "وعي ذاتي", "قراءة نفسية"],
+    subtitle: "Use dream memories as grounded emotional signals, never as certainty.",
+    arSubtitle: "استخدم ذكريات الأحلام كإشارات عاطفية واقعية، وليس كيقين.",
+    intro: "This report removes the mystical frame and reads dream fragments as emotional signals. It helps you notice the needs you may suppress while awake, then offers calm reflection prompts and action guidance.",
+    arIntro: "يزيل هذا التقرير الإطار الغامض ويقرأ شظايا الحلم كإشارات عاطفية. يساعدك على ملاحظة الاحتياجات التي قد تكبتها في اليقظة ثم يقدم أسئلة تأملية هادئة وتوجيهًا عمليًا.",
+    audience: ["Users with recurring dreams or memorable dream emotions", "People who want a gentle self-awareness entry point", "Anyone processing hidden pressure, longing, or emotional absence", "Users who prefer reflective language over direct assessment"],
+    arAudience: ["من لديهم أحلام متكررة أو مشاعر حلم واضحة", "من يريد مدخلًا لطيفًا للوعي الذاتي", "من يعالج ضغطًا خفيًا أو شوقًا أو غيابًا عاطفيًا", "من يفضل لغة تأملية على التقييم المباشر"],
+    gets: ["Dream emotion signal map", "Subconscious need reflection", "Current emotional gap overview", "Grounding and calm-action prompts", "8 AI companion turns after unlock"],
+    arGets: ["خريطة إشارة عاطفية للحلم", "تأمل في الاحتياج الداخلي", "نظرة على الفجوة العاطفية الحالية", "أسئلة تهدئة وخطوات عملية", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "A dream can be a quiet emotional message, not a sign.",
+    arHook: "قد يكون الحلم رسالة عاطفية هادئة، وليس علامة.",
+    contextLabel: "Describe the dream feeling in plain words.",
+    deliverables: ["Emotion signal map", "Grounded reflection prompts", "Calming companion flow"],
+    maleAngle: "Hidden pressure and decision fatigue",
+    femaleAngle: "Safety, longing, and unnamed expectation",
+    cardStart: "#24213a",
+    cardEnd: "#0d1018"
+  },
+  {
+    id: "career-meaning",
+    title: "Career Value & Inner Meaning Analysis",
+    arTitle: "تحليل قيمة العمل والمعنى الداخلي",
+    short: "Career Meaning",
+    arShort: "معنى العمل",
+    price: "$69",
+    sar: "259 SAR",
+    anchor: "$149",
+    tag: "Main profit",
+    arTag: "رئيسي",
+    slogan: "After reaching the top, return to inner meaning.",
+    arSlogan: "بعد الوصول إلى القمة، عُد إلى المعنى الداخلي.",
+    keywords: ["Success emptiness", "Value rebuild", "Work fatigue", "Growth path"],
+    arKeywords: ["فراغ النجاح", "إعادة بناء القيمة", "إرهاق العمل", "مسار نمو"],
+    subtitle: "Understand achievement, meaning, and the emptiness that can appear after success.",
+    arSubtitle: "افهم الإنجاز والمعنى والفراغ الذي قد يظهر بعد النجاح.",
+    intro: "This report is built for the elite discomfort of having reached material goals while still feeling internally undernourished. It examines identity pressure, role fatigue, and how to rebuild a more meaningful relationship with work.",
+    arIntro: "صُمم هذا التقرير للضيق الهادئ لدى من وصلوا إلى أهداف مادية وما زالوا يشعرون بنقص داخلي. يدرس ضغط الهوية وإرهاق الدور وكيفية إعادة بناء علاقة أكثر معنى مع العمل.",
+    audience: ["Professionals who have success but not enough fulfillment", "Founders, executives, and high-responsibility earners", "Users feeling work fatigue without wanting dramatic change", "People seeking a 30-day value rebuild path"],
+    arAudience: ["مهنيون لديهم نجاح لكن الإشباع غير كاف", "مؤسسون ومديرون وأصحاب مسؤولية عالية", "من يشعرون بإرهاق العمل دون رغبة في تغيير حاد", "من يبحثون عن مسار 30 يومًا لإعادة بناء القيمة"],
+    gets: ["Career value and meaning gap analysis", "Role pressure and identity map", "Material-success emptiness source", "30-day inner value rebuilding list", "8 AI companion turns after unlock"],
+    arGets: ["تحليل فجوة قيمة العمل والمعنى", "خريطة ضغط الدور والهوية", "مصدر فراغ النجاح المادي", "قائمة 30 يومًا لإعادة بناء القيمة الداخلية", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "Success can be real, and still not feel nourishing.",
+    arHook: "قد يكون النجاح حقيقيًا، لكنه لا يغذي الداخل.",
+    featured: true,
+    contextLabel: "Where does work feel successful but not fulfilling?",
+    deliverables: ["Meaning gap analysis", "Role pressure map", "30-day value plan"],
+    maleAngle: "Achievement pressure and meaning loss",
+    femaleAngle: "Work value, family energy, and self-care",
+    cardStart: "#24312a",
+    cardEnd: "#0b1312"
+  },
+  {
+    id: "body-emotion-balance",
+    title: "Body-Mind Emotional Balance Review",
+    arTitle: "مراجعة التوازن العاطفي الجسدي النفسي",
+    short: "Body-Mind Balance",
+    arShort: "توازن الجسد والنفس",
+    price: "$79",
+    sar: "296 SAR",
+    anchor: "$159",
+    tag: "Restorative",
+    arTag: "ترميمي",
+    slogan: "Repair depletion and let energy return to you.",
+    arSlogan: "رمم الاستنزاف ودع الطاقة تعود إليك.",
+    keywords: ["Body-mind depletion", "Energy leakage", "Rhythm repair", "Mindful reset"],
+    arKeywords: ["استنزاف جسدي نفسي", "تسرب الطاقة", "إصلاح الإيقاع", "إعادة ضبط واعية"],
+    subtitle: "Trace how emotional depletion shows up as fatigue, tension, and disconnection.",
+    arSubtitle: "تتبع كيف يظهر الاستنزاف العاطفي كتعب وتوتر وانفصال.",
+    intro: "This report locates the energy leaks common to high-responsibility lives. It connects emotional compression with chronic tiredness, tension, and numbness, then builds a private body-mind regulation plan.",
+    arIntro: "يحدد هذا التقرير نقاط تسرب الطاقة الشائعة في حياة المسؤولية العالية. يربط بين الضغط العاطفي والتعب المزمن والتوتر والخدر، ثم يبني خطة خاصة لتنظيم الجسد والنفس.",
+    audience: ["People whose body feels tired before emotions are named", "Users with high output and low inner recovery", "Anyone feeling disconnected, tense, or emotionally drained", "Users wanting gentle regulation practices"],
+    arAudience: ["من يتعب جسدهم قبل تسمية المشاعر", "من لديهم إنتاج عالٍ وتعافٍ داخلي منخفض", "من يشعرون بانفصال أو توتر أو استنزاف عاطفي", "من يريدون ممارسات تنظيم لطيفة"],
+    gets: ["Body-mind depletion score", "Emotional energy leakage map", "Fatigue and emptiness connection analysis", "Rhythm and self-care repair plan", "8 AI companion turns after unlock"],
+    arGets: ["درجة الاستنزاف الجسدي النفسي", "خريطة تسرب الطاقة العاطفية", "تحليل ارتباط التعب بالفراغ", "خطة إصلاح الإيقاع والعناية الذاتية", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "Maybe the body is carrying what the heart has hidden.",
+    arHook: "ربما يحمل الجسد ما أخفاه القلب.",
+    contextLabel: "What body-mind signal keeps returning?",
+    deliverables: ["Depletion score", "Energy leakage map", "Gentle repair manual"],
+    maleAngle: "Burnout behind composure",
+    femaleAngle: "Fatigue behind emotional giving",
+    cardStart: "#18322f",
+    cardEnd: "#081312"
+  },
+  {
+    id: "inner-richness-personality",
+    title: "Inner Richness Personality Portrait",
+    arTitle: "صورة الشخصية والثراء الداخلي",
+    short: "Personality Portrait",
+    arShort: "صورة الشخصية",
+    price: "$99",
+    sar: "371 SAR",
+    anchor: "$199",
+    tag: "Signature",
+    arTag: "علامة مميزة",
+    slogan: "Understand your personality, and the loneliness beneath it.",
+    arSlogan: "افهم شخصيتك، وافهم الوحدة التي تحتها.",
+    keywords: ["10 dimensions", "Emptiness pattern", "Self-acceptance", "Inner growth"],
+    arKeywords: ["10 أبعاد", "نمط الفراغ", "تقبل الذات", "نمو داخلي"],
+    subtitle: "A premium 10-dimension portrait of personality, emotional needs, and inner fullness.",
+    arSubtitle: "صورة فاخرة من 10 أبعاد للشخصية والاحتياجات العاطفية والامتلاء الداخلي.",
+    intro: "This is not only a personality description. It studies how your traits create emotional needs, private loneliness patterns, connection habits, and the most sustainable route toward inner richness.",
+    arIntro: "هذا ليس وصفًا للشخصية فقط. يدرس كيف تصنع سماتك احتياجات عاطفية وأنماط وحدة خاصة وعادات تواصل والطريق الأكثر استدامة نحو الثراء الداخلي.",
+    audience: ["Users wanting the most complete self-portrait", "People who feel misunderstood despite success", "Users who want to understand recurring loneliness patterns", "Anyone ready for a structured long-term growth map"],
+    arAudience: ["من يريدون الصورة الذاتية الأكثر اكتمالًا", "من يشعرون بأنهم غير مفهومين رغم النجاح", "من يريدون فهم أنماط الوحدة المتكررة", "من يستعدون لخريطة نمو طويلة المدى"],
+    gets: ["10-dimension personality portrait", "Deep emotional need source", "Interpersonal pattern analysis", "Inner emptiness core cause", "Personal growth action list and scenario guide", "8 AI companion turns after unlock"],
+    arGets: ["صورة شخصية من 10 أبعاد", "مصدر الاحتياج العاطفي العميق", "تحليل نمط التفاعل مع الآخرين", "سبب الفراغ الداخلي الأساسي", "قائمة عمل للنمو ودليل سيناريوهات", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "Know the self that remains when achievement is not enough.",
+    arHook: "اعرف الذات التي تبقى عندما لا يكفي الإنجاز.",
+    featured: true,
+    contextLabel: "What part of yourself do you want to understand more deeply?",
+    deliverables: ["10-dimension portrait", "Core emptiness source", "Personal growth map"],
+    maleAngle: "Strength, privacy, and emotional expression",
+    femaleAngle: "Self-acceptance, relationship needs, and identity",
+    cardStart: "#2f2637",
+    cardEnd: "#0d1018"
+  },
+  {
+    id: "relationship-emotional-growth",
+    title: "Intimate Relationship Emotional Care Analysis",
+    arTitle: "تحليل الرعاية العاطفية في العلاقة القريبة",
+    short: "Relationship Care",
+    arShort: "رعاية العلاقة",
+    price: "$129",
+    sar: "484 SAR",
+    anchor: "$249",
+    tag: "Top tier",
+    arTag: "الأعلى",
+    slogan: "In a materially complete relationship, rebuild emotional resonance.",
+    arSlogan: "في علاقة مكتملة ماديًا، أعد بناء الرنين العاطفي.",
+    keywords: ["Emotional absence", "Resonance rebuild", "Communication repair", "Closeness renewal"],
+    arKeywords: ["غياب عاطفي", "إعادة بناء الرنين", "إصلاح التواصل", "تجديد القرب"],
+    subtitle: "Decode emotional absence, attachment needs, and healthier ways to build closeness.",
+    arSubtitle: "فك رموز الغياب العاطفي واحتياجات الأمان وطرق بناء قرب صحي.",
+    intro: "This report focuses on the quiet gap inside materially complete relationships. It studies needs mismatch, expression differences, emotional absence, and practical ways to rebuild warmth, respect, and resonance.",
+    arIntro: "يركز هذا التقرير على الفجوة الهادئة داخل العلاقات المكتملة ماديًا. يدرس اختلاف الاحتياجات وطريقة التعبير والغياب العاطفي وطرقًا عملية لإعادة بناء الدفء والاحترام والرنين.",
+    audience: ["Users who feel together but not emotionally met", "Couples or married users seeking calmer communication patterns", "People who carry unspoken relationship needs", "Anyone wanting relationship growth within a respectful family framework"],
+    arAudience: ["من يشعرون بالوجود معًا دون إشباع عاطفي", "الأزواج أو المرتبطون الباحثون عن تواصل أهدأ", "من يحملون احتياجات علاقة غير منطوقة", "من يريدون نمو العلاقة ضمن إطار عائلي محترم"],
+    gets: ["Attachment and emotional fulfillment pattern", "Core emotional absence source", "Needs mismatch and expression map", "Communication optimization plan", "Long-term closeness care manual", "8 AI companion turns after unlock"],
+    arGets: ["نمط التعلق والإشباع العاطفي", "مصدر الغياب العاطفي الأساسي", "خريطة اختلاف الاحتياجات والتعبير", "خطة تحسين التواصل", "دليل رعاية القرب طويل المدى", "8 جولات مرافقة عاطفية ذكية بعد الفتح"],
+    depth: "Includes a 40+ page complete report value, PDF export, permanent access, and a dedicated companion path.",
+    arDepth: "يتضمن قيمة تقرير كامل من 40+ صفحة، وتصدير PDF، ووصولًا دائمًا، ومسار مرافقة خاص.",
+    hook: "Being together is not the same as feeling emotionally met.",
+    arHook: "الوجود معًا لا يعني دائمًا الشعور بأنك مفهوم عاطفيًا.",
+    featured: true,
+    contextLabel: "What feels missing in emotional closeness?",
+    deliverables: ["Attachment pattern", "Emotional absence source", "Long-term closeness manual"],
+    maleAngle: "Responsibility, care language, and emotional transmission",
+    femaleAngle: "Safety, tenderness, and unmet emotional need",
+    cardStart: "#33242e",
+    cardEnd: "#111117"
+  }
+];
+
+const questions = [
+  "I often look composed while feeling emotionally far away inside.",
+  "I find it difficult to name what I truly need from people close to me.",
+  "Achievement gives me comfort, but not always a sense of inner fullness.",
+  "I hold back feelings because I do not want to appear demanding.",
+  "I sometimes feel surrounded by people but privately alone.",
+  "My body shows tiredness before I admit emotional pressure.",
+  "I prefer to manage pain quietly rather than explain it.",
+  "I want deeper connection, but I also protect myself from needing too much.",
+  "I feel responsible for others while my own needs stay unnamed.",
+  "I need emotional safety before I can speak honestly.",
+  "I lose energy when affection is shown through duty but not warmth.",
+  "I sometimes confuse peace with emotional distance.",
+  "I want a life that feels meaningful, not only successful.",
+  "I need gentleness, but I may not ask for it directly.",
+  "I notice small changes in tone, attention, and emotional presence.",
+  "I recover best when my inner world feels respected.",
+  "I feel pressure to be strong even when I want to be held emotionally.",
+  "I can be generous with others and restrained with myself.",
+  "I want guidance that feels private, calm, and non-judgmental.",
+  "I am ready to understand the emotional pattern beneath my current question.",
+  "I feel a gap between the life people see and the life I feel inside.",
+  "I want to build inner richness without depending on constant external validation.",
+  "I need practical steps, not dramatic promises.",
+  "I value privacy when exploring sensitive emotions."
+];
+
+let lang = "en";
+let activeProduct = products[0];
+let latestSections = [];
+let latestPayment = null;
+let companionTurns = 0;
+
+function t(key) { return i18n[lang][key] || i18n.en[key] || key; }
+function scrollToReports() { document.querySelector("#reports").scrollIntoView({ behavior: "smooth" }); }
+function escapeHtml(value) { return String(value || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c])); }
+function setLang(next) {
+  lang = next;
+  document.documentElement.lang = next;
+  document.documentElement.dir = next === "ar" ? "rtl" : "ltr";
+  document.getElementById("langEn").classList.toggle("active", next === "en");
+  document.getElementById("langAr").classList.toggle("active", next === "ar");
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = t(el.dataset.i18n));
+  renderProducts();
+  if (document.getElementById("reportModal").classList.contains("open")) fillModalCopy();
+}
+function renderProducts() {
+  const grid = document.getElementById("productGrid");
+  grid.innerHTML = "";
+  products.forEach(product => {
+    const article = document.createElement("article");
+    article.className = `product ${product.featured ? "featured" : ""}`;
+    article.style.setProperty("--card-start", product.cardStart || "#182a2d");
+    article.style.setProperty("--card-end", product.cardEnd || "#0a1118");
+    const title = lang === "ar" ? product.arTitle : product.title;
+    const subtitle = lang === "ar" ? product.arSubtitle : product.subtitle;
+    const hook = lang === "ar" ? product.arHook : product.hook;
+    const tag = lang === "ar" ? product.arTag : product.tag;
+    const slogan = lang === "ar" ? product.arSlogan : product.slogan;
+    const keywords = lang === "ar" ? product.arKeywords : product.keywords;
+    article.innerHTML = `
+      <div>
+        <div class="product-visual">
+          <div class="product-meta"><span class="tag micro">${escapeHtml(t("genderBadge"))}</span><span>${escapeHtml(product.sar)}</span></div>
+          <div><small>${escapeHtml(slogan)}</small><h3>${escapeHtml(title)}</h3></div>
+        </div>
+        <div class="keyword-row compact">
+          ${keywords.map(item => `<span class="tag">${escapeHtml(item)}</span>`).join("")}
+        </div>
+        <p>${escapeHtml(subtitle)}</p>
+        <div class="deliverables">
+          ${product.deliverables.map(item => `<span>${escapeHtml(item)}</span>`).join("")}
+        </div>
+        <div class="hook">${escapeHtml(hook)}</div>
+      </div>
+      <div class="card-actions">
+        <div><span class="compare">${escapeHtml(product.anchor)}</span><span class="price">${escapeHtml(product.price)}</span></div>
+        <button class="primary-btn" onclick="openReport('${product.id}')">${escapeHtml(t("viewDetails"))}</button>
+      </div>`;
+    grid.appendChild(article);
+  });
+}
+function openReport(productId) {
+  activeProduct = products.find(p => p.id === productId) || products[0];
+  latestSections = [];
+  latestPayment = null;
+  companionTurns = 0;
+  document.getElementById("reportForm").classList.remove("hidden");
+  document.getElementById("reportPreview").classList.remove("open");
+  document.getElementById("reportPreview").innerHTML = "";
+  document.getElementById("detailView").classList.remove("hidden");
+  document.getElementById("formView").classList.add("hidden");
+  document.getElementById("stickyOrder").classList.remove("hidden");
+  fillModalCopy();
+  renderQuestions();
+  document.getElementById("reportModal").classList.add("open");
+  document.getElementById("reportModal").setAttribute("aria-hidden", "false");
+  document.body.classList.add("panel-open");
+  document.getElementById("panelScroll").scrollTop = 0;
+}
+function fillModalCopy() {
+  const title = lang === "ar" ? activeProduct.arTitle : activeProduct.title;
+  const shortTitle = lang === "ar" ? activeProduct.arShort : activeProduct.short;
+  const slogan = lang === "ar" ? activeProduct.arSlogan : activeProduct.slogan;
+  const keywords = lang === "ar" ? activeProduct.arKeywords : activeProduct.keywords;
+  const intro = lang === "ar" ? activeProduct.arIntro : activeProduct.intro;
+  const audience = lang === "ar" ? activeProduct.arAudience : activeProduct.audience;
+  const gets = lang === "ar" ? activeProduct.arGets : activeProduct.gets;
+  const depth = lang === "ar" ? activeProduct.arDepth : activeProduct.depth;
+  const banner = document.getElementById("detailBanner");
+  banner.style.setProperty("--card-start", activeProduct.cardStart || "#182a2d");
+  banner.style.setProperty("--card-end", activeProduct.cardEnd || "#0a1118");
+  document.getElementById("panelShortTitle").textContent = shortTitle || title;
+  document.getElementById("detailTitle").textContent = title;
+  document.getElementById("detailSlogan").textContent = slogan;
+  document.getElementById("detailKeywords").innerHTML = keywords.map(item => `<span class="tag">${escapeHtml(item)}</span>`).join("");
+  document.getElementById("detailIntro").textContent = intro;
+  document.getElementById("detailAudience").innerHTML = audience.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+  document.getElementById("detailGets").innerHTML = gets.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+  document.getElementById("detailDepth").textContent = depth;
+  document.getElementById("stickyAnchor").textContent = activeProduct.anchor;
+  document.getElementById("stickyPrice").textContent = `${activeProduct.price} / ${activeProduct.sar}`;
+  document.getElementById("contextLabel").textContent = activeProduct.contextLabel;
+}
+function showQuestionnaire() {
+  document.getElementById("detailView").classList.add("hidden");
+  document.getElementById("formView").classList.remove("hidden");
+  document.getElementById("stickyOrder").classList.add("hidden");
+  document.getElementById("panelShortTitle").textContent = lang === "ar" ? activeProduct.arShort : activeProduct.short;
+  document.getElementById("panelScroll").scrollTop = 0;
+}
+function handleBackdropClick(event) {
+  if (event.target.id === "reportModal") closeReport();
+}
+function renderQuestions() {
+  const box = document.getElementById("questionnaire");
+  box.innerHTML = questions.map((q, index) => `
+    <label class="q-row">
+      <span>${index + 1}. ${escapeHtml(q)}</span>
+      <select name="q${index + 1}">
+        <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+      </select>
+    </label>`).join("");
+}
+function closeReport() {
+  document.getElementById("reportModal").classList.remove("open");
+  document.getElementById("reportModal").setAttribute("aria-hidden", "true");
+  document.body.classList.remove("panel-open");
+}
+async function api(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+async function generateReport(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const answers = questions.map((question, index) => ({ question, score: Number(form.get(`q${index + 1}`) || 3) }));
+  const body = {
+    reportType: activeProduct.id,
+    name: form.get("name") || "Private Guest",
+    gender: form.get("gender"),
+    country: "GCC",
+    focus: activeProduct.title,
+    relationshipContext: form.get("relationshipContext"),
+    answers
+  };
+  const btn = document.getElementById("generateBtn");
+  btn.disabled = true;
+  btn.textContent = "Preparing...";
+  try {
+    const res = await api("/api/report", body);
+    latestSections = res.sections || [];
+    renderReportPreview();
+  } catch (err) {
+    renderError("Could not generate this report. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t("generate");
+  }
+}
+function renderReportPreview() {
+  const preview = document.getElementById("reportPreview");
+  const first = latestSections[0] || "";
+  document.getElementById("reportForm").classList.add("hidden");
+  preview.innerHTML = `
+    <div class="full-cover">
+      <span class="tag mint">${escapeHtml(t("previewLabel"))}</span>
+      <h3>${escapeHtml(activeProduct.title)}</h3>
+      <p>${escapeHtml("This preview names only the first visible layer. The complete report is designed to move from recognition into emotional structure and practical inner enrichment.")}</p>
+      <div class="signal-bars">
+        <div class="signal"><label><span>Emotional clarity</span><span>62%</span></label><i style="--w:62%"></i></div>
+        <div class="signal"><label><span>Hidden need visibility</span><span>38%</span></label><i style="--w:38%"></i></div>
+        <div class="signal"><label><span>Action plan depth</span><span>15%</span></label><i style="--w:15%"></i></div>
+      </div>
+    </div>
+    <div class="report-section">${formatSection(first)}</div>
+    <div class="unlock-panel">
+      <strong>${escapeHtml(t("unlockTitle"))} - ${escapeHtml(activeProduct.price)} / ${escapeHtml(activeProduct.sar)}</strong>
+      <p>${escapeHtml(t("unlockCopy"))}</p>
+      <div class="paywall-grid">
+        <div class="paywall-box">
+          <b>${escapeHtml(t("previewSide"))}</b>
+          <ul><li>Surface emotional state</li><li>One report layer</li><li>No deep source map</li></ul>
+        </div>
+        <div class="paywall-box">
+          <b>${escapeHtml(t("fullSide"))}</b>
+          <ul><li>7-module depth report</li><li>Inner richness action plan</li><li>8 AI companion turns</li></ul>
+        </div>
+      </div>
+      <button class="pay-btn" onclick="startPayment()">${escapeHtml(t("pay"))}</button>
+      <p class="fineprint">Anonymous generation · Instant delivery · 7-day refund policy · Permanent access</p>
+    </div>`;
+  preview.classList.add("open");
+}
+async function startPayment() {
+  const panel = document.querySelector(".unlock-panel");
+  const payment = await api("/api/payment-link", { reportType: activeProduct.id });
+  latestPayment = payment;
+  if (payment.url && payment.provider !== "Preview") {
+    window.open(payment.url, "_blank", "noopener");
+    panel.innerHTML = `<strong>${escapeHtml(t("opened"))}</strong><p>${escapeHtml(t("unlockCopy"))}</p><button class="pay-btn" onclick="unlockReport()">${escapeHtml(t("paid"))}</button><p class="fineprint">${escapeHtml(t("disclaimer"))}</p>`;
+    return;
+  }
+  panel.innerHTML = `<strong>${escapeHtml(t("previewMode"))}</strong><p>${escapeHtml(t("unlockCopy"))}</p><button class="pay-btn" onclick="unlockReport()">${escapeHtml(t("paid"))}</button><p class="fineprint">${escapeHtml(t("disclaimer"))}</p>`;
+}
+function unlockReport() {
+  const preview = document.getElementById("reportPreview");
+  preview.innerHTML = renderFullCover() + latestSections.map(formatSectionCard).join("") + renderCompanion() + renderRelatedReports();
+}
+function renderFullCover() {
+  return `
+    <div class="full-cover">
+      <span class="tag gold">${escapeHtml(t("fullCoverKicker"))}</span>
+      <h3>${escapeHtml(activeProduct.title)}</h3>
+      <p>Private emotional structure, deeper need mapping, inner enrichment practices, and guided companion support for the pattern you selected.</p>
+      <div class="signal-bars">
+        <div class="signal"><label><span>Emotional clarity</span><span>91%</span></label><i style="--w:91%"></i></div>
+        <div class="signal"><label><span>Hidden need visibility</span><span>86%</span></label><i style="--w:86%"></i></div>
+        <div class="signal"><label><span>Action plan depth</span><span>88%</span></label><i style="--w:88%"></i></div>
+      </div>
+    </div>
+  `;
+}
+function renderCompanion() {
+  return `
+    <div class="companion-panel">
+      <strong>${escapeHtml(t("companionTitle"))}</strong>
+      <p>${escapeHtml(t("companionIntro"))}</p>
+      <div class="companion-log" id="companionLog">
+        <div class="bubble bot">${escapeHtml(t("companionIntro"))}</div>
+      </div>
+      <form class="companion-form" onsubmit="sendCompanion(event)">
+        <input id="companionInput" placeholder="${escapeHtml(t("companionPlaceholder"))}" autocomplete="off">
+        <button class="primary-btn" type="submit">${escapeHtml(t("companionSend"))}</button>
+      </form>
+      <p class="fineprint">0/8 · ${escapeHtml(t("disclaimer"))}</p>
+    </div>`;
+}
+function renderRelatedReports() {
+  const related = products.filter(product => product.id !== activeProduct.id).slice(0, 2);
+  return `
+    <div class="report-section">
+      <h4>${escapeHtml(t("relatedTitle"))}</h4>
+      <div class="related-grid">
+        ${related.map(product => `
+          <div class="related-card">
+            <b>${escapeHtml(product.title)}</b>
+            <p>${escapeHtml(product.hook)}</p>
+            <button class="ghost-btn" onclick="openReport('${product.id}')">${escapeHtml(t("heroPrimary"))}</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+async function sendCompanion(event) {
+  event.preventDefault();
+  const input = document.getElementById("companionInput");
+  const text = input.value.trim();
+  if (!text || companionTurns >= 8) return;
+  input.value = "";
+  companionTurns += 1;
+  const log = document.getElementById("companionLog");
+  log.insertAdjacentHTML("beforeend", `<div class="bubble user">${escapeHtml(text)}</div>`);
+  try {
+    const res = await api("/api/companion", {
+      message: text,
+      reportType: activeProduct.id,
+      reportTitle: activeProduct.title,
+      sectionSummary: latestSections.slice(0, 2).join("\\n"),
+      turn: companionTurns
+    });
+    log.insertAdjacentHTML("beforeend", `<div class="bubble bot">${escapeHtml(res.response)}</div>`);
+  } catch {
+    log.insertAdjacentHTML("beforeend", `<div class="bubble bot">${escapeHtml("I understand this quiet heaviness. Let us name one part of it gently: what feels unseen, what feels over-carried, and what small act of care would make the next hour softer?")}</div>`);
+  }
+  log.scrollTop = log.scrollHeight;
+  const note = document.querySelector(".companion-panel .fineprint");
+  note.textContent = `${companionTurns}/8 · ${t("disclaimer")}`;
+}
+function formatSectionCard(section) { return `<div class="report-section">${formatSection(section)}</div>`; }
+function formatSection(section) {
+  const cleaned = String(section || "").trim();
+  const match = cleaned.match(/^【([^】]+)】\s*([\s\S]*)$/);
+  if (match) return `<h4>${escapeHtml(match[1])}</h4><p>${escapeHtml(match[2]).replace(/\n/g, "<br>")}</p>`;
+  return `<p>${escapeHtml(cleaned).replace(/\n/g, "<br>")}</p>`;
+}
+function renderError(message) {
+  const preview = document.getElementById("reportPreview");
+  preview.innerHTML = `<div class="report-section"><h4>Error</h4><p>${escapeHtml(message)}</p></div>`;
+  preview.classList.add("open");
+}
+renderProducts();
+</script>
+</body>
+</html>

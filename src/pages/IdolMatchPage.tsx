@@ -10,7 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/sections/Footer";
 import CustomerService from "@/components/CustomerService";
 import PrivacyNotice from "@/components/PrivacyNotice";
-import { Sparkles, Heart, Loader2, Search, Star, ChevronRight, Users, ArrowLeft, Calendar, MapPin, Clock, ChevronDown, Trophy, Wand2, ShieldCheck } from "lucide-react";
+import { Sparkles, Heart, Loader2, Search, Star, ChevronRight, Users, ArrowLeft, Calendar, MapPin, Clock, ChevronDown, Trophy, Wand2, ShieldCheck, X } from "lucide-react";
 
 type Step = "input" | "loading" | "results";
 
@@ -147,15 +147,40 @@ export default function IdolMatchPage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const quickGroups = ["aespa", "BLACKPINK", "RIIZE", "NCT DREAM", "BTS", "IVE"];
+  const quickGroups = useMemo(() => {
+    const counts = new Map<string, number>();
+    ALL_ARTISTS.forEach(a => {
+      if (!a.groupName || a.groupName === "个人" || a.groupName === "Thai Solo") return;
+      counts.set(a.groupName, (counts.get(a.groupName) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .filter(([, count]) => count >= 3)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+  }, []);
 
   const selectGroup = (groupName: string) => {
     const ids = Array.from(new Set(ALL_ARTISTS.filter(a => a.groupName === groupName).map(a => a.id)));
     if (ids.length === 0) return;
-    setSelectedIds(ids);
-    setSearchQuery("");
-    setShowArtistLibrary(false);
+    if (selectedGroupName === groupName) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(ids);
+      setSearchQuery("");
+      setShowArtistLibrary(false);
+    }
   };
+
+  const selectedGroupName = useMemo(() => {
+    if (selectedIds.length === 0) return null;
+    for (const group of quickGroups) {
+      const groupIds = Array.from(new Set(ALL_ARTISTS.filter(a => a.groupName === group).map(a => a.id)));
+      if (groupIds.length === selectedIds.length && groupIds.every(id => selectedIds.includes(id))) {
+        return group;
+      }
+    }
+    return null;
+  }, [selectedIds]);
 
   const isLoggedIn = () => {
     try {
@@ -425,27 +450,38 @@ export default function IdolMatchPage() {
                   <div>
                     <h3 className="text-lg font-bold text-[#fff7ef] flex items-center gap-2">
                       <Users className="w-4 h-4 text-[#ff9fc8]" />
-                      {locale === "zh-TW" ? `可选：限定团体 / 爱豆范围` : `Optional: Filter Idols`}
+                      {locale === "zh-TW" ? `选择爱豆组合` : `Pick your idol group`}
                     </h3>
                     <p className="text-xs sm:text-sm text-[#d7cbe6] mt-1">
-                      {locale === "zh-TW" ? "不选择时默认从隐藏艺人库推荐；也可以只限定某个团体，让结果更有悬念。" : "Leave empty to rank the hidden artist library, or select a group for a more focused reveal."}
+                      {locale === "zh-TW" ? "点击下方任意组合，系统将只在该组合成员中为你匹配最契合的追星对象。" : "Tap any group below. We'll match only within that group's members."}
                     </p>
                   </div>
                   <span className="rounded-full border border-[#ffb6d946] bg-[#ff8fbd16] px-3 py-1 text-xs font-black text-[#ffd9e9]">
-                    {selectedIds.length} selected
+                    {selectedIds.length > 0
+                      ? (locale === "zh-TW" ? `${selectedIds.length} 位` : `${selectedIds.length} member${selectedIds.length > 1 ? "s" : ""}`)
+                      : (locale === "zh-TW" ? "未选择" : "None")}
                   </span>
                 </div>
-                <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-                  {quickGroups.map(group => (
-                    <button
-                      key={group}
-                      type="button"
-                      onClick={() => selectGroup(group)}
-                      className="shrink-0 rounded-full border border-[#ffd1e433] bg-[#fff7fb0d] px-4 py-2 text-xs font-bold text-[#ffd9e9] hover:border-[#ff9fc8] hover:bg-[#ff8fbd18] transition-colors"
-                    >
-                      {group}
-                    </button>
-                  ))}
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {quickGroups.map(group => {
+                    const active = selectedGroupName === group;
+                    const memberCount = ALL_ARTISTS.filter(a => a.groupName === group).length;
+                    return (
+                      <button
+                        key={group}
+                        type="button"
+                        onClick={() => selectGroup(group)}
+                        className={`flex flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-3 text-sm font-bold transition-colors ${
+                          active
+                            ? "border-[#ff9fc8] bg-[#ff8fbd22] text-[#ffd9e9] shadow-[0_6px_20px_rgba(255,143,189,0.18)]"
+                            : "border-[#ffd1e433] bg-[#fff7fb0d] text-[#ffd9e9] hover:border-[#ff9fc8] hover:bg-[#ff8fbd18]"
+                        }`}
+                      >
+                        <span className="truncate max-w-full">{group}</span>
+                        <span className="text-[10px] font-semibold opacity-75">{memberCount} {locale === "zh-TW" ? "位" : "members"}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 {selectedIds.length > 0 && (
                   <div className="mb-4 rounded-2xl border border-[#ffb6d926] bg-[#fff7fb0d] p-3">
@@ -457,22 +493,30 @@ export default function IdolMatchPage() {
                         {locale === "zh-TW" ? "清空" : "Clear"}
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedIds.slice(0, 12).map(id => {
-                        const artist = getArtistById(id);
-                        if (!artist) return null;
-                        return (
-                          <button
-                            key={id}
-                            onClick={() => toggleArtist(id)}
-                            className="inline-flex items-center gap-1 rounded-full border border-[#ffb6d933] bg-[#ff8fbd14] px-2.5 py-1 text-[11px] font-semibold text-[#fff7ef]"
-                          >
-                            {getArtistDisplayName(artist, locale)}<X className="w-3 h-3 text-[#ffd1e4]" />
-                          </button>
-                        );
-                      })}
-                      {selectedIds.length > 12 && <span className="text-[11px] text-[#8a8aad]">+{selectedIds.length - 12}</span>}
-                    </div>
+                    {selectedGroupName ? (
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-[#ff9fc8] bg-[#ff8fbd18] px-3 py-1.5 text-sm font-black text-[#fff7ef]">
+                        <Users className="w-3.5 h-3.5" />
+                        {selectedGroupName}
+                        <span className="text-xs font-semibold text-[#ffd9e9]">· {selectedIds.length} {locale === "zh-TW" ? "位" : "members"}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedIds.slice(0, 12).map(id => {
+                          const artist = getArtistById(id);
+                          if (!artist) return null;
+                          return (
+                            <button
+                              key={id}
+                              onClick={() => toggleArtist(id)}
+                              className="inline-flex items-center gap-1 rounded-full border border-[#ffb6d933] bg-[#ff8fbd14] px-2.5 py-1 text-[11px] font-semibold text-[#fff7ef]"
+                            >
+                              {getArtistDisplayName(artist, locale)}<X className="w-3 h-3 text-[#ffd1e4]" />
+                            </button>
+                          );
+                        })}
+                        {selectedIds.length > 12 && <span className="text-[11px] text-[#8a8aad]">+{selectedIds.length - 12}</span>}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="rounded-[24px] border border-[#ffd1e424] bg-[#0d0d16]/70 p-4 text-center">
@@ -480,12 +524,12 @@ export default function IdolMatchPage() {
                     <Sparkles className="w-5 h-5 text-[#ffbddc]" />
                   </div>
                   <p className="text-sm font-black text-[#fff7ef]">
-                    {locale === "zh-TW" ? "艺人库已隐藏，等待生日揭晓" : "The idol library is hidden until your reveal"}
+                    {locale === "zh-TW" ? "选择组合后输入生日，即可揭晓匹配结果" : "Pick a group and enter your birthday to reveal matches"}
                   </p>
                   <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[#d7cbe688]">
                     {locale === "zh-TW"
-                      ? "直接输入生日即可由系统从隐藏艺人库里抽取最适合你的追星对象。想指定范围时，再展开搜索或选择团体。"
-                      : "Enter your birthday to let the system reveal your best idol matches. Expand only if you want to search or limit the pool."}
+                      ? "点击下方组合会自动选中该组合全部成员。也可以展开手动搜索，添加特定爱豆。"
+                      : "Tapping a group selects all its members. Expand below to search for specific idols."}
                   </p>
                   <button
                     type="button"
@@ -494,7 +538,7 @@ export default function IdolMatchPage() {
                   >
                     {showArtistLibrary
                       ? locale === "zh-TW" ? "收起艺人库" : "Hide Library"
-                      : locale === "zh-TW" ? "展开搜索指定爱豆" : "Search Specific Idols"}
+                      : locale === "zh-TW" ? "手动搜索爱豆" : "Search Specific Idols"}
                   </button>
                 </div>
 
@@ -532,8 +576,16 @@ export default function IdolMatchPage() {
                 className="w-full py-4 bg-gradient-to-r from-[#ff9fc8] via-[#ffd1e4] to-[#d8c7ff] text-[#211427] rounded-[22px] text-base font-black hover:brightness-110 transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-[0_20px_54px_rgba(255,143,189,0.22)]">
                 <Wand2 className="w-4 h-4" />
                 {locale === "zh-TW"
-                  ? selectedIds.length > 0 ? `推荐所选范围内最适合追的爱豆 (${selectedIds.length} 位)` : "根据生日推荐适合追的爱豆"
-                  : selectedIds.length > 0 ? `Find best matches (${selectedIds.length} idols)` : "Find idols that match your birthday"}
+                  ? selectedGroupName
+                    ? `在 ${selectedGroupName} 的 ${selectedIds.length} 位成员中匹配`
+                    : selectedIds.length > 0
+                      ? `在已選 ${selectedIds.length} 位愛豆中匹配`
+                      : "根据生日推荐适合追的爱豆"
+                  : selectedGroupName
+                    ? `Match within ${selectedGroupName} (${selectedIds.length})`
+                    : selectedIds.length > 0
+                      ? `Match ${selectedIds.length} selected idols`
+                      : "Find idols that match your birthday"}
               </button>
             </div>
           )}
@@ -615,8 +667,8 @@ export default function IdolMatchPage() {
                         </h3>
                         <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#d7cbe6] sm:text-sm">
                           {locale === "zh-TW"
-                            ? "本页只展示一位主推对象，避免同分名单干扰判断；候补对象会保留 2-3 位，方便你换风格参考。"
-                            : "This page shows one primary idol match to keep the recommendation clear, with a few backups for comparison."}
+                            ? "本页只展示一位主推对象，避免同分名单干扰判断；若已选定范围则列出范围内全部成员的匹配度，未选范围则展示前 7 位候补，方便你换风格参考。"
+                            : "This page shows one primary match to keep the recommendation clear. If you set a range, all members' scores in that range are listed; otherwise the top 7 backups are shown."}
                         </p>
                       </div>
                       <div className="rounded-2xl border border-[#ffb6d92e] bg-[#ff8fbd12] px-4 py-3 text-center">
@@ -716,11 +768,13 @@ export default function IdolMatchPage() {
                       </h3>
                     </div>
                     <p className="text-[11px] text-[#d7cbe688]">
-                      {locale === "zh-TW" ? "仅展示 3 位" : "Top 3 only"}
+                      {locale === "zh-TW"
+                        ? (selectedIds.length > 0 ? "范围内全部成员" : "仅展示 7 位")
+                        : (selectedIds.length > 0 ? "All members in range" : "Top 7 only")}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    {results.slice(1, 4).map((r, index) => {
+                    {results.slice(1, selectedIds.length > 0 ? undefined : 8).map((r, index) => {
                   const displayName = artistLabel(r);
                   const tag = r.matchScore >= 85 ? "soulmate" : r.matchScore >= 75 ? "deep_trust" : r.matchScore >= 65 ? "good_vibes" : r.matchScore >= 55 ? "best_friends" : "tension";
                   const cfg = RELATION_CONFIG[tag];

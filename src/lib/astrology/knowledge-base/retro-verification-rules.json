@@ -1,0 +1,20 @@
+[
+  {
+    "id": "career-pivot",
+    "dataFields": ["官禄宫", "迁移宫", "四化"],
+    "question": "过去几年是否出现过职业方向、平台或合作模式的明显调整？",
+    "purpose": "校验事业宫与迁移宫是否贴近现实经历。"
+  },
+  {
+    "id": "relationship-security",
+    "dataFields": ["夫妻宫", "福德宫", "化忌"],
+    "question": "亲密关系中是否会反复确认对方回应与安全感？",
+    "purpose": "校验夫妻宫与福德宫对关系模式的描述。"
+  },
+  {
+    "id": "money-structure",
+    "dataFields": ["财帛宫", "田宅宫", "禄存", "化禄"],
+    "question": "你是否更适合通过稳定积累而非短期冲动来管理金钱？",
+    "purpose": "校验财富宫位与资源沉淀模式。"
+  }
+]

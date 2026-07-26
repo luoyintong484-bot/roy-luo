@@ -13,7 +13,7 @@ import { getAppPath } from "@/lib/route-helpers";
 // must proxy through api/payment-router.ts on the backend.
 const CREEM_BASE = "https://api.creem.io/v1";
 const CREEM_API_KEY = ""; // Set via server env CREEM_API_KEY — NEVER hardcode here
-const IS_TEST = true;     // true = manual QR flow; false = live Creem checkout (requires backend proxy)
+const IS_TEST = false;    // false = live checkout (CN→Alipay, global→manual QR fallback)
 
 // ---- IP Region Detection ----
 export type PaymentRegion = "cn" | "global";
@@ -33,8 +33,8 @@ export function detectRegion(): PaymentRegion {
 // ---- Payment Methods by Region ----
 export const PAYMENT_METHODS: Record<PaymentRegion, { id: string; name: string; nameZh: string; icon: string }[]> = {
   cn: [
-    { id: "wechat_h5", name: "WeChat Pay", nameZh: "微信支付", icon: "💚" },
     { id: "alipay_h5", name: "Alipay", nameZh: "支付寶", icon: "🔵" },
+    { id: "wechat_h5", name: "WeChat Pay", nameZh: "微信支付", icon: "💚" },
   ],
   global: [
     { id: "paypal", name: "PayPal", nameZh: "PayPal", icon: "🅿️" },
@@ -185,8 +185,8 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
   }
 
   if (IS_TEST) {
-    // Test mode: simulate checkout
-    console.log("[Creem Test] Creating checkout:", { ...params, region, methods });
+    // Legacy test mode — auto-verify (disabled in production)
+    console.log("[Payment] Test mode checkout:", { ...params, region, methods });
     const sessionId = "test_" + Date.now().toString(36);
     localStorage.setItem("r7_pending_payment", JSON.stringify({
       ...params,
@@ -194,13 +194,31 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
       region,
       returnPath: getReturnPath(params.metadata),
     }));
-    // In production: POST to Creem API
-    // const response = await fetch(`${CREEM_BASE}/checkout/sessions`, { ... })
     return {
       url: buildLocalSuccessUrl(sessionId, params),
       sessionId,
     };
   }
+
+  // Global users without live Creem integration: redirect to manual QR checkout
+  if (region === "global") {
+    const sessionId = `manual_${Date.now().toString(36)}`;
+    const returnPath = getReturnPath(params.metadata);
+    const reportKey = params.metadata?.reportKey || "manual";
+    localStorage.setItem("r7_pending_payment", JSON.stringify({
+      ...params,
+      sessionId,
+      region,
+      returnPath,
+    }));
+    return {
+      url: `/payment?return=${encodeURIComponent(returnPath)}&report=${encodeURIComponent(reportKey)}`,
+      sessionId,
+    };
+  }
+
+  // CN users with live Alipay integration: real checkout via backend
+  // (handled above by the `region === "cn"` branch)
 
   try {
     const response = await fetch(`${CREEM_BASE}/checkout/sessions`, {
@@ -307,8 +325,7 @@ export function grantBenefits(params: CheckoutParams): void {
   const now = new Date().toISOString();
   const isMembership =
     params.metadata?.productType === "membership"
-    || params.metadata?.reportType === "monthly"
-    || params.amount >= 12.00;
+    || params.metadata?.reportType === "monthly";
   const nextBillingAt = makeExpiry(30);
 
   if (isMembership) {

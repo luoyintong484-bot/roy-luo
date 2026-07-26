@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-06-26",
+  "profile": {
+    "tier": "T3",
+    "tier_reason": "核心变现能力为塔罗/星盘专业咨询，已有自有玄学网站，多语言（粤/英/中/韩）可做跨境客户。同时具备T2能力：会建站、愿学编程和SEO，可为自己做工具和获客。",
+    "skills": ["塔罗咨询", "星盘/占星咨询", "上低音号/大号演奏", "视频剪辑（0到1经验）", "网站搭建（0到1经验）", "玄学内容创作"],
+    "weekly_hours": 40,
+    "startup_capital": 0,
+    "region": "佛山",
+    "can_show_face": false,
+    "language": ["粤语", "中文", "英语", "韩语（少量）"],
+    "notes": "拥有自己的玄学网站，0成本启动，目标做成事业。不愿意露脸。"
+  },
+  "opportunities": [
+    {
+      "id": "me-wellness-001",
+      "name": "中东心理疗愈市场 — AI Bot + Life Pattern Report + 1v1 Coaching",
+      "category": "跨境数字服务",
+      "for_tier": "T3",
+      "money_source": "中东用户订阅 AI 疗愈 Bot ($9.99/月) + 个性化报告 ($29.99/份) + 1v1 咨询 ($100-200/次)",
+      "verdict": "可行",
+      "red_flags": [],
+      "suspect_flags": ["需注意宗教合规：不说divination，说心理分析", "沙特审批需6个月，先从阿联酋切入"],
+      "freshness": "2026-06 基于多份第三方报告交叉验证：GCC心理健康App $12亿、中东灵性健康App $24亿、MEA心理健康CAGR 10.14%",
+      "verify_first_step": "48小时内完成话语体系翻译（塔罗→心理原型分析、星盘→人格模式分析、八字→生命轨迹咨询），制作英文版服务介绍页",
+      "income_expectation": "前期1-3月：$0-500/月（验证期）；3-6月：$500-2000/月；6-12月：$2000-8000/月",
+      "status": "chosen",
+      "found_at": "2026-06-26"
+    }
+  ],
+  "active": {
+    "chosen_id": "me-wellness-001",
+    "started_at": "2026-06-26",
+    "plan": "见详细执行计划",
+    "prediction": {
+      "expected_hours": 160,
+      "expected_first_income_days": 30,
+      "expected_income_range": "$100-500",
+      "recorded_at": "2026-06-26"
+    }
+  },
+  "retro_log": []
+}

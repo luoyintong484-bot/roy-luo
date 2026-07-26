@@ -10,7 +10,7 @@ import { getAppPath } from "@/lib/route-helpers";
 import { PAYMENT_COMING_SOON, TEST_MODE } from "@/const";
 
 // ---- Types ----
-export type ReportType = "tarot" | "ziweiTarot" | "synastry" | "cp" | "idol" | "natal";
+export type ReportType = "tarot" | "ziweiTarot" | "synastry" | "cp" | "idolGuide" | "natal" | "followupPack";
 
 export interface PaymentConfig {
   reportType: ReportType;
@@ -24,7 +24,7 @@ export interface PaymentConfig {
 // ---- Storage keys ----
 const UNLOCKED_KEY = "r7_unlocked_reports";
 const UNLOCK_SIG_PREFIX = "r7_unlock_sig_";
-const DEFAULT_UNLOCK_DAYS = 7;
+const DEFAULT_UNLOCK_DAYS = 30;
 
 type UnlockRecord = boolean | { unlockedAt: string; expiresAt: string };
 

@@ -343,6 +343,21 @@ export default function CpReportPage() {
 
               {/* ===== FULL REPORT SECTIONS ===== */}
               <div className="glass rounded-2xl p-5 border border-[#d4a85310] space-y-4">
+                {/* Data summary card */}
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="rounded-xl bg-[#FFB6C110] border border-[#FFB6C120] p-3 text-center">
+                    <p className="text-[10px] text-[#8a8aad]">{t("Match Score", "缘分评分", "緣分評分")}</p>
+                    <p className="text-lg font-bold text-[#FFB6C1] mt-0.5">{result.calc.overallScore}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#d4a85308] border border-[#d4a85315] p-3 text-center">
+                    <p className="text-[10px] text-[#8a8aad]">{t("Elements", "五行", "五行")}</p>
+                    <p className="text-sm font-bold text-[#d4a853] mt-0.5">{artist1?.element} × {artist2?.element}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#d4a85308] border border-[#d4a85315] p-3 text-center">
+                    <p className="text-[10px] text-[#8a8aad]">{t("Star Bond", "星宿", "星宿")}</p>
+                    <p className="text-sm font-bold text-[#d4a853] mt-0.5">{result.calc.starMansionRelation}</p>
+                  </div>
+                </div>
                 {/* 1. Magnetic Attraction */}
                 <Section title={t("Innate Magnetic Attraction", "先天磁场契合度", "先天磁場契合度")} icon="🫧">
                   {t(
@@ -563,12 +578,38 @@ export default function CpReportPage() {
 }
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+  const content = typeof children === "string" ? children : String(children);
+  const paragraphs = content.split("\n\n").filter(Boolean);
   return (
     <div className="bg-[#1e1e2a]/85 rounded-xl p-4 border border-[#d4a85312]">
-      <h4 className="text-sm font-bold text-[#FFB6C1] mb-2 flex items-center gap-2">
-        <span>{icon}</span> {title}
+      <h4 className="text-sm font-bold text-[#FFB6C1] mb-3 flex items-center gap-2">
+        <span className="text-base">{icon}</span> {title}
       </h4>
-      <p className="text-xs text-[#f0e6d3]/80 leading-relaxed">{children}</p>
+      <div className="space-y-3">
+        {paragraphs.map((p, i) => {
+          // Check if paragraph starts with a 【】marker for sub-heading
+          const subMatch = p.match(/^【([^】]+)】([\s\S]*)$/);
+          if (subMatch) {
+            return (
+              <div key={i}>
+                <p className="text-[11px] font-bold text-[#d4a853] mb-1">【{subMatch[1]}】</p>
+                <p className="text-xs text-[#f0e6d3]/80 leading-relaxed">{subMatch[2]}</p>
+              </div>
+            );
+          }
+          // Check for STRENGTHS/WEAKNESSES markers
+          if (/^(STRENGTHS|WEAKNESSES|優點|隱患|优点|隐患)/.test(p)) {
+            return (
+              <div key={i} className="rounded-lg bg-[#d4a85308] px-3 py-2 border border-[#d4a85310]">
+                <p className="text-xs text-[#f0e6d3]/85 leading-relaxed font-medium">{p}</p>
+              </div>
+            );
+          }
+          return (
+            <p key={i} className="text-xs text-[#f0e6d3]/80 leading-relaxed">{p}</p>
+          );
+        })}
+      </div>
     </div>
   );
 }

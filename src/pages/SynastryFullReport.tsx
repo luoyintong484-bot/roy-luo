@@ -1,15 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { isReportPaid } from "@/lib/payment-service";
 import { buildZiweiChart, buildZiweiSynastry, type ZiweiChart, type ZiweiSynastry } from "@/lib/ziwei-doushu";
 import { buildZiweiSynastryReport, type ZiweiReportSection } from "@/lib/ziwei-report-templates";
+import { exportReportPDF } from "@/lib/pdf-export";
 import ReportLock from "@/components/ReportLock";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Navbar from "@/components/Navbar";
 import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
-import { ArrowLeft, ChevronDown, Heart } from "lucide-react";
+import { ArrowLeft, ChevronDown, Heart, Download, Loader2, FileText, ShieldCheck, Sparkles } from "lucide-react";
 
 type SavedSynastry = {
   chartA: ZiweiChart;
@@ -38,16 +39,9 @@ function loadSavedSynastry(): SavedSynastry {
 function parseBodyBlock(paragraph: string) {
   const match = paragraph.match(/^【([^】]+)】([\s\S]*)$/);
   if (!match) {
-    return {
-      title: "",
-      body: paragraph,
-    };
+    return { title: "", body: paragraph };
   }
-
-  return {
-    title: match[1].trim(),
-    body: match[2].trim(),
-  };
+  return { title: match[1].trim(), body: match[2].trim() };
 }
 
 function ReportSectionCard({
@@ -121,14 +115,24 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
   useI18n();
   const navigate = useNavigate();
   const isZh = true;
-  const [isUnlocked, setIsUnlocked] = useState(() => previewUnlocked || isReportPaid("synastry_full_report"));
+  // DEV-only preview bypass: append ?preview=1 (works with HashRouter — reads query from hash)
+  const previewBypass =
+    import.meta.env.DEV &&
+    new URLSearchParams((window.location.hash.split("?")[1] || window.location.search)).has("preview");
+  // When previewing (DEV ?preview=1 or explicit prop), expand EVERY section for the on-screen view + PDF capture
+  const allOpen = previewUnlocked || previewBypass;
+  const [isUnlocked, setIsUnlocked] = useState(() => previewUnlocked || previewBypass || isReportPaid("synastry_full_report"));
   const saved = useMemo(() => loadSavedSynastry(), []);
   const sections = useMemo(() => buildZiweiSynastryReport(saved.chartA, saved.chartB, saved.result), [saved]);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   const goBack = () => {
     if (window.history.length > 1) navigate(-1);
     else navigate("/destiny");
   };
+
+  const todayStr = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <div className="min-h-screen">
@@ -140,9 +144,17 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
               <ArrowLeft className="h-4 w-4" />{isZh ? "返回上一頁" : "Back"}
             </button>
 
+            {/* ===== FULL REPORT — ref wraps everything for PDF capture ===== */}
+            <div ref={reportRef}>
             <section className="overflow-hidden rounded-3xl border border-[#d4a85366] bg-gradient-to-b from-[#fbf6ea] via-[#f6ecd9] to-[#efe0c5] text-[#3d3328] shadow-[0_24px_80px_rgba(47,28,8,0.22)]">
+              {/* ---- Report Header ---- */}
               <div className="border-b border-[#d4a85340] bg-[#fffaf0]/80 px-5 py-7 text-center sm:px-7">
-                <Heart className="mx-auto mb-3 h-8 w-8 text-[#FFB6C1]" />
+                <div className="mx-auto mb-2 inline-flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-[#b87a22]" />
+                  <span className="font-display text-sm font-bold tracking-[0.15em] text-[#6f3f16]">R7 Fortune</span>
+                  <Sparkles className="h-5 w-5 text-[#b87a22]" />
+                </div>
+                <Heart className="mx-auto mb-3 h-8 w-8 text-[#c45a6a]" />
                 <div className="mx-auto mb-3 inline-flex rounded-full border border-emerald-700/15 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800">
                   {isZh ? "雙方命盤聯動分析 · 非二元合不合判定" : "Dual chart relationship analysis"}
                 </div>
@@ -160,7 +172,9 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                 </div>
               </div>
 
+              {/* ---- Report Body ---- */}
               <div className="space-y-5 p-4 sm:p-7">
+                {/* Free preview notice */}
                 {!previewUnlocked && (
                   <div className="rounded-2xl border border-[#d4a85366] bg-[#fffaf0] p-4 shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -181,10 +195,12 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                   </div>
                 )}
 
-                {sections.slice(0, 1).map((section) => (
-                  <ReportSectionCard key={section.id} section={section} defaultOpen isZh={isZh} />
+                {/* Free sections (2) */}
+                {sections.slice(0, 2).map((section, idx) => (
+                  <ReportSectionCard key={section.id} section={section} defaultOpen={allOpen || idx === 0} isZh={isZh} />
                 ))}
 
+                {/* Paid section divider */}
                 {!previewUnlocked && (
                   <div className="rounded-2xl border border-[#e8b9a966] bg-[#fff6ed] p-4 text-center shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
                     <p className="text-sm font-black text-[#87445a]">
@@ -192,12 +208,13 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-[#6b5d4e]">
                       {isZh
-                        ? "深度合盤屬於付費內容；目前支付通道準備中，將以「即將上線」狀態展示。"
-                        : "The complete synastry interpretation is a paid feature and is currently shown as Coming Soon while payment is being prepared."}
+                        ? "解鎖後可查看完整深度合盤解析 · 30 天有效查看 · 可下載 PDF"
+                        : "Unlock to view the complete synastry report · 30-day access · PDF download"}
                     </p>
                   </div>
                 )}
 
+                {/* Paid sections behind ReportLock */}
                 <ReportLock
                   isUnlocked={isUnlocked}
                   reportType="synastry"
@@ -205,17 +222,36 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                   onUnlocked={() => setIsUnlocked(true)}
                 >
                   <div className="space-y-5">
-                    {sections.slice(1).map((section, index) => (
+                    {sections.slice(2).map((section, index) => (
                       <ReportSectionCard
                         key={section.id}
                         section={section}
-                        defaultOpen={previewUnlocked || index < 2}
+                        defaultOpen={allOpen || index < 1}
                         isZh={isZh}
                       />
                     ))}
                   </div>
                 </ReportLock>
 
+                {/* Report Footer — shows in web and PDF */}
+                <div className="rounded-2xl border border-[#d4a85333] bg-[#fffaf0] px-5 py-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <Sparkles className="h-3.5 w-3.5 text-[#b87a22]" />
+                    <span className="text-xs font-bold tracking-[0.12em] text-[#6f3f16]">R7 FORTUNE</span>
+                    <Sparkles className="h-3.5 w-3.5 text-[#b87a22]" />
+                  </div>
+                  <p className="text-[11px] text-[#8a6d3b]">
+                    {isZh ? "紫微斗數雙人合盤完整解析" : "Ziwei Doushu Synastry Report"}
+                  </p>
+                  <p className="mt-1 text-[10px] text-[#a0926e]">
+                    {isZh ? `報告生成日期：${todayStr}` : `Generated: ${todayStr}`} · 30 {isZh ? "天有效查看" : "day access"}
+                  </p>
+                  <p className="mt-2 text-[10px] font-medium tracking-[0.3em] text-[#b87a2266]">
+                    — {isZh ? "報告完" : "END OF REPORT"} —
+                  </p>
+                </div>
+
+                {/* Disclaimer */}
                 <p className="rounded-2xl border border-[#d4a85355] bg-[#fffaf0]/88 p-4 text-center text-[12px] font-medium leading-relaxed text-[#6b5d4e]">
                   {isZh
                     ? "本內容為傳統文化研究參考，不構成人生或感情決策唯一依據；關係仍需以現實溝通、尊重與共同選擇為核心。"
@@ -223,6 +259,58 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                 </p>
               </div>
             </section>
+            </div>
+
+            {/* ===== PDF Download — ONLY when unlocked ===== */}
+            {isUnlocked && (
+              <div className="mt-5 space-y-3">
+                <button
+                  onClick={async () => {
+                    if (!reportRef.current || exporting) return;
+                    setExporting(true);
+                    try {
+                      await exportReportPDF(
+                        reportRef.current,
+                        `R7_synastry_report_${Date.now()}.pdf`,
+                        "#fffaf0",
+                      );
+                    } catch (e) {
+                      console.error("PDF export failed:", e);
+                    }
+                    setExporting(false);
+                  }}
+                  disabled={exporting}
+                  className="group relative w-full overflow-hidden rounded-2xl border border-[#d4a853]/50 bg-gradient-to-r from-[#fff3d7] via-[#ffe9c0] to-[#fff3d7] px-6 py-4 shadow-[0_8px_32px_rgba(212,168,83,0.2)] hover:shadow-[0_12px_40px_rgba(212,168,83,0.3)] hover:border-[#d4a853]/70 transition-all duration-300 disabled:opacity-60"
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#d4a85340] bg-[#fffaf0]">
+                      {exporting ? (
+                        <Loader2 className="h-4.5 w-4.5 animate-spin text-[#8b5a14]" />
+                      ) : (
+                        <Download className="h-4.5 w-4.5 text-[#8b5a14] group-hover:scale-110 transition-transform" />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold tracking-wide text-[#5a3a12]">
+                        {exporting
+                          ? (isZh ? "正在生成 PDF…" : "Generating PDF…")
+                          : (isZh ? "下載完整 PDF 合盤報告" : "Download Full PDF Report")}
+                      </p>
+                      <p className="text-[11px] text-[#8a6d3b]">
+                        {isZh ? "含全部章節 · A4 格式 · 可離線保存" : "All sections · A4 format · offline ready"}
+                      </p>
+                    </div>
+                    {exporting ? null : (
+                      <FileText className="h-5 w-5 text-[#d4a85366] group-hover:text-[#d4a85399] transition-colors" />
+                    )}
+                  </div>
+                </button>
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-[#8a8aad]">
+                  <ShieldCheck className="h-3 w-3 text-green-500/50" />
+                  <span>{isZh ? "PDF 下載功能僅對已付費解鎖的報告開放" : "PDF download is only available for unlocked reports"}</span>
+                </div>
+              </div>
+            )}
           </div>
         </ErrorBoundary>
       </main>

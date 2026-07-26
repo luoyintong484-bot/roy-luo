@@ -16,6 +16,7 @@ import IdolCompatibilityPage from './pages/IdolCompatibilityPage'
 import IdolCompatibilityDetailPage from './pages/IdolCompatibilityDetailPage'
 import ArtistCompatibilityPage from './pages/ArtistCompatibilityPage'
 import IdolMatchPage from './pages/IdolMatchPage'
+import IdolFanGuidePage from './pages/IdolFanGuidePage'
 import CpReportPage from './pages/CpReportPage'
 import DestinyDetail from './pages/DestinyDetail'
 import DestinyFullReport from './pages/DestinyFullReport'
@@ -125,6 +126,7 @@ export default function App() {
         <Route path="/artist/:id/compatibility" element={<PageTransition><ArtistCompatibilityPage /></PageTransition>} />
         <Route path="/idol-compatibility" element={<PageTransition><IdolCompatibilityPage /></PageTransition>} />
         <Route path="/idol-match" element={<PageTransition><IdolMatchPage /></PageTransition>} />
+        <Route path="/idol-guide" element={<PageTransition><IdolFanGuidePage /></PageTransition>} />
         <Route path="/cp-report" element={<PageTransition><CpReportPage /></PageTransition>} />
         <Route path="/idol-compatibility/:id" element={<PageTransition><IdolCompatibilityDetailPage /></PageTransition>} />
         <Route path="/destiny-result" element={<PageTransition><DestinyDetail /></PageTransition>} />

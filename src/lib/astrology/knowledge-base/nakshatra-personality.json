@@ -1,0 +1,20 @@
+[
+  {
+    "id": "ashwini",
+    "name": "Ashwini",
+    "keywords": ["启动", "速度", "疗愈"],
+    "reading": "Ashwini 强调快速启动与即时反应，适合开局型任务，但需要避免过早消耗。"
+  },
+  {
+    "id": "rohini",
+    "name": "Rohini",
+    "keywords": ["吸引力", "稳定", "审美"],
+    "reading": "Rohini 重视舒适、安全与创造力，适合审美、资源沉淀和长期经营。"
+  },
+  {
+    "id": "mrigashira",
+    "name": "Mrigashira",
+    "keywords": ["探索", "好奇", "流动"],
+    "reading": "Mrigashira 需要持续探索与信息更新，适合研究、内容、旅行和跨界学习。"
+  }
+]

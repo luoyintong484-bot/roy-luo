@@ -1,0 +1,20 @@
+[
+  {
+    "id": "vedic-dasha-sun",
+    "planet": "Sun",
+    "theme": "身份、目标、可见度",
+    "reading": "太阳周期强调自我定位与外部认可，适合主动建立个人品牌和清晰目标。"
+  },
+  {
+    "id": "vedic-dasha-moon",
+    "planet": "Moon",
+    "theme": "情绪、安全感、亲密关系",
+    "reading": "月亮周期强调内在需求与生活节律，适合修复情绪模式和关系安全感。"
+  },
+  {
+    "id": "vedic-dasha-saturn",
+    "planet": "Saturn",
+    "theme": "责任、限制、长期结构",
+    "reading": "土星周期强调现实责任与长期积累，适合把松散计划沉淀成稳定系统。"
+  }
+]

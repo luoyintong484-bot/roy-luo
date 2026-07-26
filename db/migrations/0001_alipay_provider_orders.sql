@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `payment_provider_orders` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `out_trade_no` varchar(64) NOT NULL,
+  `provider` enum('alipay') NOT NULL DEFAULT 'alipay',
+  `user_id` bigint,
+  `reading_id` bigint,
+  `report_type` varchar(40) NOT NULL,
+  `report_key` varchar(255) NOT NULL,
+  `subject` varchar(200) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(8) NOT NULL DEFAULT 'CNY',
+  `status` enum('pending','completed','failed','refunded') NOT NULL DEFAULT 'pending',
+  `provider_trade_no` varchar(64),
+  `access_token_hash` varchar(64) NOT NULL,
+  `return_path` varchar(500) NOT NULL,
+  `paid_at` timestamp NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `payment_provider_orders_out_trade_no_unique` UNIQUE(`out_trade_no`)
+);

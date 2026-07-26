@@ -1,15 +1,14 @@
 import { useLocation, useNavigate, Link } from "react-router"
 import { useMemo, useState } from "react"
 import { useI18n } from "@/contexts/I18nContext"
-import { detectCurrency, formatPrice, PRODUCTS } from "@/lib/pricing"
+import { detectCurrency, formatPrice, CNY_PRICES, BUNDLE_PRICES } from "@/lib/pricing"
 import Navbar from "@/components/Navbar"
 import CustomerService from "@/components/CustomerService"
 import Footer from "@/sections/Footer"
 import {
   MANUAL_PAYMENT_ALIPAY_QR_SRC,
-  MANUAL_PAYMENT_PREVIEW,
-  MANUAL_PAYMENT_QR_SRC,
   MANUAL_PAYMENT_WECHAT_QR_SRC,
+  MANUAL_PAYMENT_PREVIEW,
   PAYMENT_COMING_SOON,
 } from "@/const"
 import { ArrowLeft, CheckCircle2, Clock3, Copy, MessageCircle, QrCode, ShieldCheck, Sparkles, X, ZoomIn } from "lucide-react"
@@ -33,10 +32,10 @@ export default function PaymentPage() {
     || queryType === "monthly"
     || queryType === "membership"
     || queryType === "vip"
-  const amount = state?.amount || (isMembershipCheckout ? PRODUCTS.monthlyMember.usd : 2.99)
+  const amount = state?.amount || CNY_PRICES.tarot.cny
   const label = isZh
-    ? (state?.labelZh || (isMembershipCheckout ? PRODUCTS.monthlyMember.nameZh : "塔羅解讀"))
-    : (state?.label || (isMembershipCheckout ? PRODUCTS.monthlyMember.name : "Tarot Reading"))
+    ? (state?.labelZh || "塔羅解讀")
+    : (state?.label || "Tarot Reading")
   const cancelled = query.get("cancelled") === "1"
   const returnPath = safeReturnPath(
     query.get("return")
@@ -45,11 +44,16 @@ export default function PaymentPage() {
     || localStorage.getItem("r7_blocked_from")
   )
 
-  const allProducts = [
-    { key: "singleDraw", ...PRODUCTS.singleDraw },
-    { key: "monthlyMember", ...PRODUCTS.monthlyMember },
-    { key: "aiDeepReading", ...PRODUCTS.aiDeepReading },
-    { key: "cpReport", ...PRODUCTS.cpReport },
+  const reportPrices = [
+    { key: "tarot",      ...CNY_PRICES.tarot },
+    { key: "ziweiTarot", ...CNY_PRICES.ziweiTarot },
+    { key: "natal",      ...CNY_PRICES.natal },
+    { key: "synastry",   ...CNY_PRICES.synastry },
+    { key: "cp",         ...CNY_PRICES.cp },
+  ]
+  const bundlePrices = [
+    { key: "firstTime",      ...BUNDLE_PRICES.firstTime },
+    { key: "natalSynastry",  ...BUNDLE_PRICES.natalSynastry },
   ]
   const reportKey = state?.reportKey || query.get("report") || `manual_${label.replace(/\s+/g, "_").toLowerCase()}`
   const orderNo = useMemo(() => {
@@ -64,18 +68,18 @@ export default function PaymentPage() {
   const [copied, setCopied] = useState<string>("")
   const paymentMethods = [
     {
-      id: "wechat",
-      label: isZh ? "微信支付" : "WeChat Pay",
-      color: "from-[#16d66b] to-[#08b95c]",
-      qr: MANUAL_PAYMENT_WECHAT_QR_SRC || MANUAL_PAYMENT_QR_SRC,
-      note: isZh ? "推薦使用微信支付，付款時請備註訂單號。" : "Recommended. Add the order ID as payment note.",
-    },
-    {
       id: "alipay",
       label: isZh ? "支付寶" : "Alipay",
       color: "from-[#2888ff] to-[#1267df]",
       qr: MANUAL_PAYMENT_ALIPAY_QR_SRC,
-      note: isZh ? "支付寶付款同樣可用，請保留截圖。" : "Alipay is also supported. Keep your payment screenshot.",
+      note: isZh ? "請使用支付寶掃碼付款，付款時請備註訂單號。" : "Please use Alipay to scan the QR code and add the order ID as payment note.",
+    },
+    {
+      id: "wechat",
+      label: isZh ? "微信支付" : "WeChat Pay",
+      color: "from-[#07c160] to-[#06ad56]",
+      qr: MANUAL_PAYMENT_WECHAT_QR_SRC,
+      note: isZh ? "請使用微信掃碼付款，付款時請備註訂單號。" : "Please use WeChat Pay to scan the QR code and add the order ID as payment note.",
     },
   ]
   const [activePayMethod, setActivePayMethod] = useState(paymentMethods[0].id)
@@ -283,7 +287,7 @@ export default function PaymentPage() {
               </section>
 
               <section className="relative rounded-[1.75rem] border border-[#ffb6d928] bg-[#0a0710]/72 p-4 text-center">
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-1 gap-2 mb-3">
                   {paymentMethods.map((method) => (
                     <button
                       key={method.id}
@@ -335,7 +339,7 @@ export default function PaymentPage() {
                   {currentPayMethod.note}
                 </p>
                 <p className="mt-1 text-[10px] leading-5 text-[#8a8aad]">
-                  {isZh ? "海外用戶如無法使用微信/支付寶，請聯繫 Ins：r7_fortune 或郵箱人工處理。" : "Overseas users can contact Instagram r7_fortune or email if WeChat/Alipay is unavailable."}
+                  {isZh ? "海外用戶如無法使用支付寶，請聯繫 Ins：r7_fortune 或郵箱人工處理。" : "Overseas users can contact Instagram r7_fortune or email if Alipay is unavailable."}
                 </p>
                 <div className="mt-4 rounded-2xl border border-[#ffb6d91f] bg-[#ff8fbd0f] p-3 text-left">
                   <p className="flex items-center gap-2 text-xs font-bold text-[#ffd6e8]">
@@ -377,22 +381,43 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {/* All pricing options */}
+          {/* Report pricing — CNY */}
           <div className="mt-6 space-y-2 rounded-[1.5rem] border border-[#ffb6d914] bg-[#07050b]/60 p-3">
             <p className="text-[10px] text-[#d7c9e6] text-center uppercase tracking-wider">
-              {isZh ? "價格總覽" : "Pricing Overview"}
+              {isZh ? "報告價格" : "Report Pricing"}
             </p>
-            {allProducts.map(p => (
+            {reportPrices.map(p => (
               <div key={p.key} className="flex items-center justify-between bg-[#151520]/90 rounded-2xl px-4 py-3 border border-[#FFB6C108]">
-                <span className="text-xs text-[#f0e6d3]">{isZh ? p.nameZh : p.name}</span>
-                <span className="text-xs font-bold text-[#FFB6C1]">{formatPrice(p.usd)}</span>
+                <span className="text-xs text-[#f0e6d3]">{isZh ? p.label : p.labelEn}</span>
+                <span className="text-xs font-bold text-[#FFB6C1]">¥{p.cny.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Bundle deals */}
+          <div className="mt-3 space-y-2 rounded-[1.5rem] border border-[#d4a85320] bg-[#07050b]/60 p-3">
+            <p className="text-[10px] text-[#d4a853] text-center uppercase tracking-wider">
+              ✨ {isZh ? "限時套餐 · 更划算" : "Bundle Deals · Save More"}
+            </p>
+            {bundlePrices.map(b => (
+              <div key={b.key} className="flex items-center justify-between bg-[#151520]/90 rounded-2xl px-4 py-3 border border-[#d4a85318]">
+                <div>
+                  <span className="text-xs text-[#f0e6d3] block">{isZh ? b.label : b.labelEn}</span>
+                  <span className="text-[10px] text-[#8a8aad] line-through">¥{b.originalCny.toFixed(2)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-[#d4a853]">¥{b.cny.toFixed(2)}</span>
+                  <span className="text-[10px] text-green-400/70 ml-2">
+                    {isZh ? `省 ¥${(b.originalCny - b.cny).toFixed(2)}` : `Save ¥${(b.originalCny - b.cny).toFixed(2)}`}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
 
           <p className="text-[9px] text-[#8a8aad33] text-center mt-4">
-            {currency === "CNY" ? "微信支付 · 支付寶 · 銀聯" : "PayPal · Credit Card"}
-            {" · "}{isZh ? "價格已含 3% 手續費" : "3% fee included"}
+            {isZh ? "支付寶 · 微信支付" : "Alipay · WeChat Pay"}
+            {" · "}{isZh ? "價格已含手續費" : "Fees included"}
           </p>
         </div>
       </main>

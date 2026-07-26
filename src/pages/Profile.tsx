@@ -176,21 +176,23 @@ function PaymentHistory({ locale }: { locale: string }) {
                   {isZh ? "會員即將上線" : "Membership Coming Soon"}
                 </button>
               ) : (
-                <Link
-                  to={`/payment?type=monthly&return=${encodeURIComponent("/profile?tab=payments")}`}
-                  state={{
-                    amount: 12.99,
-                    label: "Monthly Member · VIP",
-                    labelZh: "月度會員 · 無限次抽牌+完整解析",
-                    productType: "membership",
-                    reportType: "monthly",
-                    reportKey: "vip_monthly",
-                    returnPath: "/profile?tab=payments",
-                  }}
-                  className="rounded-xl bg-[#FFB6C1] px-4 py-2.5 text-center text-xs font-bold text-[#0a0a0f] hover:bg-[#f0a0b8] transition-colors"
-                >
-                  {isZh ? "開通月度會員" : "Subscribe monthly"}
-                </Link>
+                false && (
+                  <Link
+                    to={`/payment?type=monthly&return=${encodeURIComponent("/profile?tab=payments")}`}
+                    state={{
+                      amount: 12.99,
+                      label: "Monthly Member · VIP",
+                      labelZh: "月度會員 · 無限次抽牌+完整解析",
+                      productType: "membership",
+                      reportType: "monthly",
+                      reportKey: "vip_monthly",
+                      returnPath: "/profile?tab=payments",
+                    }}
+                    className="rounded-xl bg-[#FFB6C1] px-4 py-2.5 text-center text-xs font-bold text-[#0a0a0f] hover:bg-[#f0a0b8] transition-colors"
+                  >
+                    {isZh ? "開通月度會員" : "Subscribe monthly"}
+                  </Link>
+                )
               )
             )}
           </div>

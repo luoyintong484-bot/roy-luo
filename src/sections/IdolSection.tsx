@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router"
 import { useI18n } from "@/contexts/I18nContext"
 import {
   Search, Calendar, ChevronRight, ChevronDown,
-  Sparkles, X, Star, Heart
+  Sparkles, X, Star, Heart, Wand2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -157,6 +157,36 @@ export default function IdolSection() {
               </div>
               <span className="relative hidden sm:inline-flex px-4 py-2 bg-gradient-to-r from-[#ff9fc8] via-[#ffd1e4] to-[#d8c7ff] text-[#211427] text-xs font-black rounded-full shadow-[0_14px_34px_rgba(255,143,189,0.22)] group-hover:brightness-110">
                 START
+              </span>
+            </button>
+
+            {/* Fan Guidance Entry (paid ¥9.9) */}
+            <button onClick={() => navigate("/idol-guide")}
+              className="relative w-full overflow-hidden rounded-[28px] p-5 sm:p-6 border border-[#d4a85355] bg-gradient-to-br from-[#fff3d710] via-[#1a1530]/95 to-[#0a0a0f]/95 hover:border-[#d4a853] transition-all text-left group flex items-center gap-4 mb-3 shadow-[0_24px_80px_rgba(212,168,83,0.12)]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d4a853] to-transparent" />
+              <div className="absolute -right-14 -top-16 h-44 w-44 rounded-full bg-[#d4a8531e] blur-3xl" />
+              <div className="absolute right-6 bottom-4 hidden text-5xl opacity-15 sm:block">🌿</div>
+              <div className="relative w-16 h-16 rounded-[24px] bg-gradient-to-br from-[#d4a8532a] to-[#ff9fc818] flex items-center justify-center border border-[#d4a85355] flex-shrink-0 shadow-[0_14px_42px_rgba(212,168,83,0.16)]">
+                <Wand2 className="w-7 h-7 text-[#f7d9a8] group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="relative flex-1 min-w-0">
+                <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-[#d4a85344] bg-[#fff7fb10] px-2.5 py-1 text-[9px] font-black tracking-[0.14em] text-[#f7d9a8]">
+                  NEW · ¥9.9
+                </div>
+                <p className="text-lg sm:text-xl font-black text-[#fff7ef] group-hover:text-[#f7d9a8] transition-colors">
+                  {locale === "zh-TW" ? "追星指引 · 合盤解析與實戰提點" : "Fan Guidance · Match Reading & Tips"}
+                </p>
+                <p className="text-xs sm:text-sm text-[#d7cbe6] mt-1 leading-relaxed">
+                  {locale === "zh-TW" ? "簡單合盤 + 合盤深度解析 + 實戰提點（搶票／穿搭／上下半年）" : "Simple synastry + deep match reading + practical tips (tickets / outfit / timing)"}
+                </p>
+                <div className="mt-2 flex gap-1.5">
+                  {["简单合盘", "合盘解析", "实战提点"].map((tag) => (
+                    <span key={tag} className="rounded-full border border-[#d4a85333] bg-[#fff7fb0d] px-2.5 py-1 text-[9px] font-semibold text-[#f7d9a8]">{tag}</span>
+                  ))}
+                </div>
+              </div>
+              <span className="relative hidden sm:inline-flex px-4 py-2 bg-gradient-to-r from-[#d4a853] via-[#e0b860] to-[#d4a853] text-[#211427] text-xs font-black rounded-full shadow-[0_14px_34px_rgba(212,168,83,0.22)] group-hover:brightness-110">
+                ¥9.9
               </span>
             </button>
 

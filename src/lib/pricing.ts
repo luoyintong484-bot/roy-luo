@@ -25,7 +25,31 @@ export const CNY_PRICES = {
   natal:   { cny: 79.00,  label: "紫微斗數個人完整解析",   labelEn: "Ziwei Doushu Natal Report" },
   synastry:{ cny: 109.00, label: "紫微斗數雙人合盤解析",   labelEn: "Ziwei Doushu Synastry Report" },
   cp:      { cny: 69.90,  label: "CP 专属合盤解讀",    labelEn: "CP Compatibility Report" },
+  idolGuide:{ cny: 9.90,  label: "追星指引報告",       labelEn: "Fan Guidance Report" },
+  followupPack:{ cny: 9.90, label: "追問續杯包",       labelEn: "Follow-up Pack" },
 } as const;
+
+// ===== 套餐定价（捆绑销售提升客单价） =====
+export const BUNDLE_PRICES = {
+  natalSynastry: {
+    cny: 159.00,
+    originalCny: 188.00,
+    label: "本命盤 + 合盤 情侶套餐",
+    labelEn: "Natal + Synastry Bundle",
+    includes: ["紫微斗數個人完整解析", "紫微斗數雙人合盤解析"],
+    includesEn: ["Ziwei Doushu Natal Report", "Ziwei Doushu Synastry Report"],
+  },
+  firstTime: {
+    cny: 39.90,
+    originalCny: 79.00,
+    label: "首次體驗價 · 本命盤",
+    labelEn: "First-Time Offer · Natal Report",
+    includes: ["紫微斗數個人完整解析"],
+    includesEn: ["Ziwei Doushu Natal Report"],
+  },
+} as const;
+
+export type BundleKey = keyof typeof BUNDLE_PRICES;
 
 export type CnyPriceKey = keyof typeof CNY_PRICES;
 
@@ -42,7 +66,7 @@ export function getLocalPrice(key: CnyPriceKey): { amount: number; display: stri
   }
   // USD fallback: map to approximate USD amounts
   const usdMap: Record<CnyPriceKey, number> = {
-    tarot: 3.99, ziweiTarot: 4.99, natal: 10.99, synastry: 15.99, cp: 9.99,
+    tarot: 3.99, ziweiTarot: 4.99, natal: 10.99, synastry: 15.99, cp: 9.99, idolGuide: 1.39, followupPack: 1.39,
   };
   return { amount: usdMap[key], display: `$${usdMap[key].toFixed(2)}`, currency: "USD" };
 }

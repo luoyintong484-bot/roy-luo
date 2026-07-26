@@ -1519,7 +1519,7 @@ export default function TarotSection() {
     const promptText = rawQuestion || (locale === "en" ? prompt.questionEn : prompt.questionZh);
     setTarotMode("idol");
     setIdolCategory(prompt.category);
-    setSelectedSpread("one");
+    setSelectedSpread("three");
     setDrawnCards([]);
     setShowReading(false);
     drawCards({
@@ -1527,7 +1527,7 @@ export default function TarotSection() {
       category: prompt.category,
       question: promptText,
       userQuestion: rawQuestion,
-      spread: "one",
+      spread: "three",
       idolSingleType: prompt.key,
       idolName: idolName.trim(),
       idolContext: idolContext.trim(),
@@ -1735,15 +1735,15 @@ export default function TarotSection() {
                 {activeSpread.count} {locale === "en" ? "Cards" : "張牌"}
               </span>
             </div>
-            {false && tarotMode === "idol" && (
+            {tarotMode === "idol" && (
               <div className="mb-5 overflow-hidden rounded-[24px] border border-[#d49ab24a] bg-gradient-to-br from-[#1b111b]/95 via-[#100d16]/94 to-[#08080f]/95 p-4 sm:p-5 shadow-[0_18px_46px_rgba(212,154,178,0.10)]">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#d49ab2]">
-                      {locale === "en" ? "Idol one-card reading" : "愛豆單牌占卜"}
+                      {locale === "en" ? "Idol three-card reading" : "愛豆三牌占卜"}
                     </p>
                     <h3 className="mt-1 text-xl font-bold text-[#f7ecd8]">
-                      {locale === "en" ? "Choose a scene, then draw one card" : "先選問題類型，再抽一張追星靈感籤"}
+                      {locale === "en" ? "Choose a scene, then draw three cards" : "先選問題類型，再抽三張追星靈感籤"}
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-[#bdb4d6]">
                       {locale === "en"
@@ -1752,7 +1752,7 @@ export default function TarotSection() {
                     </p>
                   </div>
                   <span className="inline-flex w-fit items-center rounded-full border border-[#d49ab242] bg-[#d49ab214] px-3 py-1 text-xs font-bold text-[#ffd4e4]">
-                    {locale === "en" ? "1-card focused answer" : "1 張牌精準回覆"}
+                    {locale === "en" ? "3-card focused answer" : "3 張牌精準回覆"}
                   </span>
                 </div>
 
@@ -1862,7 +1862,7 @@ export default function TarotSection() {
               </div>
             )}
 
-            {false && tarotMode === "classic" && (
+            {tarotMode === "classic" && (
               <div className="mb-5 rounded-[26px] border border-[#b99a6230] bg-gradient-to-br from-[#0d0b12]/96 via-[#10101b]/92 to-[#08080f]/96 p-4 sm:p-5">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -1976,8 +1976,8 @@ export default function TarotSection() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {(tarotMode === "idol" || tarotMode === "classic" ? spreadOptions.filter((spread) => spread.key === "three") : spreadOptions).map((spread, spreadIdx) => {
+            <div className={`grid grid-cols-1 gap-4 ${tarotMode === "idol" ? "hidden" : "sm:grid-cols-2"}`}>
+              {(tarotMode === "idol" || tarotMode === "classic" ? spreadOptions.filter((spread) => spread.key !== "one") : spreadOptions).map((spread, spreadIdx) => {
                 const selected = selectedSpread === spread.key;
                 const positionPreview = locale === "en" ? spread.positionsEn : spread.positionsZh;
                 const displayIndex = spread.key === "three" ? 2 : spread.key === "five" ? 3 : spreadIdx + 1;
@@ -2141,7 +2141,7 @@ export default function TarotSection() {
                       <button
                         onClick={() => {
                           setIdolCategory(cat.key);
-                          if (cat.key === "idol-draw") setSelectedSpread("three");
+                          if (cat.key === "idol-draw") setSelectedSpread("five");
                           else if (selectedSpread === "five") setSelectedSpread("three");
                           setDrawnCards([]);
                           setShowReading(false);
@@ -2171,9 +2171,9 @@ export default function TarotSection() {
                           ))}
                         </div>
                         <div className="mt-auto pt-2.5 text-[11px] text-[#8a8aad88]">
-                      {cat.key === "idol-draw"
-                        ? (locale === "en" ? "Recommended: three-card panorama" : "建議使用：三張追星全景")
-                        : (locale === "en" ? "Recommended: three-card event flow" : "建議使用：三張現場運")}
+                          {cat.key === "idol-draw"
+                            ? (locale === "en" ? "Recommended: five-card panorama" : "建議使用：五張追星全景")
+                            : (locale === "en" ? "Recommended: three-card event flow" : "建議使用：三張現場運")}
                         </div>
                       </button>
                     </div>
@@ -2260,7 +2260,7 @@ export default function TarotSection() {
           )}
           <button onClick={() => drawCards()}
             disabled={isDrawing || (tarotMode === "classic" ? !question.trim() : (!idolCategory || !activeQuestion.trim()))}
-            className="flex w-full max-w-xl mx-auto mt-6 px-6 py-4 bg-gradient-to-r from-[#b99a62] to-[#c9953a] text-[#0a0a0f] rounded-xl text-base font-bold hover:from-[#e0b860] hover:to-[#b99a62] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 items-center justify-center gap-2.5">
+            className={`${tarotMode === "idol" ? "hidden" : "flex"} w-full max-w-xl mx-auto mt-6 px-6 py-4 bg-gradient-to-r from-[#b99a62] to-[#c9953a] text-[#0a0a0f] rounded-xl text-base font-bold hover:from-[#e0b860] hover:to-[#b99a62] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 items-center justify-center gap-2.5`}>
             {isShuffling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {isShuffling ? (locale === "zh-TW" ? "洗牌中..." : locale === "zh-TW" ? "洗牌中..." : "Shuffling...") : `${t("tarot.draw")} · ${activeSpread.count}${locale === "en" ? " Cards" : "張"}`}
           </button>
@@ -2407,7 +2407,7 @@ export default function TarotSection() {
         {/* Reading Result */}
         {showReading && drawnCards.length > 0 && (
           <div className="max-w-4xl mx-auto glass rounded-[28px] border border-[#b99a6220] p-5 sm:p-6 animate-fade-in">
-            {false && idolSingleReading && (
+            {idolSingleReading && (
               <div className="mb-5 overflow-hidden rounded-[24px] border border-[#d49ab24a] bg-gradient-to-br from-[#1b111b]/92 via-[#10101b]/92 to-[#08080f]/92 p-4 sm:p-5 shadow-[0_18px_42px_rgba(212,154,178,0.10)]">
                 <div className="mb-4 flex flex-col gap-3 border-b border-[#d49ab21d] pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -2449,7 +2449,6 @@ export default function TarotSection() {
               </div>
             )}
 
-            {false && (
             <div className={`${idolSingleReading ? "hidden" : "grid"} gap-3 sm:grid-cols-2 lg:grid-cols-3`}>
               {drawnCards.map((card, idx) => (
                 <div key={card.id} className="rounded-2xl border border-[#b99a6218] bg-[#10101b]/78 p-4">
@@ -2473,7 +2472,6 @@ export default function TarotSection() {
                 </div>
               ))}
             </div>
-            )}
 
             <TarotAIPromptBox
               locale={locale}
@@ -2492,13 +2490,13 @@ export default function TarotSection() {
             {hasFullAnalysisAccess ? (
               <div className="mt-6 pt-4 border-t border-[#b99a6210]">
                 {resultMode === "idol" && resultIdolSingleType && drawnZiweiCard && drawnCards[0] && dualReading && localizedZiwei && <IdolFullReportContent locale={idolLocale} sceneType={resultIdolSingleType} question={resultUserQuestion || resultQuestion} ziweiName={localizedZiwei.name} ziweiMeaning={localizedZiwei.meaning} tarotName={locale === "en" ? drawnCards[0].name : localizedText(drawnCards[0].nameCn, locale)} tarotOrientation={locale === "en" ? (drawnCards[0].reversed ? "Reversed" : "Upright") : (drawnCards[0].reversed ? "逆位" : "正位")} tarotSignal={localizedText(getCompactCardPreview({ card: drawnCards[0], question: resultQuestion, locale: locale as "zh-TW" | "zh" | "en", mode: "idol", category: resultCategory }), locale)} headline={idolFreeResult?.headline || localizedText(dualReading.headline, locale)} crossReading={locale === "en" ? (idolSingleReading?.lines || [idolFreeResult?.summary || ""]) : dualReading.deep.map((line) => localizedText(line, locale))} actions={idolFreeResult?.actions || dualReading.actions.map((line) => localizedText(line, locale))} />}
-                {false && <h4 className={`${resultMode === "idol" && resultIdolSingleType ? "hidden" : ""} text-xl font-display font-bold text-[#f7d9a8] mb-4`}>
+                <h4 className={`${resultMode === "idol" && resultIdolSingleType ? "hidden" : ""} text-xl font-display font-bold text-[#f7d9a8] mb-4`}>
                   {resultMode === "idol"
                     ? (resultCategory === "idol-draw"
                         ? (locale === "zh-TW" ? "✨ 藝人事業牌組總結" : "✨ Artist Career Spread Summary")
                         : (locale === "zh-TW" ? "✨ 追星牌組整體總結" : "✨ Idol Spread Summary"))
                     : (locale === "zh-TW" ? "✨ 牌組整體總結" : "✨ Spread Summary")}
-                </h4>}
+                </h4>
                 {resultMode === "idol" && resultIdolSingleType ? null : resultMode === "classic" ? (
                   <ClassicAIReading cards={drawnCards} question={resultQuestion} locale={locale as "zh-TW" | "zh" | "en"} spread={resultSpread} />
                 ) : resultMode === "idol" && resultCategory ? (
@@ -2525,7 +2523,7 @@ export default function TarotSection() {
                   })()}
                 </p>
                 )}
-                {false && dualReading && !(resultMode === "idol" && resultIdolSingleType) && (
+                {dualReading && !(resultMode === "idol" && resultIdolSingleType) && (
                   <div className="mt-5 rounded-[24px] border border-[#c99aa62a] bg-[#0f0f18]/88 p-4">
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#c99aa6]">
                       {locale === "en" ? "Ziwei + Waite Deep Link" : "紫微 × 西塔深度聯動"}
@@ -2545,7 +2543,7 @@ export default function TarotSection() {
                     </div>
                   </div>
                 )}
-                {false && currentFullAnalysisFree && (
+                {currentFullAnalysisFree && (
                   <div className="mt-4 rounded-2xl border border-emerald-300/25 bg-emerald-300/8 px-4 py-3 text-center text-xs font-semibold text-emerald-200">
                     {locale === "en"
                       ? "This is your complimentary full interpretation. Future full interpretations will open after payment launches."

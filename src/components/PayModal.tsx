@@ -199,7 +199,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
                 <span className="text-2xl font-display font-bold text-[#d4a853]">
                   {(() => {
                     const priceKey = config.reportType as CnyPriceKey;
-                    return getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1} ? priceKey : "tarot").display;
+                    return getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1,idolGuide:1,followupPack:1} ? priceKey : "tarot").display;
                   })()}
                 </span>
               </div>
@@ -222,7 +222,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
               {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
               {(() => {
                 const priceKey = config.reportType as CnyPriceKey;
-                const price = getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1} ? priceKey : "tarot");
+                const price = getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1,idolGuide:1,followupPack:1} ? priceKey : "tarot");
                 return isZh ? `確認支付 ${price.display}` : `Confirm Payment ${price.display}`;
               })()}
             </button>
@@ -290,15 +290,25 @@ export const PAYWALL_CONFIGS: Record<ReportType, Omit<PayModalConfig, "reportKey
     includes: "Magnetic Attraction · Venus Complement · First Impression · Mutual Feelings · Destiny Bond · Strengths · Fate Trajectory · Encounter Probability",
     includesZh: "先天磁場 · 金星互補 · 潛意識印象 · 真實本心 · 宿命羈絆 · 優缺點 · 緣分走勢 · 相遇概率",
   },
-  idol: {
-    reportType: "idol",
-    amount: 69.90,
-    title: "Unlock Full Idol Compatibility",
-    titleZh: "解鎖完整愛豆合盤報告",
-    desc: "Multi-Dimension Analysis · Synastry × Bazi × Star Mansion",
-    descZh: "多維度分析 · 星盤×八字×星宿關係",
-    includes: "Western Synastry · Bazi Elements · Star Mansion · Overall Summary",
-    includesZh: "西方合盤 · 八字五行 · 星宿關係 · 綜合總結",
+  idolGuide: {
+    reportType: "idolGuide",
+    amount: 9.90,
+    title: "Unlock Fan Guidance Report",
+    titleZh: "解鎖追星指引報告",
+    desc: "Simple synastry · Deep match reading · Practical fandom tips",
+    descZh: "簡單合盤 · 合盤深度解析 · 實戰提點",
+    includes: "Bond Score · Purity Score · Deep Match · Tickets/Outfit/Timing Tips · Action Plan",
+    includesZh: "緣分红毯 · 追星正源度 · 合盤深度解析 · 實戰提點（搶票／穿搭／上下半年）· 行動建議",
+  },
+  followupPack: {
+    reportType: "followupPack",
+    amount: 9.90,
+    title: "Unlock Follow-up Pack",
+    titleZh: "解鎖追問續杯包",
+    desc: "3 more follow-up questions on current reading · Same session",
+    descZh: "當前報告追加 3 次追問 · 本會話有效",
+    includes: "3 follow-up questions · Reuses current cards & context",
+    includesZh: "3 次追問額度 · 沿用本次牌面與背景",
   },
 };
 

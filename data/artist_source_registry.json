@@ -1,0 +1,126 @@
+{
+  "generatedAt": "2026-07-02",
+  "policy": {
+    "formalWriteRule": "Only stable public profile data is written to src/data/artists.ts. Entries without two reliable sources stay marked as needs_review or placeholder.",
+    "primarySources": [
+      "Naver official profile/search",
+      "Agency official announcement",
+      "Official artist/company profile"
+    ],
+    "excludedSources": [
+      "fan wiki only",
+      "forum post",
+      "uncited social media repost"
+    ]
+  },
+  "modifiedGroups": [
+    {
+      "groupName": "ALLDAY PROJECT",
+      "changeType": "correct_debut_and_agency",
+      "oldData": {
+        "debutDate": "2025.04.01",
+        "agency": "Unknown"
+      },
+      "newData": {
+        "debutDate": "2025.06.23",
+        "agency": "THEBLACKLABEL"
+      },
+      "verificationStatus": "needs_review",
+      "sourceUrls": [
+        "https://search.naver.com/search.naver?query=ALLDAY%20PROJECT%20%EB%8D%B0%EB%B7%94%20THEBLACKLABEL",
+        "https://www.theblacklabel.com/"
+      ],
+      "note": "Updated the production-facing placeholder fields. Member-level birthdays still require a second authoritative source before marking verified."
+    }
+  ],
+  "newGroups": [
+    {
+      "groupName": "TWS",
+      "tags": ["新人团", "六代团"],
+      "debutDate": "2024.01.22",
+      "agency": "PLEDIS娱乐",
+      "verificationStatus": "needs_review",
+      "sourceUrls": [
+        "https://search.naver.com/search.naver?query=TWS%20%ED%94%84%EB%A1%9C%ED%95%84%20%EB%8D%B0%EB%B7%94%20%EC%83%9D%EB%85%84%EC%9B%94%EC%9D%BC",
+        "https://www.pledis.co.kr/"
+      ],
+      "members": [
+        {
+          "stageName": "Shinyu",
+          "name": "申廷焕",
+          "nameKr": "신유",
+          "birthDate": "2003-11-07",
+          "nationality": "韩国",
+          "position": "队长"
+        },
+        {
+          "stageName": "Dohoon",
+          "name": "金度勋",
+          "nameKr": "도훈",
+          "birthDate": "2005-01-30",
+          "nationality": "韩国",
+          "position": "Vocal·Dance",
+          "correctionNote": "Avoid the previously circulated wrong 2005-01-20 date."
+        },
+        {
+          "stageName": "Youngjae",
+          "name": "崔荣宰",
+          "nameKr": "영재",
+          "birthDate": "2005-05-31",
+          "nationality": "韩国",
+          "position": "Vocal"
+        },
+        {
+          "stageName": "Hanjin",
+          "name": "韩振",
+          "nameKr": "한진",
+          "birthDate": "2006-01-05",
+          "nationality": "中国",
+          "position": "Vocal"
+        },
+        {
+          "stageName": "Jihoon",
+          "name": "韩志勋",
+          "nameKr": "지훈",
+          "birthDate": "2006-03-28",
+          "nationality": "韩国",
+          "position": "Dance·Vocal"
+        },
+        {
+          "stageName": "Kyungmin",
+          "name": "李暻民",
+          "nameKr": "경민",
+          "birthDate": "2007-10-02",
+          "nationality": "韩国",
+          "position": "忙内"
+        }
+      ]
+    }
+  ],
+  "pendingReview": [
+    {
+      "groupName": "KiiiKiii",
+      "reason": "Current record is a group placeholder with birthDate 2005-01-01. Needs member-level official profiles before formal matching."
+    },
+    {
+      "groupName": "Heart2Heart",
+      "reason": "Current record is a group placeholder with birthDate 2005-01-01. Needs official member profile split."
+    },
+    {
+      "groupName": "IDID",
+      "reason": "Current agency is Unknown and birthDate is placeholder. Keep out of verified pool until official profile is confirmed."
+    },
+    {
+      "groupName": "ALD1",
+      "reason": "Multiple members use 01-01 placeholder birthdays and Unknown agency. Requires official debut/member source reconciliation."
+    },
+    {
+      "groupName": "LNGSHOT",
+      "reason": "Rookie data should be rechecked against agency/Naver records before marking verified."
+    },
+    {
+      "groupName": "SMTR25",
+      "reason": "Pre-debut/public trainee data is volatile. Keep as provisional unless official debut/member profile is published."
+    }
+  ]
+}
