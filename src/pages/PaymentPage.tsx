@@ -1,7 +1,8 @@
 import { useLocation, useNavigate, Link } from "react-router"
 import { useMemo, useState } from "react"
 import { useI18n } from "@/contexts/I18nContext"
-import { detectCurrency, formatPrice, CNY_PRICES, BUNDLE_PRICES } from "@/lib/pricing"
+import { useTier } from "@/lib/geo";
+import { CNY_PRICES, BUNDLE_PRICES, USD_PRICES, USD_PPP_PRICES, type CnyPriceKey, type BundleKey } from "@/lib/pricing"
 import Navbar from "@/components/Navbar"
 import CustomerService from "@/components/CustomerService"
 import Footer from "@/sections/Footer"
@@ -23,7 +24,9 @@ export default function PaymentPage() {
   const navigate = useNavigate()
   const { locale } = useI18n()
   const isZh = locale === "zh-TW"
-  const currency = detectCurrency()
+  const tier = useTier()
+  const toDisplay = (cny: number) =>
+    tier === "cn" ? `¥${cny.toFixed(2)}` : `$${(cny / 7.2).toFixed(2)}`
   const state = location.state as any
   const query = new URLSearchParams(location.search)
   const queryType = query.get("type") || ""
@@ -44,17 +47,23 @@ export default function PaymentPage() {
     || localStorage.getItem("r7_blocked_from")
   )
 
-  const reportPrices = [
-    { key: "tarot",      ...CNY_PRICES.tarot },
-    { key: "ziweiTarot", ...CNY_PRICES.ziweiTarot },
-    { key: "natal",      ...CNY_PRICES.natal },
-    { key: "synastry",   ...CNY_PRICES.synastry },
-    { key: "cp",         ...CNY_PRICES.cp },
-  ]
-  const bundlePrices = [
-    { key: "firstTime",      ...BUNDLE_PRICES.firstTime },
-    { key: "natalSynastry",  ...BUNDLE_PRICES.natalSynastry },
-  ]
+  const reportPrices = (["tarot", "ziweiTarot", "natal", "synastry", "cp"] as CnyPriceKey[]).map((k) => {
+    const cny = CNY_PRICES[k].cny
+    const usd = (tier === "ppp" ? USD_PPP_PRICES : USD_PRICES)[k]
+    return {
+      key: k,
+      label: CNY_PRICES[k].label,
+      labelEn: CNY_PRICES[k].labelEn,
+      display: tier === "cn" ? `¥${cny.toFixed(2)}` : `$${usd.toFixed(2)}`,
+    }
+  })
+  const bundlePrices = (["firstTime", "natalSynastry"] as BundleKey[]).map((k) => ({
+    key: k,
+    label: BUNDLE_PRICES[k].label,
+    labelEn: BUNDLE_PRICES[k].labelEn,
+    cny: BUNDLE_PRICES[k].cny,
+    originalCny: BUNDLE_PRICES[k].originalCny,
+  }))
   const reportKey = state?.reportKey || query.get("report") || `manual_${label.replace(/\s+/g, "_").toLowerCase()}`
   const orderNo = useMemo(() => {
     const saved = sessionStorage.getItem("r7_manual_order_no")
@@ -252,7 +261,7 @@ export default function PaymentPage() {
                       </p>
                       <p className="mt-1 text-sm text-[#f0e6d3]">{label}</p>
                     </div>
-                    <p className="font-display text-3xl font-black text-[#ffd36a]">{formatPrice(amount)}</p>
+                    <p className="font-display text-3xl font-black text-[#ffd36a]">{tier === "cn" ? `¥${amount.toFixed(2)}` : `$${amount.toFixed(2)}`}</p>
                   </div>
                   {isMembershipCheckout && (
                     <div className="mt-3 rounded-2xl border border-[#ffb6d924] bg-[#ffb6d90c] px-3 py-2 text-[11px] leading-5 text-[#d8c8e8]">
@@ -389,7 +398,7 @@ export default function PaymentPage() {
             {reportPrices.map(p => (
               <div key={p.key} className="flex items-center justify-between bg-[#151520]/90 rounded-2xl px-4 py-3 border border-[#FFB6C108]">
                 <span className="text-xs text-[#f0e6d3]">{isZh ? p.label : p.labelEn}</span>
-                <span className="text-xs font-bold text-[#FFB6C1]">¥{p.cny.toFixed(2)}</span>
+                <span className="text-xs font-bold text-[#FFB6C1]">{p.display}</span>
               </div>
             ))}
           </div>
@@ -403,12 +412,12 @@ export default function PaymentPage() {
               <div key={b.key} className="flex items-center justify-between bg-[#151520]/90 rounded-2xl px-4 py-3 border border-[#d4a85318]">
                 <div>
                   <span className="text-xs text-[#f0e6d3] block">{isZh ? b.label : b.labelEn}</span>
-                  <span className="text-[10px] text-[#8a8aad] line-through">¥{b.originalCny.toFixed(2)}</span>
+                  <span className="text-[10px] text-[#8a8aad] line-through">{toDisplay(b.originalCny)}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-bold text-[#d4a853]">¥{b.cny.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-[#d4a853]">{toDisplay(b.cny)}</span>
                   <span className="text-[10px] text-green-400/70 ml-2">
-                    {isZh ? `省 ¥${(b.originalCny - b.cny).toFixed(2)}` : `Save ¥${(b.originalCny - b.cny).toFixed(2)}`}
+                    {isZh ? `省 ${toDisplay(b.originalCny - b.cny)}` : `Save ${toDisplay(b.originalCny - b.cny)}`}
                   </span>
                 </div>
               </div>

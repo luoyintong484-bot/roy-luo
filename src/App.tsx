@@ -1,5 +1,6 @@
 import { Navigate, Routes, Route, useLocation } from 'react-router'
 import { useEffect, useState } from 'react'
+import { detectCountryRemote } from '@/lib/geo'
 import { I18nProvider } from '@/contexts/I18nContext'
 import BannerStyleBg from '@/components/BannerStyleBg'
 import SubtlePinkBg from '@/components/SubtlePinkBg'
@@ -97,6 +98,10 @@ function DocumentTitle() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Fire IP/VPN geo detection on load; prices re-render when it resolves.
+    detectCountryRemote();
+  }, []);
   return (
     <I18nProvider>
       <DocumentTitle />

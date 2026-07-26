@@ -9,7 +9,7 @@ import { useState, useMemo } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 import PayModal, { PAYWALL_CONFIGS, type PayModalConfig } from "@/components/PayModal";
 import { unlockReport, isReportPaid } from "@/lib/payment-service";
-import { getLocalPrice, type CnyPriceKey } from "@/lib/pricing";
+import { useLocalPrice, type CnyPriceKey } from "@/lib/pricing";
 import { PAYMENT_COMING_SOON } from "@/const";
 import { Lock, ShieldCheck, Sparkles, Users } from "lucide-react";
 
@@ -25,7 +25,7 @@ export default function ReportLock({ isUnlocked, reportType, reportKey, onUnlock
   const { locale } = useI18n();
   const isZh = locale === "zh-TW";
   const [showPayModal, setShowPayModal] = useState(false);
-  const price = getLocalPrice(reportType);
+  const price = useLocalPrice(reportType);
 
   // Map reportType to PayModal config
   const paywallConfig: PayModalConfig = (() => {

@@ -1,8 +1,10 @@
 /* ============================================================
    R7 Fortune — Unified Pricing & Currency System
-   IP-based auto-detection · Manual CNY/USD toggle
-   Real-time exchange rate · 3% fee included
+   VPN/IP geo detection · 3-tier pricing (CN / INTL / PPP)
+   Manual CNY/USD toggle · Real-time exchange rate
    ============================================================ */
+
+import { useTier, getTierSync, type PriceTier } from "./geo";
 
 const STORAGE_CURRENCY = "r7_currency_override";
 const STORAGE_RATE = "r7_exchange_rate";
@@ -18,16 +20,38 @@ export const PRODUCTS = {
   cpReport:        { usd: 10.00, name: "CP Report", nameZh: "CP 合盤報告" },
 } as const;
 
-// ===== 国内人民币固定定价（微信/支付宝收款通道） =====
+// ===== 国内人民币定价（微信/支付宝收款通道 · 符合国内行情） =====
 export const CNY_PRICES = {
-  tarot:   { cny: 29.90,  label: "塔羅解讀",         labelEn: "Tarot Reading" },
+  tarot:   { cny: 9.90,   label: "塔羅解讀",         labelEn: "Tarot Reading" },
   ziweiTarot: { cny: 39.90, label: "紫微塔羅雙牌", labelEn: "Ziwei Tarot Dual Reading" },
   natal:   { cny: 79.00,  label: "紫微斗數個人完整解析",   labelEn: "Ziwei Doushu Natal Report" },
-  synastry:{ cny: 109.00, label: "紫微斗數雙人合盤解析",   labelEn: "Ziwei Doushu Synastry Report" },
+  synastry:{ cny: 99.90,  label: "紫微斗數雙人合盤解析",   labelEn: "Ziwei Doushu Synastry Report" },
   cp:      { cny: 69.90,  label: "CP 专属合盤解讀",    labelEn: "CP Compatibility Report" },
   idolGuide:{ cny: 9.90,  label: "追星指引報告",       labelEn: "Fan Guidance Report" },
   followupPack:{ cny: 9.90, label: "追問續杯包",       labelEn: "Follow-up Pack" },
 } as const;
+
+// ===== 国际 USD 定价（高收入市场，贴合西方单次占卜 $1–10 行情） =====
+export const USD_PRICES: Record<CnyPriceKey, number> = {
+  tarot: 2.99,
+  ziweiTarot: 4.99,
+  natal: 10.99,
+  synastry: 14.99,
+  cp: 9.99,
+  idolGuide: 1.99,
+  followupPack: 1.99,
+};
+
+// ===== 新兴市场经济平价（PPP）折扣价（约国际价 5 折，照顾印度/东南亚/拉美等） =====
+export const USD_PPP_PRICES: Record<CnyPriceKey, number> = {
+  tarot: 1.49,
+  ziweiTarot: 2.99,
+  natal: 5.99,
+  synastry: 7.99,
+  cp: 4.99,
+  idolGuide: 0.99,
+  followupPack: 0.99,
+};
 
 // ===== 套餐定价（捆绑销售提升客单价） =====
 export const BUNDLE_PRICES = {
@@ -58,17 +82,39 @@ export function getCnyPrice(key: CnyPriceKey): string {
   return `¥${CNY_PRICES[key].cny.toFixed(2)}`;
 }
 
-/** Get display price: CNY for CN users, USD otherwise */
-export function getLocalPrice(key: CnyPriceKey): { amount: number; display: string; currency: "CNY" | "USD" } {
-  const c = detectCurrency();
-  if (c === "CNY") {
-    return { amount: CNY_PRICES[key].cny, display: `¥${CNY_PRICES[key].cny.toFixed(2)}`, currency: "CNY" };
+/** Resolve a price for a given tier, honoring a manual currency override. */
+function resolveLocalPrice(
+  key: CnyPriceKey,
+  tier: PriceTier,
+): { amount: number; display: string; currency: "CNY" | "USD" } {
+  const override = readCurrencyOverride();
+  if (override === "CNY" || tier === "cn") {
+    const cny = CNY_PRICES[key].cny;
+    return { amount: cny, display: `¥${cny.toFixed(2)}`, currency: "CNY" };
   }
-  // USD fallback: map to approximate USD amounts
-  const usdMap: Record<CnyPriceKey, number> = {
-    tarot: 3.99, ziweiTarot: 4.99, natal: 10.99, synastry: 15.99, cp: 9.99, idolGuide: 1.39, followupPack: 1.39,
-  };
-  return { amount: usdMap[key], display: `$${usdMap[key].toFixed(2)}`, currency: "USD" };
+  const usd = (tier === "ppp" ? USD_PPP_PRICES : USD_PRICES)[key];
+  return { amount: usd, display: `$${usd.toFixed(2)}`, currency: "USD" };
+}
+
+function readCurrencyOverride(): "CNY" | "USD" | null {
+  try {
+    const o = localStorage.getItem(STORAGE_CURRENCY);
+    if (o === "CNY" || o === "USD") return o;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** Synchronous local price (uses cached geo tier — correct after init). */
+export function getLocalPrice(key: CnyPriceKey): { amount: number; display: string; currency: "CNY" | "USD" } {
+  return resolveLocalPrice(key, getTierSync());
+}
+
+/** Reactive local price — re-renders when the async geo lookup resolves. */
+export function useLocalPrice(key: CnyPriceKey): { amount: number; display: string; currency: "CNY" | "USD" } {
+  const tier = useTier();
+  return resolveLocalPrice(key, tier);
 }
 
 export type ProductKey = keyof typeof PRODUCTS;

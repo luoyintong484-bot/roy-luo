@@ -9,7 +9,7 @@ import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { initiatePayment, type ReportType } from "@/lib/payment-service";
 import { detectRegion, PAYMENT_METHODS } from "@/lib/payment";
-import { getLocalPrice, type CnyPriceKey } from "@/lib/pricing";
+import { useLocalPrice } from "@/lib/pricing";
 import { PAYMENT_COMING_SOON, TEST_MODE } from "@/const";
 import { trackEvent } from "@/lib/analytics";
 import { Lock, Loader2, X, ShieldCheck, CreditCard, Clock3 } from "lucide-react";
@@ -39,6 +39,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
   const isZh = locale === "zh-TW";
   const region = detectRegion();
   const methods = PAYMENT_METHODS[region];
+  const localPrice = useLocalPrice(config.reportType);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
   const payingRef = useRef(false);
@@ -68,7 +69,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
       const result = await initiatePayment({
         reportType: config.reportType,
         reportKey: config.reportKey,
-        amount: config.amount,
+        amount: localPrice.amount,
         productName: config.title,
         productNameZh: config.titleZh,
       });
@@ -134,10 +135,10 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
           <h3 className="font-display text-lg font-bold text-[#f0e6d3] mb-2">
             {isZh ? config.titleZh : config.title}
           </h3>
-          <p className="text-xs text-[#8a8aad] leading-relaxed mb-5">
-            {isZh
-              ? `預計價格 ¥${config.amount.toFixed(1)}。功能即將開放，當前不會生成訂單，也不會進入付款流程。`
-              : `Expected price ¥${config.amount.toFixed(1)}. This feature is coming soon; no order or payment will be created.`}
+            <p className="text-xs text-[#8a8aad] leading-relaxed mb-5">
+              {isZh
+                ? `預計價格 ${localPrice.display}。功能即將開放，當前不會生成訂單，也不會進入付款流程。`
+                : `Expected price ${localPrice.display}. This feature is coming soon; no order or payment will be created.`}
           </p>
           <button
             onClick={() => {
@@ -197,10 +198,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
                   {isZh ? "合計" : "Total"}
                 </span>
                 <span className="text-2xl font-display font-bold text-[#d4a853]">
-                  {(() => {
-                    const priceKey = config.reportType as CnyPriceKey;
-                    return getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1,idolGuide:1,followupPack:1} ? priceKey : "tarot").display;
-                  })()}
+                  {localPrice.display}
                 </span>
               </div>
             </div>
@@ -220,11 +218,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
               className="w-full py-3 bg-gradient-to-r from-[#d4a853] to-[#c9953a] text-[#0a0a0f] rounded-lg text-sm font-bold hover:from-[#e0b860] hover:to-[#d4a853] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-              {(() => {
-                const priceKey = config.reportType as CnyPriceKey;
-                const price = getLocalPrice(priceKey in {tarot:1,ziweiTarot:1,natal:1,synastry:1,cp:1,idolGuide:1,followupPack:1} ? priceKey : "tarot");
-                return isZh ? `確認支付 ${price.display}` : `Confirm Payment ${price.display}`;
-              })()}
+              {isZh ? `確認支付 ${localPrice.display}` : `Confirm Payment ${localPrice.display}`}
             </button>
 
             {error && <p className="text-[10px] text-rose-400 text-center mt-2">{error}</p>}
@@ -242,7 +236,7 @@ export default function PayModal({ isOpen, onClose, onPaid, config }: PayModalPr
 export const PAYWALL_CONFIGS: Record<ReportType, Omit<PayModalConfig, "reportKey">> = {
   tarot: {
     reportType: "tarot",
-    amount: 29.90,
+    amount: 9.90,
     title: "Unlock Full Tarot Reading",
     titleZh: "解鎖完整塔羅深度解讀",
     desc: "Deep card analysis · Element interaction · Scene guidance · Actionable advice",

@@ -13,17 +13,20 @@ import {
 const ALIPAY_GATEWAY = "https://openapi.alipay.com/gateway.do";
 const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://www.r7fortune.com").replace(/\/$/, "");
 
-const PRODUCT_CATALOG = {
-  tarot: { amount: "29.90", subject: "Digital Psychological Analysis Report" },
-  ziweiTarot: { amount: "39.90", subject: "Digital Psychological Analysis Report" },
-  ziweiTarotFirst: { amount: "19.90", subject: "Digital Psychological Analysis Report" },
-  natal: { amount: "79.00", subject: "Digital Psychological Analysis Report" },
-  synastry: { amount: "109.00", subject: "Digital Psychological Analysis Report" },
-  cp: { amount: "69.90", subject: "Digital Psychological Analysis Report" },
-  idol: { amount: "69.90", subject: "Digital Psychological Analysis Report" },
-} as const;
-
-type ProductCode = keyof typeof PRODUCT_CATALOG;
+// 💡 金额以「前端 PayModal 实际扣款价」为准，服务端只做白名单校验防止篡改。
+// 这里 ALLOWED_AMOUNTS 是合法的真实定价集合，与前端 PAYWALL_CONFIGS 对齐。
+const PRODUCT_SUBJECTS: Record<string, string> = {
+  tarot: "Tarot Reading Report",
+  ziweiTarot: "Ziwei Tarot Dual Reading Report",
+  ziweiTarotFirst: "Ziwei Tarot Dual Reading Report",
+  natal: "Ziwei Natal Chart Report",
+  synastry: "Ziwei Compatibility Report",
+  cp: "CP Deep Report",
+  idolGuide: "Fan Guidance Report",
+  followupPack: "Follow-up Questions Pack",
+};
+const VALID_REPORT_TYPES = new Set(Object.keys(PRODUCT_SUBJECTS));
+const ALLOWED_AMOUNTS = new Set(["9.90", "19.90", "39.90", "69.90", "79.00", "99.90", "109.00"]);
 
 function normalizePem(value: string) {
   return value.replace(/\\n/g, "\n").trim();
@@ -123,14 +126,17 @@ export async function createAlipayCheckout(c: Context) {
       readingId?: number;
       returnPath?: string;
       offerCode?: string;
+      amount?: number;
     }>();
     const baseType = body.reportType || "";
-    const productCode = baseType === "ziweiTarot" && body.offerCode === "first"
-      ? "ziweiTarotFirst"
-      : baseType as ProductCode;
-    const product = PRODUCT_CATALOG[productCode];
-    if (!product || !body.reportKey || body.reportKey.length > 255) {
+    if (!VALID_REPORT_TYPES.has(baseType) || !body.reportKey || body.reportKey.length > 255) {
       return c.json({ error: "无效的支付商品或报告编号" }, 400);
+    }
+    // ✅ 金额跟随前端（PayModal 实际扣款价），服务端仅校验金额在白名单内，防止篡改
+    const requestedAmount = Number(body.amount);
+    const amountStr = Number.isFinite(requestedAmount) ? requestedAmount.toFixed(2) : "";
+    if (!ALLOWED_AMOUNTS.has(amountStr)) {
+      return c.json({ error: "无效的商品金额" }, 400);
     }
 
     const outTradeNo = makeOrderNo();
@@ -145,8 +151,8 @@ export async function createAlipayCheckout(c: Context) {
       readingId,
       reportType: baseType,
       reportKey: body.reportKey,
-      subject: product.subject,
-      amount: product.amount,
+      subject: PRODUCT_SUBJECTS[baseType],
+      amount: amountStr,
       accessTokenHash: hashToken(accessToken),
       returnPath,
     });
@@ -158,8 +164,8 @@ export async function createAlipayCheckout(c: Context) {
     const bizContent = JSON.stringify({
       out_trade_no: outTradeNo,
       product_code: useWap ? "QUICK_WAP_WAY" : "FAST_INSTANT_TRADE_PAY",
-      total_amount: product.amount,
-      subject: product.subject,
+      total_amount: amountStr,
+      subject: PRODUCT_SUBJECTS[baseType],
     });
     const params: Record<string, string> = {
       app_id: current.appId,
@@ -180,7 +186,7 @@ export async function createAlipayCheckout(c: Context) {
       checkoutUrl: `${ALIPAY_GATEWAY}?${query}`,
       orderId: outTradeNo,
       accessToken,
-      amount: product.amount,
+      amount: amountStr,
       currency: "CNY",
       channel: useWap ? "wap" : "page",
     });

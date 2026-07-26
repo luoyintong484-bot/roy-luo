@@ -6,6 +6,7 @@
 
 import { PAYMENT_COMING_SOON } from "@/const";
 import { getAppPath } from "@/lib/route-helpers";
+import { getCountrySync } from "@/lib/geo";
 
 // ---- Configuration ----
 // ⚠️ PRODUCTION: Move CREEM_BASE + API key to server-side env variables only.
@@ -19,15 +20,9 @@ const IS_TEST = false;    // false = live checkout (CN→Alipay, global→manual
 export type PaymentRegion = "cn" | "global";
 
 export function detectRegion(): PaymentRegion {
-  // In production: call a geo-IP service or check request headers
-  // For now: check browser language as a heuristic
-  if (typeof navigator !== "undefined") {
-    const lang = navigator.language;
-    if (lang.startsWith("zh") && !lang.startsWith("zh-TW") && !lang.startsWith("zh-HK")) {
-      return "cn";
-    }
-  }
-  return "global";
+  // Follows the visitor's real connection (incl. VPN exit IP) via geo detection.
+  // Only mainland China routes to Alipay/WeChat; everything else → global (card/PayPal/manual QR).
+  return getCountrySync() === "CN" ? "cn" : "global";
 }
 
 // ---- Payment Methods by Region ----
@@ -163,6 +158,7 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
           reportKey: params.metadata?.reportKey,
           readingId: params.metadata?.readingId ? Number(params.metadata.readingId) : undefined,
           returnPath: getReturnPath(params.metadata),
+          amount: params.amount,
           offerCode: params.metadata?.offerCode || (params.metadata?.reportType === "ziweiTarot" && params.amount === 19.9 ? "first" : undefined),
         }),
       });

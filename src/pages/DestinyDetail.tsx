@@ -6,7 +6,7 @@ import PayModal, { PAYWALL_CONFIGS } from "@/components/PayModal"
 import ShareModal from "@/components/ShareModal"
 import { ZiweiDoushuPanel, ZiweiSynastryPanel } from "@/components/ZiweiDoushuPanel"
 import { unlockReport } from "@/lib/payment-service"
-import { getLocalPrice } from "@/lib/pricing"
+import { useLocalPrice } from "@/lib/pricing"
 import { buildZiweiChart, buildZiweiSynastry } from "@/lib/ziwei-doushu"
 import { PAYMENT_COMING_SOON } from "@/const"
 import Navbar from "@/components/Navbar"
@@ -300,6 +300,8 @@ export default function DestinyDetail() {
   const { locale } = useI18n();
   const navigate = useNavigate();
   const isZh = locale === "zh-TW" || locale === "zh";
+  const synastryLocal = useLocalPrice("synastry");
+  const natalLocal = useLocalPrice("natal");
   const [activeTab, setActiveTab] = useState<"overview" | "bazi" | "vedic" | "ziwei">("overview")
   const [showPayModal, setShowPayModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -567,8 +569,8 @@ export default function DestinyDetail() {
                       {PAYMENT_COMING_SOON
                         ? (isZh ? "完整報告即將上線" : "Full Report Coming Soon")
                         : (isZh
-                            ? `解鎖完整解析 ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`
-                            : `Unlock Full Reading ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`)}
+                            ? `解鎖完整解析 ${(isSynastry ? synastryLocal : natalLocal).display}`
+                            : `Unlock Full Reading ${(isSynastry ? synastryLocal : natalLocal).display}`)}
                     </button>
                   )}
                 </div>
@@ -742,8 +744,8 @@ export default function DestinyDetail() {
                     {PAYMENT_COMING_SOON
                       ? (isZh ? "完整解析即將上線" : "Full Report Coming Soon")
                       : (isZh
-                          ? `解鎖${isSynastry ? "紫微合盤" : "紫微個人"}完整解析 ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`
-                          : `Unlock ${isSynastry ? "Ziwei Synastry" : "Ziwei Natal"} Report ${getLocalPrice(isSynastry ? "synastry" : "natal").display}`)}
+                          ? `解鎖${isSynastry ? "紫微合盤" : "紫微個人"}完整解析 ${(isSynastry ? synastryLocal : natalLocal).display}`
+                          : `Unlock ${isSynastry ? "Ziwei Synastry" : "Ziwei Natal"} Report ${(isSynastry ? synastryLocal : natalLocal).display}`)}
                   </button>
                 </div>
               )}
@@ -761,7 +763,7 @@ export default function DestinyDetail() {
                     </p>
                     <button onClick={() => setShowPayModal(true)}
                       className="px-6 py-2.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all">
-                      {isZh ? `解鎖紫微合盤完整解析 ${getLocalPrice("synastry").display}` : `Unlock Ziwei Synastry ${getLocalPrice("synastry").display}`}
+                      {isZh ? `解鎖紫微合盤完整解析 ${synastryLocal.display}` : `Unlock Ziwei Synastry ${synastryLocal.display}`}
                     </button>
                   </div>
                 </>
@@ -774,7 +776,7 @@ export default function DestinyDetail() {
                     </p>
                     <button onClick={() => setShowPayModal(true)}
                       className="px-6 py-2.5 bg-gradient-to-r from-[#FFB6C1] to-[#FF8FA8] text-[#0a0a0f] rounded-xl text-xs font-bold hover:from-[#FFC4CF] hover:to-[#FFA0B5] transition-all">
-                      {isZh ? `解鎖紫微個人完整解析 ${getLocalPrice("natal").display}` : `Unlock Ziwei Natal Report ${getLocalPrice("natal").display}`}
+                      {isZh ? `解鎖紫微個人完整解析 ${natalLocal.display}` : `Unlock Ziwei Natal Report ${natalLocal.display}`}
                     </button>
                   </div>
                 </>
