@@ -49,8 +49,9 @@ function ReportSectionCard({
 }) {
   return (
     <details
+      id={`sec-${section.id}`}
       open={defaultOpen}
-      className="group relative overflow-hidden rounded-2xl border border-[#d8b87480] bg-[#fffaf0] text-[#3d3328] shadow-[0_18px_44px_rgba(91,55,18,0.12)]"
+      className="group relative overflow-hidden rounded-2xl border border-[#d8b87480] bg-[#fffaf0] text-[#3d3328] shadow-[0_18px_44px_rgba(91,55,18,0.12)] scroll-mt-24"
     >
       <summary className="relative flex cursor-pointer list-none items-start gap-4 p-5 sm:p-6 [&::-webkit-details-marker]:hidden">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#d4a85366] bg-[#fff0c9] text-xl text-[#8b5a14]">
@@ -183,6 +184,46 @@ export default function DestinyFullReport({ previewUnlocked = false }: { preview
 
               {/* ---- Report Body ---- */}
               <div className="space-y-5 p-4 sm:p-7">
+                {/* ===== 命格速览 + 章节导航 ===== */}
+                <div className="rounded-2xl border border-[#d4a85355] bg-[#fffaf0] p-5 shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[#b87a22]" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a5b18]">
+                      {isZh ? "命格速览" : "Profile Snapshot"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      { k: isZh ? "主星" : "Main Star", v: chart.mainStar },
+                      { k: isZh ? "五行局" : "Element", v: chart.elementBureau },
+                      { k: isZh ? "命宫" : "Life Palace", v: chart.mingPalace },
+                      { k: isZh ? "核心格局" : "Pattern", v: chart.patterns[0] || "—" },
+                    ].map((it) => (
+                      <div key={it.k} className="rounded-xl border border-[#d4a85333] bg-[#fff3d7] px-3 py-2 text-center">
+                        <p className="text-[10px] text-[#8a6d3b]">{it.k}</p>
+                        <p className="mt-0.5 truncate text-sm font-bold text-[#5a3a12]">{it.v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#8a5b18]">
+                      {isZh ? "章节导航" : "Sections"}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {sections.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[#d4a85340] bg-[#fffaf0] px-3 py-1 text-[11px] text-[#5f4630] transition-colors hover:border-[#d4a853] hover:bg-[#fff3d7]"
+                        >
+                          <span>{s.icon}</span>
+                          {s.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Free preview notice */}
                 {!previewUnlocked && (
                   <div className="rounded-2xl border border-[#d4a85366] bg-[#fffaf0] p-4 shadow-[0_12px_28px_rgba(91,55,18,0.08)]">
