@@ -73,11 +73,19 @@ RESP=$(curl -s --max-time 15 -X POST http://localhost:3000/api/alipay/create \
   -H 'Content-Type: application/json' \
   -d '{"reportType":"tarot","reportKey":"redeploy_check","amount":9.90}')
 echo "$RESP" | head -c 300; echo ""
-if echo "$RESP" | grep -q "9.90" && ! echo "$RESP" | grep -q "29.90"; then
+# 用 node 精准解析 JSON 的 amount 字段，避免 grep 子串误判
+AMOUNT=$(echo "$RESP" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  try{const j=JSON.parse(s);process.stdout.write(String(j.amount??""))}catch{process.stdout.write("PARSE_ERR")}
+});' 2>/dev/null)
+echo "解析得到 amount = $AMOUNT"
+if [ "$AMOUNT" = "9.90" ]; then
   echo "✅✅✅ 部署成功：金额已是 9.90，新代码生效"
-elif echo "$RESP" | grep -q "29.90"; then
+elif [ "$AMOUNT" = "29.90" ]; then
   echo "❌ 仍是旧值 29.90，请把本输出发给助手排查"
+elif [ "$AMOUNT" = "PARSE_ERR" ] || [ -z "$AMOUNT" ]; then
+  echo "⚠️ API 响应无法解析（可能服务未起或路由变化），请把本输出发给助手"
 else
-  echo "⚠️ 响应异常，请把本输出发给助手"
+  echo "⚠️ 金额异常：$AMOUNT，请把本输出发给助手"
 fi
 echo "========== done =========="
