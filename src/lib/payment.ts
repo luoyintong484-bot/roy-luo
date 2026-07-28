@@ -26,10 +26,10 @@ export function detectRegion(): PaymentRegion {
 }
 
 // ---- Payment Methods by Region ----
+// 微信支付已下架：仅保留支付宝一种收银方式
 export const PAYMENT_METHODS: Record<PaymentRegion, { id: string; name: string; nameZh: string; icon: string }[]> = {
   cn: [
     { id: "alipay_h5", name: "Alipay", nameZh: "支付寶", icon: "🔵" },
-    { id: "wechat_h5", name: "WeChat Pay", nameZh: "微信支付", icon: "💚" },
   ],
   global: [
     { id: "paypal", name: "PayPal", nameZh: "PayPal", icon: "🅿️" },

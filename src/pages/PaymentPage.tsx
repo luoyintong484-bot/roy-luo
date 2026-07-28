@@ -75,6 +75,7 @@ export default function PaymentPage() {
   const sessionId = useMemo(() => `manual_${orderNo.toLowerCase()}`, [orderNo])
   const payNote = `${orderNo}｜${label}`
   const [copied, setCopied] = useState<string>("")
+  // 微信支付已下架：仅保留支付宝一种收银方式
   const paymentMethods = [
     {
       id: "alipay",
@@ -82,13 +83,6 @@ export default function PaymentPage() {
       color: "from-[#2888ff] to-[#1267df]",
       qr: MANUAL_PAYMENT_ALIPAY_QR_SRC,
       note: isZh ? "請使用支付寶掃碼付款，付款時請備註訂單號。" : "Please use Alipay to scan the QR code and add the order ID as payment note.",
-    },
-    {
-      id: "wechat",
-      label: isZh ? "微信支付" : "WeChat Pay",
-      color: "from-[#07c160] to-[#06ad56]",
-      qr: MANUAL_PAYMENT_WECHAT_QR_SRC,
-      note: isZh ? "請使用微信掃碼付款，付款時請備註訂單號。" : "Please use WeChat Pay to scan the QR code and add the order ID as payment note.",
     },
   ]
   const [activePayMethod, setActivePayMethod] = useState(paymentMethods[0].id)
