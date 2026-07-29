@@ -419,7 +419,7 @@ export default function PaymentPage() {
           </div>
 
           <p className="text-[9px] text-[#8a8aad33] text-center mt-4">
-            {isZh ? "支付寶 · 微信支付" : "Alipay · WeChat Pay"}
+            {isZh ? "支付寶" : "Alipay"}
             {" · "}{isZh ? "價格已含手續費" : "Fees included"}
           </p>
         </div>
