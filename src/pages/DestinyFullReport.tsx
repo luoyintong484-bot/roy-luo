@@ -2,6 +2,7 @@ import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { isReportPaid } from "@/lib/payment-service";
+import { addReportHistory } from "@/lib/report-history";
 import { buildZiweiChart, type ZiweiChart } from "@/lib/ziwei-doushu";
 import { buildZiweiNatalReport, type ZiweiReportSection } from "@/lib/ziwei-report-templates";
 import { exportReportPDF } from "@/lib/pdf-export";
@@ -269,7 +270,7 @@ export default function DestinyFullReport({ previewUnlocked = false }: { preview
                   isUnlocked={isUnlocked}
                   reportType="natal"
                   reportKey="natal_full_report"
-                  onUnlocked={() => setIsUnlocked(true)}
+                  onUnlocked={() => { setIsUnlocked(true); addReportHistory({ reportKey: "natal_full_report", reportType: "natal" }); }}
                 >
                   <div className="space-y-5">
                     {sections.slice(2).map((section, index) => (

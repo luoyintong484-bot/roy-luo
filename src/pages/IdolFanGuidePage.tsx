@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { isReportPaid } from "@/lib/payment-service";
+import { addReportHistory } from "@/lib/report-history";
 import { buildZiweiChart, buildZiweiSynastry, type ZiweiChart, type ZiweiSynastry } from "@/lib/ziwei-doushu";
 import { buildIdolFanGuide, type ZiweiReportSection, type IdolFanGuideResult } from "@/lib/ziwei-report-templates";
 import { exportReportPDF } from "@/lib/pdf-export";
@@ -190,7 +191,11 @@ export default function IdolFanGuidePage({ previewUnlocked = false }: { previewU
     setIdolChart(iChart);
     setArtist(a);
     setGuide(g);
-    setIsUnlocked(previewUnlocked || previewBypass || isReportPaid(`idol_guide_${aid}`));
+    const unlocked = previewUnlocked || previewBypass || isReportPaid(`idol_guide_${aid}`);
+    setIsUnlocked(unlocked);
+    if (unlocked) {
+      addReportHistory({ reportKey: `idol_guide_${aid}`, reportType: "idolGuide", route: `/idol-guide?artist=${aid}` });
+    }
     // 保存最近一次生成输入，便于支付回跳后自动恢复已生成的报告
     try {
       localStorage.setItem("r7_idol_guide_draft", JSON.stringify({

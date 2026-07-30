@@ -26,6 +26,7 @@ import { TAROT_CARDS } from "@/data/tarotCards";
 import type { DrawnTarotCard, DualReading, ZiweiCard } from "@/data/ziweiTarot";
 import { buildDualReading, detectDualScene, drawZiweiCard, ZIWEI_TAROT_PRICE } from "@/data/ziweiTarot";
 import { trackEvent } from "@/lib/analytics";
+import { addReportHistory } from "@/lib/report-history";
 
 type Category = "love" | "career" | "money" | "decision";
 type Stage = "form" | "ziwei-ready" | "ziwei-revealed" | "tarot-ready" | "complete";

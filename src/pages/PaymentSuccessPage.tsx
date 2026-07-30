@@ -6,6 +6,7 @@ import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
 import { handlePaymentSuccess } from "@/lib/payment-service";
 import { grantBenefits, verifyPayment } from "@/lib/payment";
+import { addReportHistory } from "@/lib/report-history";
 import { PAYMENT_COMING_SOON } from "@/const";
 import { CheckCircle2, Home, Loader2, RotateCcw, XCircle, Sparkles, Clock3, FileText, Share2 } from "lucide-react";
 
@@ -114,6 +115,17 @@ export default function PaymentSuccessPage() {
       try { localStorage.removeItem("r7_blocked_from"); } catch { /* Storage can be unavailable in privacy mode. */ }
 
       setStatus("success");
+      try {
+        if (verification.success && verification.reportKey) {
+          addReportHistory({
+            reportKey: verification.reportKey,
+            reportType: verification.reportType || "report",
+            route: verification.returnPath,
+          });
+        }
+      } catch {
+        /* history recording is best-effort */
+      }
       setMessage(
         isManualPayment
           ? (isZh
@@ -289,13 +301,19 @@ export default function PaymentSuccessPage() {
                       {isZh ? "分享給朋友" : "Share"}
                     </button>
                     <Link
-                      to="/"
+                      to="/my-reports"
                       className="flex-1 py-2.5 rounded-xl text-xs font-semibold border border-[#FFB6C128] text-[#f0e6d3] hover:border-[#FFB6C144] hover:bg-[#FFB6C108] transition-all flex items-center justify-center gap-1.5"
                     >
-                      <Home className="h-3.5 w-3.5" />
-                      {isZh ? "首頁" : "Home"}
+                      📚 {isZh ? "我的報告庫" : "My Reports"}
                     </Link>
                   </div>
+                  <Link
+                    to="/"
+                    className="flex w-full items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border border-[#FFB6C128] text-[#f0e6d3] hover:border-[#FFB6C144] hover:bg-[#FFB6C108] transition-all"
+                  >
+                    <Home className="h-3.5 w-3.5" />
+                    {isZh ? "首頁" : "Home"}
+                  </Link>
                 </div>
               </>
             )}

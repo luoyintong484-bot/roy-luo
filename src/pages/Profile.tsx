@@ -199,6 +199,15 @@ function PaymentHistory({ locale }: { locale: string }) {
         </div>
       </div>
 
+      <div className="mb-4 flex justify-end">
+        <Link
+          to="/my-reports"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#FFB6C122] bg-[#FFB6C108] px-3.5 py-2 text-xs font-semibold text-[#ffd6e8] transition-colors hover:border-[#FFB6C144] hover:bg-[#FFB6C112]"
+        >
+          📚 {isZh ? "我的報告庫" : "My Reports"}
+        </Link>
+      </div>
+
       {orders.length === 0 ? (
         <EmptyState
           icon={CreditCard}

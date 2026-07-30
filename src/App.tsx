@@ -36,6 +36,7 @@ import {
 } from './pages/astrology/AstrologyReports'
 import PaymentPage from './pages/PaymentPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
+import MyReports from './pages/MyReports'
 import AdminPage from './pages/AdminPage'
 import NotFound from './pages/NotFound'
 import PrivacyPolicy from './pages/PrivacyPolicy'
@@ -141,6 +142,7 @@ export default function App() {
         <Route path="/wellness/*" element={<Navigate to="/" replace />} />
         <Route path="/payment" element={<PageTransition><PaymentPage /></PageTransition>} />
         <Route path="/payment-success" element={<PageTransition><PaymentSuccessPage /></PageTransition>} />
+        <Route path="/my-reports" element={<PageTransition><MyReports /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><AdminPage /></PageTransition>} />
         <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />

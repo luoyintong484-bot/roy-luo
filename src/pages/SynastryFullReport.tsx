@@ -2,6 +2,7 @@ import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { isReportPaid } from "@/lib/payment-service";
+import { addReportHistory } from "@/lib/report-history";
 import { buildZiweiChart, buildZiweiSynastry, type ZiweiChart, type ZiweiSynastry } from "@/lib/ziwei-doushu";
 import { buildZiweiSynastryReport, type ZiweiReportSection } from "@/lib/ziwei-report-templates";
 import { exportReportPDF } from "@/lib/pdf-export";
@@ -260,7 +261,7 @@ export default function SynastryFullReport({ previewUnlocked = false }: { previe
                   isUnlocked={isUnlocked}
                   reportType="synastry"
                   reportKey="synastry_full_report"
-                  onUnlocked={() => setIsUnlocked(true)}
+                  onUnlocked={() => { setIsUnlocked(true); addReportHistory({ reportKey: "synastry_full_report", reportType: "synastry" }); }}
                 >
                   <div className="space-y-5">
                     {sections.slice(2).map((section, index) => (

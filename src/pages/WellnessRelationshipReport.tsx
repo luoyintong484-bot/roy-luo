@@ -5,6 +5,7 @@ import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
 import ReportLock from "@/components/ReportLock";
 import { isReportPaid } from "@/lib/payment-service";
+import { addReportHistory } from "@/lib/report-history";
 import { WELLNESS_DISCLAIMER, getRelationshipDynamicsSections } from "@/data/wellness-content";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 
@@ -81,7 +82,7 @@ export default function WellnessRelationshipReport() {
             isUnlocked={isUnlocked}
             reportType="synastry"
             reportKey={reportKey}
-            onUnlocked={() => setIsUnlocked(true)}
+            onUnlocked={() => { setIsUnlocked(true); addReportHistory({ reportKey, reportType: "wellness" }); }}
           >
             <div className="space-y-6">
               {sections.map((section) => (

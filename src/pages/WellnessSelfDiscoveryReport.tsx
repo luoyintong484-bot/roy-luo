@@ -5,6 +5,7 @@ import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
 import ReportLock from "@/components/ReportLock";
 import { isReportPaid } from "@/lib/payment-service";
+import { addReportHistory } from "@/lib/report-history";
 import { WELLNESS_DISCLAIMER, getPersonalityBlueprintSections } from "@/data/wellness-content";
 import { ArrowLeft, Sparkles, ShieldCheck } from "lucide-react";
 
@@ -80,7 +81,7 @@ export default function WellnessSelfDiscoveryReport() {
             isUnlocked={isUnlocked}
             reportType="natal"
             reportKey={reportKey}
-            onUnlocked={() => setIsUnlocked(true)}
+            onUnlocked={() => { setIsUnlocked(true); addReportHistory({ reportKey, reportType: "wellness" }); }}
           >
             <div className="space-y-6">
               {sections.map((section) => (
