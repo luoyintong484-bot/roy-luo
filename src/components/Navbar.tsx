@@ -4,8 +4,9 @@ import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Search, User, LogIn, LogOut, Globe, Sparkles, Menu, X,
-  UserCircle, Settings,
+  UserCircle, Settings, Library,
 } from "lucide-react";
+import { useReportHistoryCount } from "@/lib/useReportHistoryCount";
 
 /* ============================================================
    R7 Fortune — Restructured Navbar
@@ -25,9 +26,15 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [merchOpen, setMerchOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const langRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const libraryRef = useRef<HTMLDivElement>(null);
+
+  // Live count of unlocked reports (drives the badge on the library icon)
+  const reportCount = useReportHistoryCount();
+  const isZh = locale === "zh-TW";
 
   // ---- scroll ----
   useEffect(() => {
@@ -42,6 +49,7 @@ export default function Navbar() {
       const tgt = e.target as Node;
       if (langRef.current && !langRef.current.contains(tgt)) setLangOpen(false);
       if (menuRef.current && !menuRef.current.contains(tgt)) setMenuOpen(false);
+      if (libraryRef.current && !libraryRef.current.contains(tgt)) setLibraryOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -57,6 +65,7 @@ export default function Navbar() {
     setMobileOpen(false);
     setLangOpen(false);
     setMenuOpen(false);
+    setLibraryOpen(false);
     navigate(path);
   }, [navigate]);
 
@@ -227,7 +236,69 @@ export default function Navbar() {
               <Search className="w-3.5 h-3.5" />
             </button>
 
-            {/* ---- 4. 语言切换 (Language Switch) ---- */}
+            {/* ---- 4. 我的报告库 (My Reports — top-right library) ---- */}
+            <div ref={libraryRef} className="relative flex-shrink-0">
+              <button
+                onClick={() => { setLibraryOpen(!libraryOpen); setLangOpen(false); setMenuOpen(false); }}
+                className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                  libraryOpen ? "bg-[#d4a85315] text-[#d4a853]" : "text-[#8a8aad] hover:text-[#f0e6d3] hover:bg-[#d4a85308]"
+                }`}
+                aria-label="我的报告库"
+                title={isZh ? "我的報告庫" : "My Reports"}
+              >
+                <Library className="w-4 h-4" />
+                {reportCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-gradient-to-r from-[#d4a853] to-[#f7d9a8] text-[#0a0a0f] text-[9px] font-bold flex items-center justify-center leading-none shadow-md shadow-[#d4a85344]">
+                    {reportCount > 99 ? "99+" : reportCount}
+                  </span>
+                )}
+              </button>
+
+              {libraryOpen && (
+                <div className="absolute right-0 top-full mt-1.5 bg-[#14142a] border border-[#d4a85322] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50 min-w-[240px]">
+                  <div className="px-4 py-3 border-b border-[#d4a85310] flex items-center gap-2">
+                    <Library className="w-4 h-4 text-[#d4a853]" />
+                    <p className="text-xs font-semibold text-[#f0e6d3] flex-1">
+                      {isZh ? "我的報告庫" : "My Reports"}
+                    </p>
+                    {reportCount > 0 && (
+                      <span className="text-[10px] text-[#8a8aad]">
+                        {isZh ? `共 ${reportCount} 份` : `${reportCount} items`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="py-1.5">
+                    <button
+                      onClick={() => navTo("/my-reports")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-[#f0e6d3] hover:bg-[#d4a85308] transition-colors"
+                    >
+                      <span className="text-base">📚</span>
+                      <span className="flex-1 text-left">
+                        {isZh ? "查看全部已購買報告" : "View all purchased reports"}
+                      </span>
+                      <span className="text-[#8a8aad44]">→</span>
+                    </button>
+                    <button
+                      onClick={() => navTo("/profile?tab=orders")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-[#8a8aad] hover:text-[#f0e6d3] hover:bg-[#d4a85308] transition-colors"
+                    >
+                      <span className="text-base">🧾</span>
+                      <span className="flex-1 text-left">
+                        {isZh ? "付款紀錄 / 訂單" : "Payment history"}
+                      </span>
+                      <span className="text-[#8a8aad44]">→</span>
+                    </button>
+                  </div>
+                  {reportCount > 0 && (
+                    <div className="px-4 py-2 border-t border-[#d4a85310] text-[10px] text-[#8a8aad]">
+                      {isZh ? "30 天內有效查看，過期可在原報告頁續費" : "Valid 30 days; renew on report page after expiry"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ---- 5. 语言切换 (Language Switch) ---- */}
             <div ref={langRef} className="relative flex-shrink-0">
               <button
                 onClick={() => { setLangOpen(!langOpen); setMenuOpen(false); }}
@@ -258,7 +329,7 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* ---- 5. 汉堡菜单图标 (Hamburger Menu) ---- */}
+            {/* ---- 6. 汉堡菜单图标 (Hamburger Menu) ---- */}
             <div ref={menuRef} className="relative flex-shrink-0">
               <button
                 onClick={() => { setMenuOpen(!menuOpen); setLangOpen(false); }}
@@ -373,7 +444,21 @@ export default function Navbar() {
 
             <div className="border-t border-[#d4a85308] my-3" />
 
-            {/* Auth or Menu items */}
+            {/* 我的报告库 (My Reports — also visible in mobile) */}
+            <button
+              onClick={() => navTo("/my-reports")}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#f0e6d3] bg-[#d4a85310] border border-[#d4a85322] transition-all hover:bg-[#d4a85318]"
+            >
+              <span className="text-lg">📚</span>
+              <span className="flex-1 text-left">{isZh ? "我的報告庫" : "My Reports"}</span>
+              {reportCount > 0 && (
+                <span className="min-w-[24px] h-[20px] px-1.5 rounded-full bg-gradient-to-r from-[#d4a853] to-[#f7d9a8] text-[#0a0a0f] text-[10px] font-bold flex items-center justify-center">
+                  {reportCount > 99 ? "99+" : reportCount}
+                </span>
+              )}
+            </button>
+
+            <div className="border-t border-[#d4a85308] my-3" />
             {isAuthenticated ? (
               <>
                 {/* User info */}

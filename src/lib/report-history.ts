@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { getArtistById, getArtistDisplayName } from "@/data/artists";
+import { notifyReportHistoryChanged } from "./useReportHistoryCount";
 
 export interface ReportHistoryItem {
   reportKey: string;
@@ -88,6 +89,15 @@ function resolveMeta(
           icon: "🌗",
         };
       }
+      const tarot = reportKey.match(/^tarot_(.+)$/);
+      if (tarot) {
+        return {
+          titleZh: "塔羅完整解讀",
+          title: "Tarot Full Reading",
+          route: route || "/tarot",
+          icon: "🃏",
+        };
+      }
       return {
         titleZh: "完整版報告",
         title: "Full Report",
@@ -104,6 +114,7 @@ function deriveReportType(reportKey: string): string {
   if (reportKey === "synastry_full_report") return "synastry";
   if (reportKey.startsWith("wellness_")) return "wellness";
   if (reportKey.startsWith("ziwei_dual_")) return "ziweiTarot";
+  if (reportKey.startsWith("tarot_")) return "tarot";
   if (reportKey === "vip_monthly") return "vip";
   return "report";
 }
@@ -138,6 +149,7 @@ export function addReportHistory(input: {
       (a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime(),
     );
     localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered.slice(0, 50)));
+    notifyReportHistoryChanged();
   } catch {
     /* private mode / quota — history is best-effort */
   }

@@ -24,7 +24,7 @@ export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<Status>("checking");
   const [message, setMessage] = useState("");
-  const [autoRedirectLeft, setAutoRedirectLeft] = useState(6);
+  const [autoRedirectLeft, setAutoRedirectLeft] = useState(2);
   const [autoRedirectEnabled, setAutoRedirectEnabled] = useState(true);
 
   const sessionId = searchParams.get("session") || searchParams.get("session_id") || "";
@@ -139,7 +139,7 @@ export default function PaymentSuccessPage() {
     return () => { alive = false; };
   }, [alipayToken, isManualPayment, isZh, orderNo, returnPath, sessionId]);
 
-  // Auto-redirect countdown — 6 seconds, user can cancel
+  // Auto-redirect countdown — 2 seconds, user can cancel
   useEffect(() => {
     if (status !== "success" || !autoRedirectEnabled) return;
     if (autoRedirectLeft <= 0) {

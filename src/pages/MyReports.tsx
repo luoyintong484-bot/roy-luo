@@ -143,9 +143,18 @@ export default function MyReports() {
                 );
               })}
 
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-[#8a8aad]">
-                <ShieldCheck className="h-3 w-3 text-green-500/50" />
-                {isZh ? "報告記錄僅儲存於本機瀏覽器，換裝置需重新解鎖。" : "History is stored on this device only; switching devices requires re-unlock."}
+              <p className="mt-4 flex flex-col items-center justify-center gap-1 text-[10px] leading-relaxed text-[#8a8aad]">
+                <span className="inline-flex items-center gap-1.5">
+                  <ShieldCheck className="h-3 w-3 text-green-500/50" />
+                  {isZh
+                    ? "報告已同步至後台；清瀏覽器資料後仍可透過支付時的「回跳連結」找回。"
+                    : "Backed up server-side; lost records can be restored via the original payment return link."}
+                </span>
+                <span className="text-[#8a8aad]/70">
+                  {isZh
+                    ? "若連結已失效，可聯絡客服並提供支付寶訂單號（以 R7 開頭）即可協助恢復。"
+                    : "If the link is gone, contact support with the R7-prefixed Alipay order ID to restore."}
+                </span>
               </p>
             </div>
           )}

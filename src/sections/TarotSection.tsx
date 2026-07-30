@@ -17,6 +17,7 @@ import { buildDualReading, detectDualScene, drawZiweiCard, type DualReading, typ
 import { PaidReadingConversion } from "@/features/paid-reading/PaidReadingConversion";
 import { detectPaidReadingScene, getPaidReadingPlan, SCENE_COPY } from "@/features/paid-reading/config";
 import { trackEvent } from "@/lib/analytics";
+import { addReportHistory } from "@/lib/report-history";
 import { getPaymentOrders } from "@/lib/payment";
 import { localizedText } from "@/lib/chinese";
 import { IdolFullReportContent, IdolPaidReading } from "@/features/idol-tarot/IdolPaidReading";
@@ -2759,6 +2760,14 @@ export default function TarotSection() {
           try {
             const saved = JSON.parse(localStorage.getItem(LAST_TAROT_RESULT_KEY) || "{}");
             localStorage.setItem(LAST_TAROT_RESULT_KEY, JSON.stringify({ ...saved, isUnlocked: true }));
+          } catch {}
+          // Record into the user's "My Reports" history (with tarot_ prefix for clarity)
+          try {
+            addReportHistory({
+              reportKey: `tarot_${currentSessionId}`,
+              reportType: "tarot",
+              summary: (resultUserQuestion || resultQuestion || "").slice(0, 80),
+            });
           } catch {}
           trackEvent("payment_success", {
             scene_type: resultScene,

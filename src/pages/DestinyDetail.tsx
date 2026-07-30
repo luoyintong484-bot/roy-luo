@@ -6,6 +6,7 @@ import PayModal, { PAYWALL_CONFIGS } from "@/components/PayModal"
 import ShareModal from "@/components/ShareModal"
 import { ZiweiDoushuPanel, ZiweiSynastryPanel } from "@/components/ZiweiDoushuPanel"
 import { unlockReport } from "@/lib/payment-service"
+import { addReportHistory } from "@/lib/report-history"
 import { useLocalPrice } from "@/lib/pricing"
 import { buildZiweiChart, buildZiweiSynastry } from "@/lib/ziwei-doushu"
 import { PAYMENT_COMING_SOON } from "@/const"
@@ -930,9 +931,11 @@ export default function DestinyDetail() {
         onPaid={() => {
           if (isSynastry) {
             unlockReport("synastry_full_report");
+            addReportHistory({ reportKey: "synastry_full_report", reportType: "synastry" });
             navigate("/synastry-full-report");
           } else {
             unlockReport("natal_full_report");
+            addReportHistory({ reportKey: "natal_full_report", reportType: "natal" });
             navigate("/destiny-full-report");
           }
         }}
