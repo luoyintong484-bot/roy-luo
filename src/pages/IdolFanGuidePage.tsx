@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useI18n } from "@/contexts/I18nContext";
 import { isReportPaid } from "@/lib/payment-service";
@@ -191,6 +191,12 @@ export default function IdolFanGuidePage({ previewUnlocked = false }: { previewU
     setArtist(a);
     setGuide(g);
     setIsUnlocked(previewUnlocked || previewBypass || isReportPaid(`idol_guide_${aid}`));
+    // 保存最近一次生成输入，便于支付回跳后自动恢复已生成的报告
+    try {
+      localStorage.setItem("r7_idol_guide_draft", JSON.stringify({
+        year: y, month: m, day: d, hour: h, minute: min, artistId: aid,
+      }));
+    } catch { /* storage unavailable in private mode */ }
     setStep("result");
   }
 
@@ -207,6 +213,39 @@ export default function IdolFanGuidePage({ previewUnlocked = false }: { previewU
   }
 
   const todayStr = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" });
+
+  // 支付回跳后自动恢复已生成的偶像报告（携带 artist 上下文）
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+
+    const readDraft = (): { year: string; month: string; day: string; hour: string; minute: string; artistId: string } | null => {
+      try { return JSON.parse(localStorage.getItem("r7_idol_guide_draft") || "null"); } catch { return null; }
+    };
+    const artistParam = searchParams.get("artist");
+    if (artistParam) {
+      setArtistId(String(artistParam));
+      const d = readDraft();
+      if (d && d.artistId === String(artistParam)) {
+        runGenerate({ year: d.year, month: d.month, day: d.day, hour: d.hour, minute: d.minute, artistId: d.artistId });
+      } else if (profile?.birthYear && profile?.birthMonth && profile?.birthDay && profile?.birthHour) {
+        runGenerate({
+          year: String(profile.birthYear), month: String(profile.birthMonth), day: String(profile.birthDay),
+          hour: String(profile.birthHour), minute: profile.birthMinute || "00", artistId: String(artistParam),
+        });
+      }
+      return;
+    }
+    // 回跳路径无 artist（历史订单）：若最近草稿已解锁，则自动恢复
+    const d = readDraft();
+    if (d?.artistId && isReportPaid(`idol_guide_${d.artistId}`)) {
+      setArtistId(String(d.artistId));
+      runGenerate({ year: d.year, month: d.month, day: d.day, hour: d.hour, minute: d.minute, artistId: d.artistId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // ======================= RENDER =======================
   return (

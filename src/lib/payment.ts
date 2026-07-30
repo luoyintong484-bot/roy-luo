@@ -147,6 +147,14 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
   const region = detectRegion();
   const methods = PAYMENT_METHODS[region];
 
+  // 偶像报告：把 artistId 编码进回跳路径，支付后可自动恢复已生成报告
+  let returnPath = getReturnPath(params.metadata);
+  const _rk = params.metadata?.reportKey || "";
+  if (_rk.startsWith("idol_guide_")) {
+    const _aid = _rk.slice("idol_guide_".length);
+    if (_aid) returnPath = `/idol-guide?artist=${encodeURIComponent(_aid)}`;
+  }
+
   if (region === "cn") {
     try {
       const response = await fetch("/api/alipay/create", {
@@ -157,7 +165,7 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
           reportType: params.metadata?.reportType,
           reportKey: params.metadata?.reportKey,
           readingId: params.metadata?.readingId ? Number(params.metadata.readingId) : undefined,
-          returnPath: getReturnPath(params.metadata),
+          returnPath: returnPath,
           amount: params.amount,
           offerCode: params.metadata?.offerCode || (params.metadata?.reportType === "ziweiTarot" && params.amount === 19.9 ? "first" : undefined),
         }),
@@ -188,7 +196,7 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
       ...params,
       sessionId,
       region,
-      returnPath: getReturnPath(params.metadata),
+      returnPath,
     }));
     return {
       url: buildLocalSuccessUrl(sessionId, params),
@@ -199,7 +207,6 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
   // Global users without live Creem integration: redirect to manual QR checkout
   if (region === "global") {
     const sessionId = `manual_${Date.now().toString(36)}`;
-    const returnPath = getReturnPath(params.metadata);
     const reportKey = params.metadata?.reportKey || "manual";
     localStorage.setItem("r7_pending_payment", JSON.stringify({
       ...params,
