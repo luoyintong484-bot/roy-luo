@@ -230,12 +230,12 @@ function PaymentHistory({ locale }: { locale: string }) {
                   {" · "}
                   {formatDate(o.date)}
                   {" · "}
-                  {o.paymentMethod === "alipay" ? (isZh ? "支付寶" : "Alipay") : o.paymentMethod === "wechat" ? (isZh ? "微信支付" : "WeChat Pay") : "QR"}
+                  {isZh ? "支付寶" : "Alipay"}
                 </p>
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-3">
                 <div className="text-right">
-                  <p className="text-xs font-bold text-[#FFB6C1]">${o.amount?.toFixed(2) || "2.99"}</p>
+                  <p className="text-xs font-bold text-[#FFB6C1]">¥{o.amount?.toFixed(2) || "0.00"}</p>
                   <p className="text-[9px] text-green-400/70">{isZh ? "已完成" : "Completed"}</p>
                 </div>
                 {o.accessUrl && (
@@ -456,7 +456,6 @@ export default function ProfilePage() {
       "r7_sub_state",
       "r7_pending_report",
       "r7_pending_payment",
-      "r7_manual_payment_order",
       "r7_unlocked_reports",
       "r7_ziwei_natal_report",
       "r7_ziwei_synastry_report",

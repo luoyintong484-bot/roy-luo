@@ -11,10 +11,13 @@ import {
 } from "./queries/payment-provider-orders";
 
 const ALIPAY_GATEWAY = "https://openapi.alipay.com/gateway.do";
-const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://www.r7fortune.com").replace(/\/$/, "");
+const SITE_URL = (
+  process.env.PUBLIC_SITE_URL || "https://www.r7fortune.com"
+).replace(/\/$/, "");
 
-// 💡 金额以「前端 PayModal 实际扣款价」为准，服务端只做白名单校验防止篡改。
-// 这里 ALLOWED_AMOUNTS 是合法的真实定价集合，与前端 PAYWALL_CONFIGS 对齐。
+// The server owns the product/amount relationship. A global amount whitelist is
+// insufficient because a cheap product amount could otherwise buy an expensive
+// report by changing only reportType in the browser request.
 const PRODUCT_SUBJECTS: Record<string, string> = {
   tarot: "Tarot Reading Report",
   ziweiTarot: "Ziwei Tarot Dual Reading Report",
@@ -26,13 +29,24 @@ const PRODUCT_SUBJECTS: Record<string, string> = {
   followupPack: "Follow-up Questions Pack",
 };
 const VALID_REPORT_TYPES = new Set(Object.keys(PRODUCT_SUBJECTS));
-const ALLOWED_AMOUNTS = new Set(["9.90", "19.90", "39.90", "69.90", "79.00", "99.90", "109.00"]);
+const PRODUCT_AMOUNTS: Record<string, ReadonlySet<string>> = {
+  tarot: new Set(["9.90"]),
+  ziweiTarot: new Set(["19.90", "39.90"]),
+  natal: new Set(["39.90", "79.00"]),
+  synastry: new Set(["99.90", "109.00"]),
+  cp: new Set(["69.90"]),
+  idolGuide: new Set(["9.90"]),
+  followupPack: new Set(["9.90"]),
+};
 
 function normalizePem(value: string) {
   return value.replace(/\\n/g, "\n").trim();
 }
 
-function readSecret(inlineValue: string | undefined, filePath: string | undefined) {
+function readSecret(
+  inlineValue: string | undefined,
+  filePath: string | undefined,
+) {
   if (filePath) {
     try {
       return normalizePem(readFileSync(filePath, "utf8"));
@@ -48,8 +62,14 @@ function config() {
     enabled: process.env.ALIPAY_ENABLED === "true",
     wapEnabled: process.env.ALIPAY_WAP_ENABLED === "true",
     appId: process.env.ALIPAY_APP_ID || "",
-    privateKey: readSecret(process.env.ALIPAY_APP_PRIVATE_KEY, process.env.ALIPAY_APP_PRIVATE_KEY_FILE),
-    publicKey: readSecret(process.env.ALIPAY_PUBLIC_KEY, process.env.ALIPAY_PUBLIC_KEY_FILE),
+    privateKey: readSecret(
+      process.env.ALIPAY_APP_PRIVATE_KEY,
+      process.env.ALIPAY_APP_PRIVATE_KEY_FILE,
+    ),
+    publicKey: readSecret(
+      process.env.ALIPAY_PUBLIC_KEY,
+      process.env.ALIPAY_PUBLIC_KEY_FILE,
+    ),
     sellerId: process.env.ALIPAY_SELLER_ID || "",
   };
 }
@@ -65,8 +85,11 @@ function assertConfigured() {
 
 function canonicalize(params: Record<string, string>, excludeSignType = false) {
   return Object.entries(params)
-    .filter(([key, value]) =>
-      key !== "sign" && (!excludeSignType || key !== "sign_type") && value !== "",
+    .filter(
+      ([key, value]) =>
+        key !== "sign" &&
+        (!excludeSignType || key !== "sign_type") &&
+        value !== "",
     )
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([key, value]) => `${key}=${value}`)
@@ -80,7 +103,11 @@ function sign(params: Record<string, string>, privateKey: string) {
   return signer.sign(privateKey, "base64");
 }
 
-function verify(params: Record<string, string>, signature: string, publicKey: string) {
+function verify(
+  params: Record<string, string>,
+  signature: string,
+  publicKey: string,
+) {
   const verifier = createVerify("RSA-SHA256");
   // Alipay callbacks exclude both sign and sign_type from the verification payload.
   verifier.update(canonicalize(params, true), "utf8");
@@ -98,7 +125,9 @@ function setPrivateResponseHeaders(c: Context) {
 }
 
 function safeReturnPath(value: unknown) {
-  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
+  return typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//")
     ? value.slice(0, 500)
     : "/profile?tab=payments";
 }
@@ -129,13 +158,18 @@ export async function createAlipayCheckout(c: Context) {
       amount?: number;
     }>();
     const baseType = body.reportType || "";
-    if (!VALID_REPORT_TYPES.has(baseType) || !body.reportKey || body.reportKey.length > 255) {
+    if (
+      !VALID_REPORT_TYPES.has(baseType) ||
+      !body.reportKey ||
+      body.reportKey.length > 255
+    ) {
       return c.json({ error: "无效的支付商品或报告编号" }, 400);
     }
-    // ✅ 金额跟随前端（PayModal 实际扣款价），服务端仅校验金额在白名单内，防止篡改
     const requestedAmount = Number(body.amount);
-    const amountStr = Number.isFinite(requestedAmount) ? requestedAmount.toFixed(2) : "";
-    if (!ALLOWED_AMOUNTS.has(amountStr)) {
+    const amountStr = Number.isFinite(requestedAmount)
+      ? requestedAmount.toFixed(2)
+      : "";
+    if (!PRODUCT_AMOUNTS[baseType]?.has(amountStr)) {
       return c.json({ error: "无效的商品金额" }, 400);
     }
 
@@ -143,7 +177,10 @@ export async function createAlipayCheckout(c: Context) {
     const accessToken = randomBytes(24).toString("base64url");
     const returnPath = safeReturnPath(body.returnPath);
     const userId = await optionalUserId(c);
-    const readingId = Number.isInteger(body.readingId) && Number(body.readingId) > 0 ? Number(body.readingId) : undefined;
+    const readingId =
+      Number.isInteger(body.readingId) && Number(body.readingId) > 0
+        ? Number(body.readingId)
+        : undefined;
 
     await createPaymentProviderOrder({
       outTradeNo,
@@ -173,7 +210,9 @@ export async function createAlipayCheckout(c: Context) {
       format: "JSON",
       charset: "utf-8",
       sign_type: "RSA2",
-      timestamp: new Date().toLocaleString("sv-SE", { timeZone: "Asia/Shanghai" }),
+      timestamp: new Date().toLocaleString("sv-SE", {
+        timeZone: "Asia/Shanghai",
+      }),
       version: "1.0",
       notify_url: `${SITE_URL}/payment/notify`,
       return_url: returnUrl,
@@ -191,8 +230,14 @@ export async function createAlipayCheckout(c: Context) {
       channel: useWap ? "wap" : "page",
     });
   } catch (error) {
-    console.error("[alipay] create checkout failed", error instanceof Error ? error.message : error);
-    return c.json({ error: error instanceof Error ? error.message : "创建支付宝订单失败" }, 503);
+    console.error(
+      "[alipay] create checkout failed",
+      error instanceof Error ? error.message : error,
+    );
+    return c.json(
+      { error: error instanceof Error ? error.message : "创建支付宝订单失败" },
+      503,
+    );
   }
 }
 
@@ -200,21 +245,37 @@ export async function handleAlipayNotify(c: Context) {
   try {
     const current = assertConfigured();
     const form = await c.req.parseBody();
-    const params = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, String(value)]));
+    const params = Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, String(value)]),
+    );
     const signature = params.sign || "";
-    if (!signature || !verify(params, signature, current.publicKey)) return c.text("fail", 400);
+    if (!signature || !verify(params, signature, current.publicKey))
+      return c.text("fail", 400);
     if (params.app_id !== current.appId) return c.text("fail", 400);
-    if (current.sellerId && params.seller_id !== current.sellerId) return c.text("fail", 400);
+    if (current.sellerId && params.seller_id !== current.sellerId)
+      return c.text("fail", 400);
 
     const order = await findPaymentProviderOrder(params.out_trade_no || "");
     const notifiedAmount = Number(params.total_amount);
     const orderAmount = Number(order?.amount);
-    if (!order || !Number.isFinite(notifiedAmount) || !Number.isFinite(orderAmount) || orderAmount.toFixed(2) !== notifiedAmount.toFixed(2)) {
+    if (
+      !order ||
+      !Number.isFinite(notifiedAmount) ||
+      !Number.isFinite(orderAmount) ||
+      orderAmount.toFixed(2) !== notifiedAmount.toFixed(2)
+    ) {
       return c.text("fail", 400);
     }
 
-    if (params.trade_status === "TRADE_SUCCESS" || params.trade_status === "TRADE_FINISHED") {
-      if (order.providerTradeNo && params.trade_no && order.providerTradeNo !== params.trade_no) {
+    if (
+      params.trade_status === "TRADE_SUCCESS" ||
+      params.trade_status === "TRADE_FINISHED"
+    ) {
+      if (
+        order.providerTradeNo &&
+        params.trade_no &&
+        order.providerTradeNo !== params.trade_no
+      ) {
         return c.text("fail", 409);
       }
       if (order.status !== "completed") {
@@ -232,7 +293,10 @@ export async function handleAlipayNotify(c: Context) {
     }
     return c.text("success");
   } catch (error) {
-    console.error("[alipay] notify failed", error instanceof Error ? error.message : error);
+    console.error(
+      "[alipay] notify failed",
+      error instanceof Error ? error.message : error,
+    );
     return c.text("fail", 500);
   }
 }
@@ -243,7 +307,11 @@ export async function handleAlipayReturn(c: Context) {
   const accessToken = params.access_token || "";
   delete params.access_token;
   const signature = params.sign || "";
-  const valid = Boolean(current.publicKey && signature && verify(params, signature, current.publicKey));
+  const valid = Boolean(
+    current.publicKey &&
+    signature &&
+    verify(params, signature, current.publicKey),
+  );
   const orderNo = params.out_trade_no || "";
   const order = orderNo ? await findPaymentProviderOrder(orderNo) : undefined;
   const returnPath = order?.returnPath || "/profile?tab=payments";
@@ -260,9 +328,11 @@ export async function getAlipayOrderStatus(c: Context) {
   setPrivateResponseHeaders(c);
   const outTradeNo = c.req.query("order") || "";
   const accessToken = c.req.query("token") || "";
-  if (!outTradeNo || !accessToken) return c.json({ paid: false, error: "缺少订单校验信息" }, 400);
+  if (!outTradeNo || !accessToken)
+    return c.json({ paid: false, error: "缺少订单校验信息" }, 400);
   const order = await findPaymentProviderOrder(outTradeNo);
-  if (!order || order.accessTokenHash !== hashToken(accessToken)) return c.json({ paid: false }, 404);
+  if (!order || order.accessTokenHash !== hashToken(accessToken))
+    return c.json({ paid: false }, 404);
   return c.json({
     paid: order.status === "completed",
     status: order.status,
@@ -289,8 +359,9 @@ export async function getPaymentUserStatus(c: Context) {
 
   const user = await authenticateRequest(c.req.raw.headers);
   const membershipActive = Boolean(
-    user.isPremium
-    && (!user.membershipExpiresAt || user.membershipExpiresAt.getTime() > Date.now()),
+    user.isPremium &&
+    (!user.membershipExpiresAt ||
+      user.membershipExpiresAt.getTime() > Date.now()),
   );
   return c.json({
     is_paid: membershipActive,

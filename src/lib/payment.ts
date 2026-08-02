@@ -1,46 +1,33 @@
 /* ============================================================
-   R7 Fortune — Creem Payment Integration
-   Single API · Auto IP detection · WeChat/Alipay/PayPal/Card
-   Test mode ready · Swap TEST_API_KEY for production
+   R7 Fortune — Alipay RSA2 Payment Integration
+   One server-signed checkout path for every visitor and paid report.
    ============================================================ */
 
 import { PAYMENT_COMING_SOON } from "@/const";
 import { getAppPath } from "@/lib/route-helpers";
-import { getCountrySync } from "@/lib/geo";
-
-// ---- Configuration ----
-// ⚠️ PRODUCTION: Move CREEM_BASE + API key to server-side env variables only.
-// Frontend must never hold payment provider secrets. All checkout requests
-// must proxy through api/payment-router.ts on the backend.
-const CREEM_BASE = "https://api.creem.io/v1";
-const CREEM_API_KEY = ""; // Set via server env CREEM_API_KEY — NEVER hardcode here
-const IS_TEST = false;    // false = live checkout (CN→Alipay, global→manual QR fallback)
 
 // ---- IP Region Detection ----
 export type PaymentRegion = "cn" | "global";
 
 export function detectRegion(): PaymentRegion {
-  // Follows the visitor's real connection (incl. VPN exit IP) via geo detection.
-  // Only mainland China routes to Alipay/WeChat; everything else → global (card/PayPal/manual QR).
-  return getCountrySync() === "CN" ? "cn" : "global";
+  // Kept for UI compatibility. Checkout no longer changes provider by IP.
+  return "cn";
 }
 
 // ---- Payment Methods by Region ----
 // 微信支付已下架：仅保留支付宝一种收银方式
-export const PAYMENT_METHODS: Record<PaymentRegion, { id: string; name: string; nameZh: string; icon: string }[]> = {
-  cn: [
-    { id: "alipay_h5", name: "Alipay", nameZh: "支付寶", icon: "🔵" },
-  ],
-  global: [
-    { id: "paypal", name: "PayPal", nameZh: "PayPal", icon: "🅿️" },
-    { id: "card", name: "Credit Card", nameZh: "國際信用卡", icon: "💳" },
-  ],
+export const PAYMENT_METHODS: Record<
+  PaymentRegion,
+  { id: string; name: string; nameZh: string; icon: string }[]
+> = {
+  cn: [{ id: "alipay_h5", name: "Alipay", nameZh: "支付寶", icon: "🔵" }],
+  global: [{ id: "alipay_h5", name: "Alipay", nameZh: "支付寶", icon: "🔵" }],
 };
 
 // ---- Checkout Session ----
 export interface CheckoutParams {
-  amount: number;        // in USD, e.g. 2.99
-  currency?: string;     // default USD
+  amount: number; // CNY
+  currency?: string; // checkout is CNY; retained for API compatibility
   productName: string;
   productNameZh: string;
   userId?: string;
@@ -121,32 +108,14 @@ function getReturnPath(metadata?: Record<string, string>): string {
   return getAppPath();
 }
 
-function buildLocalSuccessUrl(sessionId: string, params: CheckoutParams): string {
-  const query = new URLSearchParams({
-    session: sessionId,
-    return: getReturnPath(params.metadata),
-  });
-  if (params.metadata?.reportKey) query.set("report", params.metadata.reportKey);
-  return `/payment-success?${query.toString()}`;
-}
-
-function buildProviderUrl(path: "/payment-success" | "/payment", params: CheckoutParams): string {
-  const returnPath = encodeURIComponent(getReturnPath(params.metadata));
-  const report = params.metadata?.reportKey ? `&report=${encodeURIComponent(params.metadata.reportKey)}` : "";
-  const session = path === "/payment-success" ? "session={session_id}&" : "";
-  const cancelled = path === "/payment" ? "cancelled=1&" : "";
-  // HashRouter compat: use /#/ prefix
-  return `${window.location.origin}/#${path}?${session}${cancelled}return=${returnPath}${report}`;
-}
-
-export async function createCheckout(params: CheckoutParams): Promise<{ url: string; sessionId: string } | { error: string }> {
+export async function createCheckout(
+  params: CheckoutParams,
+): Promise<{ url: string; sessionId: string } | { error: string }> {
   if (PAYMENT_COMING_SOON) {
     return { error: "支付功能即将上线，敬请期待" };
   }
 
   const region = detectRegion();
-  const methods = PAYMENT_METHODS[region];
-
   // 偶像报告：把 artistId 编码进回跳路径，支付后可自动恢复已生成报告
   let returnPath = getReturnPath(params.metadata);
   const _rk = params.metadata?.reportKey || "";
@@ -155,101 +124,52 @@ export async function createCheckout(params: CheckoutParams): Promise<{ url: str
     if (_aid) returnPath = `/idol-guide?artist=${encodeURIComponent(_aid)}`;
   }
 
-  if (region === "cn") {
-    try {
-      const response = await fetch("/api/alipay/create", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportType: params.metadata?.reportType,
-          reportKey: params.metadata?.reportKey,
-          readingId: params.metadata?.readingId ? Number(params.metadata.readingId) : undefined,
-          returnPath: returnPath,
-          amount: params.amount,
-          offerCode: params.metadata?.offerCode || (params.metadata?.reportType === "ziweiTarot" && params.amount === 19.9 ? "first" : undefined),
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.checkoutUrl || !data.orderId || !data.accessToken) {
-        return { error: data.error || "支付宝收银台暂时不可用" };
-      }
-      localStorage.setItem(`r7_alipay_token_${data.orderId}`, data.accessToken);
-      localStorage.setItem("r7_pending_payment", JSON.stringify({
+  try {
+    const response = await fetch("/api/alipay/create", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reportType: params.metadata?.reportType,
+        reportKey: params.metadata?.reportKey,
+        readingId: params.metadata?.readingId
+          ? Number(params.metadata.readingId)
+          : undefined,
+        returnPath: returnPath,
+        amount: params.amount,
+        offerCode:
+          params.metadata?.offerCode ||
+          (params.metadata?.reportType === "ziweiTarot" &&
+          params.amount === 19.9
+            ? "first"
+            : undefined),
+      }),
+    });
+    const data = await response.json();
+    if (
+      !response.ok ||
+      !data.checkoutUrl ||
+      !data.orderId ||
+      !data.accessToken
+    ) {
+      return { error: data.error || "支付宝收银台暂时不可用" };
+    }
+    localStorage.setItem(`r7_alipay_token_${data.orderId}`, data.accessToken);
+    localStorage.setItem(
+      "r7_pending_payment",
+      JSON.stringify({
         ...params,
         sessionId: data.orderId,
         region,
         paymentMethod: "alipay",
         returnPath: getReturnPath(params.metadata),
-      }));
-      return { url: data.checkoutUrl, sessionId: data.orderId };
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : "支付宝支付连接失败" };
-    }
-  }
-
-  if (IS_TEST) {
-    // Legacy test mode — auto-verify (disabled in production)
-    console.log("[Payment] Test mode checkout:", { ...params, region, methods });
-    const sessionId = "test_" + Date.now().toString(36);
-    localStorage.setItem("r7_pending_payment", JSON.stringify({
-      ...params,
-      sessionId,
-      region,
-      returnPath,
-    }));
-    return {
-      url: buildLocalSuccessUrl(sessionId, params),
-      sessionId,
-    };
-  }
-
-  // Global users without live Creem integration: redirect to manual QR checkout
-  if (region === "global") {
-    const sessionId = `manual_${Date.now().toString(36)}`;
-    const reportKey = params.metadata?.reportKey || "manual";
-    localStorage.setItem("r7_pending_payment", JSON.stringify({
-      ...params,
-      sessionId,
-      region,
-      returnPath,
-    }));
-    return {
-      url: `/payment?return=${encodeURIComponent(returnPath)}&report=${encodeURIComponent(reportKey)}`,
-      sessionId,
-    };
-  }
-
-  // CN users with live Alipay integration: real checkout via backend
-  // (handled above by the `region === "cn"` branch)
-
-  try {
-    const response = await fetch(`${CREEM_BASE}/checkout/sessions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${CREEM_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount: Math.round(params.amount * 100), // cents
-        currency: params.currency || "usd",
-        product_name: params.productName,
-        metadata: {
-          user_id: params.userId || "guest",
-          ...params.metadata,
-        },
-        success_url: buildProviderUrl("/payment-success", params),
-        cancel_url: buildProviderUrl("/payment", params),
-        // Creem auto-detects payment methods based on customer IP
-        allowed_payment_methods: methods.map(m => m.id),
       }),
-    });
-
-    if (!response.ok) throw new Error("Checkout creation failed");
-    const data = await response.json();
-    return { url: data.checkout_url, sessionId: data.session_id };
-  } catch (err: unknown) {
-    return { error: err instanceof Error ? err.message : "Payment service unavailable" };
+    );
+    return { url: data.checkoutUrl, sessionId: data.orderId };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "支付宝支付连接失败",
+    };
   }
 }
 
@@ -264,20 +184,29 @@ export type VerifiedPayment = {
   returnPath?: string;
 };
 
-export async function verifyPayment(sessionId: string, callbackToken?: string): Promise<VerifiedPayment> {
+export async function verifyPayment(
+  sessionId: string,
+  callbackToken?: string,
+): Promise<VerifiedPayment> {
   if (PAYMENT_COMING_SOON) return { success: false };
 
   if (sessionId.startsWith("R7A")) {
-    const token = callbackToken || localStorage.getItem(`r7_alipay_token_${sessionId}`) || "";
+    const token =
+      callbackToken ||
+      localStorage.getItem(`r7_alipay_token_${sessionId}`) ||
+      "";
     if (!token) return { success: false };
     // Alipay's signed server notification can arrive a few seconds after the
     // browser return. Poll only our verified server state; the return URL itself
     // never grants access.
     for (let attempt = 0; attempt < 8; attempt += 1) {
       try {
-        const response = await fetch(`/api/alipay/status?order=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`, {
-          credentials: "include",
-        });
+        const response = await fetch(
+          `/api/alipay/status?order=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`,
+          {
+            credentials: "include",
+          },
+        );
         const data = await response.json();
         if (response.ok && data.paid) {
           return {
@@ -293,26 +222,10 @@ export async function verifyPayment(sessionId: string, callbackToken?: string): 
       } catch {
         // A transient status request failure is handled by the next poll.
       }
-      if (attempt < 7) await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (attempt < 7)
+        await new Promise((resolve) => setTimeout(resolve, 1500));
     }
     return { success: false };
-  }
-
-  if (sessionId.startsWith("manual_")) {
-    try {
-      const manualOrder = JSON.parse(localStorage.getItem("r7_manual_payment_order") || "{}");
-      if (manualOrder?.sessionId === sessionId) {
-        return { success: true, orderId: manualOrder.orderNo || `order_${sessionId}` };
-      }
-    } catch {
-      // Invalid legacy local data is treated as an unverified payment.
-    }
-    return { success: false };
-  }
-
-  if (IS_TEST && sessionId.startsWith("test_")) {
-    // Auto-verify test sessions
-    return { success: true, orderId: `order_${sessionId}` };
   }
 
   // Live payment verification must happen on the server. The browser never receives
@@ -327,8 +240,8 @@ export function grantBenefits(params: CheckoutParams): void {
   const sub = getMembershipState();
   const now = new Date().toISOString();
   const isMembership =
-    params.metadata?.productType === "membership"
-    || params.metadata?.reportType === "monthly";
+    params.metadata?.productType === "membership" ||
+    params.metadata?.reportType === "monthly";
   const nextBillingAt = makeExpiry(30);
 
   if (isMembership) {
@@ -350,11 +263,13 @@ export function grantBenefits(params: CheckoutParams): void {
 
   // Sync to payment records
   const orders = getPaymentOrders();
-  const sessionId = params.metadata?.sessionId || `order_${Date.now().toString(36)}`;
+  const sessionId =
+    params.metadata?.sessionId || `order_${Date.now().toString(36)}`;
   if (orders.some((order) => order.sessionId === sessionId)) return;
 
   orders.push({
-    orderId: params.metadata?.orderNo || `R7${Date.now().toString(36).toUpperCase()}`,
+    orderId:
+      params.metadata?.orderNo || `R7${Date.now().toString(36).toUpperCase()}`,
     amount: params.amount,
     product: params.productNameZh || params.productName,
     type: isMembership ? "membership" : "single",
@@ -362,36 +277,12 @@ export function grantBenefits(params: CheckoutParams): void {
     sessionId,
     reportKey: params.metadata?.reportKey,
     accessUrl: params.metadata?.accessUrl,
-    paymentMethod: params.metadata?.paymentMethod || "manual_qr",
+    paymentMethod: params.metadata?.paymentMethod || "alipay",
     autoRenew: isMembership ? sub.autoRenew : undefined,
     nextBillingAt: isMembership ? sub.nextBillingAt : undefined,
     status: "completed",
   });
   writeJson("r7_orders", orders.slice(-100));
-}
-
-// ---- Webhook handler (Creem → auto VIP) ----
-type LegacyCheckoutSession = {
-  amount?: number;
-  product_name?: string;
-  product_name_zh?: string;
-  session_id?: string;
-  metadata?: { user_id?: string };
-};
-
-export function handlePaymentWebhook(event: { type: string; data: LegacyCheckoutSession }): void {
-  if (PAYMENT_COMING_SOON) return;
-
-  if (event.type === "checkout.session.completed") {
-    const session = event.data;
-    grantBenefits({
-      amount: (session.amount ?? 0) / 100,
-      productName: session.product_name || "Tarot",
-      productNameZh: session.product_name_zh || "塔羅",
-      userId: session.metadata?.user_id,
-      metadata: { sessionId: session.session_id || "" },
-    });
-  }
 }
 
 // ---- Check VIP status ----

@@ -428,8 +428,8 @@ function UserProfileDetail({ isZh, userId }: { isZh: boolean; userId: string }) 
               <span className="block text-[#8a8aad44]">{o.orderId || o.sessionId || "--"}</span>
             </span>
             <span className="text-[#FFB6C1]">
-              ${o.amount?.toFixed(2) || "?"}
-              <span className="block text-[#8a8aad44]">{o.paymentMethod || "manual_qr"}</span>
+              ¥{o.amount?.toFixed(2) || "?"}
+              <span className="block text-[#8a8aad44]">{o.paymentMethod || "alipay"}</span>
             </span>
             <span className="text-right text-[#8a8aad66]">
               {o.date?.slice(0, 10)}

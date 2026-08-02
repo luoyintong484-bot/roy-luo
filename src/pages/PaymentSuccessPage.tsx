@@ -5,15 +5,26 @@ import Navbar from "@/components/Navbar";
 import CustomerService from "@/components/CustomerService";
 import Footer from "@/sections/Footer";
 import { handlePaymentSuccess } from "@/lib/payment-service";
-import { grantBenefits, verifyPayment } from "@/lib/payment";
+import { verifyPayment } from "@/lib/payment";
 import { addReportHistory } from "@/lib/report-history";
 import { PAYMENT_COMING_SOON } from "@/const";
-import { CheckCircle2, Home, Loader2, RotateCcw, XCircle, Sparkles, Clock3, FileText, Share2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Home,
+  Loader2,
+  RotateCcw,
+  XCircle,
+  Sparkles,
+  Clock3,
+  FileText,
+  Share2,
+} from "lucide-react";
 
 type Status = "checking" | "success" | "failed";
 
 function safeReturnPath(path: string | null): string {
-  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/profile?tab=payments";
+  if (!path || !path.startsWith("/") || path.startsWith("//"))
+    return "/profile?tab=payments";
   return path;
 }
 
@@ -27,27 +38,33 @@ export default function PaymentSuccessPage() {
   const [autoRedirectLeft, setAutoRedirectLeft] = useState(2);
   const [autoRedirectEnabled, setAutoRedirectEnabled] = useState(true);
 
-  const sessionId = searchParams.get("session") || searchParams.get("session_id") || "";
+  const sessionId =
+    searchParams.get("session") || searchParams.get("session_id") || "";
   const alipayToken = searchParams.get("alipay_token") || "";
-  const isManualPayment = searchParams.get("manual") === "1";
-  const orderNo = searchParams.get("order") || "";
-  const returnPath = useMemo(() => safeReturnPath(searchParams.get("return") || localStorage.getItem("r7_pay_return")), [searchParams]);
+  const returnPath = useMemo(
+    () =>
+      safeReturnPath(
+        searchParams.get("return") || localStorage.getItem("r7_pay_return"),
+      ),
+    [searchParams],
+  );
 
   // Extract order details for receipt
   const orderDetails = useMemo(() => {
     try {
-      const pending = JSON.parse(localStorage.getItem("r7_pending_report") || "{}");
-      const manualOrder = JSON.parse(localStorage.getItem("r7_manual_payment_order") || "{}");
+      const pending = JSON.parse(
+        localStorage.getItem("r7_pending_report") || "{}",
+      );
       return {
-        productName: pending.productNameZh || pending.productName || manualOrder.label || "",
-        amount: pending.amount || manualOrder.amount || 0,
-        reportType: pending.reportType || manualOrder.productType || "",
-        orderNo: orderNo || manualOrder.orderNo || "",
+        productName: pending.productNameZh || pending.productName || "",
+        amount: pending.amount || 0,
+        reportType: pending.reportType || "",
+        orderNo: sessionId,
       };
     } catch {
-      return { productName: "", amount: 0, reportType: "", orderNo: orderNo || "" };
+      return { productName: "", amount: 0, reportType: "", orderNo: sessionId };
     }
-  }, [orderNo]);
+  }, [sessionId]);
 
   useEffect(() => {
     let alive = true;
@@ -55,13 +72,21 @@ export default function PaymentSuccessPage() {
     async function settlePayment() {
       if (PAYMENT_COMING_SOON) {
         setStatus("failed");
-        setMessage(isZh ? "付費功能即將開放，當前不會校驗訂單或解鎖報告。" : "Paid access is coming soon. Orders are not verified and reports are not unlocked right now.");
+        setMessage(
+          isZh
+            ? "付費功能即將開放，當前不會校驗訂單或解鎖報告。"
+            : "Paid access is coming soon. Orders are not verified and reports are not unlocked right now.",
+        );
         return;
       }
 
       if (!sessionId) {
         setStatus("failed");
-        setMessage(isZh ? "缺少支付會話信息，無法校驗訂單。" : "Missing checkout session. Unable to verify order.");
+        setMessage(
+          isZh
+            ? "缺少支付會話信息，無法校驗訂單。"
+            : "Missing checkout session. Unable to verify order.",
+        );
         return;
       }
 
@@ -70,7 +95,11 @@ export default function PaymentSuccessPage() {
 
       if (!verification.success) {
         setStatus("failed");
-        setMessage(isZh ? "支付尚未完成或校驗失敗。" : "Payment is not completed or verification failed.");
+        setMessage(
+          isZh
+            ? "支付尚未完成或校驗失敗。"
+            : "Payment is not completed or verification failed.",
+        );
         return;
       }
 
@@ -80,39 +109,29 @@ export default function PaymentSuccessPage() {
         amount: verification.amount,
         returnPath: verification.returnPath,
       });
-      if (!unlockResult.success && !sessionId.startsWith("R7A")) {
-        try {
-          const pendingPayment = JSON.parse(localStorage.getItem("r7_pending_payment") || "{}");
-          if (pendingPayment?.sessionId === sessionId) {
-            grantBenefits({
-              amount: pendingPayment.amount || 0,
-              productName: pendingPayment.productName || "Report",
-              productNameZh: pendingPayment.productNameZh || "报告",
-              metadata: {
-                sessionId,
-                reportKey: pendingPayment.metadata?.reportKey || "",
-                accessUrl: pendingPayment.returnPath || returnPath,
-                orderNo: pendingPayment.metadata?.orderNo || "",
-                paymentMethod: pendingPayment.metadata?.paymentMethod || "manual_qr",
-                productType: pendingPayment.metadata?.productType || "",
-                reportType: pendingPayment.metadata?.reportType || "",
-                autoRenew: pendingPayment.metadata?.autoRenew || "false",
-              },
-            });
-            localStorage.removeItem("r7_pending_payment");
-          }
-        } catch {
-          // Ignore malformed legacy pending-payment state.
-        }
+      if (!unlockResult.success) {
+        setStatus("failed");
+        setMessage(
+          isZh
+            ? "訂單已付款，但找不到對應報告，請聯繫客服並提供訂單號。"
+            : "Payment is complete, but the report could not be matched. Please contact support with the order ID.",
+        );
+        return;
       }
       try {
-        const pendingPayment = JSON.parse(localStorage.getItem("r7_pending_payment") || "{}");
-        if (pendingPayment?.sessionId === sessionId) localStorage.removeItem("r7_pending_payment");
+        const pendingPayment = JSON.parse(
+          localStorage.getItem("r7_pending_payment") || "{}",
+        );
+        if (pendingPayment?.sessionId === sessionId)
+          localStorage.removeItem("r7_pending_payment");
       } catch {
         // Ignore malformed legacy pending-payment state.
       }
-      try { localStorage.removeItem("r7_manual_payment_order"); } catch { /* Storage can be unavailable in privacy mode. */ }
-      try { localStorage.removeItem("r7_blocked_from"); } catch { /* Storage can be unavailable in privacy mode. */ }
+      try {
+        localStorage.removeItem("r7_blocked_from");
+      } catch {
+        /* Storage can be unavailable in privacy mode. */
+      }
 
       setStatus("success");
       try {
@@ -127,17 +146,17 @@ export default function PaymentSuccessPage() {
         /* history recording is best-effort */
       }
       setMessage(
-        isManualPayment
-          ? (isZh
-              ? `已收到你的付款提交${orderNo ? `（訂單 ${orderNo}）` : ""}，完整內容已為你開啟。`
-              : `Your payment submission${orderNo ? ` (${orderNo})` : ""} has been recorded. Full content is unlocked.`)
-          : (isZh ? "支付校驗成功，完整內容已解鎖。" : "Payment verified. Full content is unlocked.")
+        isZh
+          ? "支付寶付款已由服務端校驗，完整內容已解鎖。"
+          : "Alipay payment was verified by the server. Full content is unlocked.",
       );
     }
 
     settlePayment();
-    return () => { alive = false; };
-  }, [alipayToken, isManualPayment, isZh, orderNo, returnPath, sessionId]);
+    return () => {
+      alive = false;
+    };
+  }, [alipayToken, isZh, returnPath, sessionId]);
 
   // Auto-redirect countdown — 2 seconds, user can cancel
   useEffect(() => {
@@ -159,12 +178,20 @@ export default function PaymentSuccessPage() {
     const shareUrl = window.location.origin;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "R7 Fortune", text: shareText, url: shareUrl });
-      } catch { /* user cancelled */ }
+        await navigator.share({
+          title: "R7 Fortune",
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch {
+        /* user cancelled */
+      }
     } else {
       try {
         await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-      } catch { /* clipboard unavailable */ }
+      } catch {
+        /* clipboard unavailable */
+      }
     }
   };
 
@@ -183,7 +210,9 @@ export default function PaymentSuccessPage() {
                   {isZh ? "正在校驗支付" : "Verifying Payment"}
                 </h1>
                 <p className="text-sm text-[#8a8aad]">
-                  {isZh ? "請稍等，正在確認你的訂單狀態。" : "Please wait while we confirm your order."}
+                  {isZh
+                    ? "請稍等，正在確認你的訂單狀態。"
+                    : "Please wait while we confirm your order."}
                 </p>
               </>
             )}
@@ -209,12 +238,18 @@ export default function PaymentSuccessPage() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs">
-                        <span className="text-[#8a8aad]">{isZh ? "產品" : "Product"}</span>
-                        <span className="font-semibold text-[#f0e6d3]">{orderDetails.productName}</span>
+                        <span className="text-[#8a8aad]">
+                          {isZh ? "產品" : "Product"}
+                        </span>
+                        <span className="font-semibold text-[#f0e6d3]">
+                          {orderDetails.productName}
+                        </span>
                       </div>
                       {orderDetails.amount > 0 && (
                         <div className="flex justify-between text-xs">
-                          <span className="text-[#8a8aad]">{isZh ? "金額" : "Amount"}</span>
+                          <span className="text-[#8a8aad]">
+                            {isZh ? "金額" : "Amount"}
+                          </span>
                           <span className="font-bold text-[#ffd36a]">
                             ¥{orderDetails.amount.toFixed(2)}
                           </span>
@@ -222,12 +257,18 @@ export default function PaymentSuccessPage() {
                       )}
                       {orderDetails.orderNo && (
                         <div className="flex justify-between text-xs">
-                          <span className="text-[#8a8aad]">{isZh ? "訂單號" : "Order ID"}</span>
-                          <span className="font-mono text-[#c9bdd8]">{orderDetails.orderNo}</span>
+                          <span className="text-[#8a8aad]">
+                            {isZh ? "訂單號" : "Order ID"}
+                          </span>
+                          <span className="font-mono text-[#c9bdd8]">
+                            {orderDetails.orderNo}
+                          </span>
                         </div>
                       )}
                       <div className="flex justify-between text-xs">
-                        <span className="text-[#8a8aad]">{isZh ? "有效期" : "Validity"}</span>
+                        <span className="text-[#8a8aad]">
+                          {isZh ? "有效期" : "Validity"}
+                        </span>
                         <span className="flex items-center gap-1 font-semibold text-green-300">
                           <Clock3 className="h-3 w-3" />
                           {isZh ? "30 天" : "30 days"}
@@ -275,14 +316,6 @@ export default function PaymentSuccessPage() {
                   )}
                 </div>
 
-                {isManualPayment && (
-                  <p className="rounded-xl border border-[#d4a85318] bg-[#d4a85308] px-3 py-2 text-[11px] leading-5 text-[#c9bdd8]">
-                    {isZh
-                      ? "提示：這是收款碼過渡模式。正式聚合支付接入後，會由支付平台自動回調校驗。"
-                      : "Note: this is the temporary QR-code flow. Once the gateway is connected, verification will be handled by the provider callback."}
-                  </p>
-                )}
-
                 {/* Action buttons */}
                 <div className="space-y-2">
                   <button
@@ -328,16 +361,19 @@ export default function PaymentSuccessPage() {
                 </h1>
                 <p className="text-sm text-[#8a8aad]">{message}</p>
                 <button
-                  onClick={() => navigate(`/payment?cancelled=1&return=${encodeURIComponent(returnPath)}`, { replace: true })}
+                  onClick={() => navigate(returnPath, { replace: true })}
                   className="w-full py-3 bg-[#151520] border border-[#FFB6C118] text-[#f0e6d3] rounded-xl text-sm font-semibold hover:border-[#FFB6C144] transition-all"
                 >
-                  {isZh ? "返回支付頁" : "Back to Payment"}
+                  {isZh ? "返回報告重新支付" : "Return to report"}
                 </button>
               </>
             )}
 
             {status === "failed" && (
-              <Link to="/" className="inline-flex items-center justify-center gap-2 text-xs text-[#8a8aad] hover:text-[#FFB6C1] transition-colors">
+              <Link
+                to="/"
+                className="inline-flex items-center justify-center gap-2 text-xs text-[#8a8aad] hover:text-[#FFB6C1] transition-colors"
+              >
                 <Home className="w-3.5 h-3.5" />
                 {isZh ? "返回首頁" : "Back to Home"}
               </Link>

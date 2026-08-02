@@ -1,21 +1,31 @@
 /* ============================================================
    R7 Fortune — Unified Payment Service
    Single entry for all paywalls: Synastry / CP / Idol / Tarot.
-   Wraps Creem integration; localStorage for test mode.
-   Extensible: swap payment provider by replacing createCheckout().
+   Wraps the server-signed Alipay integration.
    ============================================================ */
 
-import { createCheckout as createCreemCheckout, grantBenefits, verifyPayment as verifyCreemPayment } from "@/lib/payment";
+import {
+  createCheckout as createAlipayCheckout,
+  grantBenefits,
+  verifyPayment as verifyAlipayPayment,
+} from "@/lib/payment";
 import { getAppPath } from "@/lib/route-helpers";
 import { PAYMENT_COMING_SOON, TEST_MODE } from "@/const";
 
 // ---- Types ----
-export type ReportType = "tarot" | "ziweiTarot" | "synastry" | "cp" | "idolGuide" | "natal" | "followupPack";
+export type ReportType =
+  | "tarot"
+  | "ziweiTarot"
+  | "synastry"
+  | "cp"
+  | "idolGuide"
+  | "natal"
+  | "followupPack";
 
 export interface PaymentConfig {
   reportType: ReportType;
-  reportKey: string;       // unique key to track unlock state, e.g. "synastry_abc123"
-  amount: number;          // USD
+  reportKey: string; // unique key to track unlock state, e.g. "synastry_abc123"
+  amount: number; // CNY
   productName: string;
   productNameZh: string;
   metadata?: Record<string, string>;
@@ -31,7 +41,9 @@ type UnlockRecord = boolean | { unlockedAt: string; expiresAt: string };
 function getUnlockedReports(): Record<string, UnlockRecord> {
   try {
     return JSON.parse(localStorage.getItem(UNLOCKED_KEY) || "{}");
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 
 function saveUnlockedReports(reports: Record<string, UnlockRecord>) {
@@ -41,13 +53,14 @@ function saveUnlockedReports(reports: Record<string, UnlockRecord>) {
 /** Generate a simple integrity signature for the unlock record */
 function signUnlock(reportKey: string, expiresAt: string): string {
   // Dynamic salt: device fingerprint prevents cross-device signature forgery
-  const devicePart = typeof navigator !== "undefined"
-    ? btoa(encodeURIComponent(navigator.userAgent)).slice(0, 12)
-    : "ssr_fallback";
+  const devicePart =
+    typeof navigator !== "undefined"
+      ? btoa(encodeURIComponent(navigator.userAgent)).slice(0, 12)
+      : "ssr_fallback";
   const payload = `${reportKey}:${expiresAt}:${devicePart}`;
   let hash = 0;
   for (let i = 0; i < payload.length; i++) {
-    hash = ((hash << 5) - hash) + payload.charCodeAt(i);
+    hash = (hash << 5) - hash + payload.charCodeAt(i);
     hash |= 0;
   }
   return "sig_" + Math.abs(hash).toString(36);
@@ -74,10 +87,15 @@ export function isReportPaid(reportKey: string): boolean {
   // Backward compatibility for old local preview records.
   if (record === true) {
     // Old records without signature — accept but upgrade
-    const expiresAt = new Date(Date.now() + DEFAULT_UNLOCK_DAYS * 86400000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + DEFAULT_UNLOCK_DAYS * 86400000,
+    ).toISOString();
     unlocked[reportKey] = { unlockedAt: new Date().toISOString(), expiresAt };
     saveUnlockedReports(unlocked);
-    localStorage.setItem(`${UNLOCK_SIG_PREFIX}${reportKey}`, signUnlock(reportKey, expiresAt));
+    localStorage.setItem(
+      `${UNLOCK_SIG_PREFIX}${reportKey}`,
+      signUnlock(reportKey, expiresAt),
+    );
     return true;
   }
 
@@ -98,7 +116,10 @@ export function isReportPaid(reportKey: string): boolean {
 }
 
 /** Mark a report as paid after successful payment */
-export function unlockReport(reportKey: string, days = DEFAULT_UNLOCK_DAYS): void {
+export function unlockReport(
+  reportKey: string,
+  days = DEFAULT_UNLOCK_DAYS,
+): void {
   if (PAYMENT_COMING_SOON) return;
   const unlocked = getUnlockedReports();
   const expiresAt = new Date(Date.now() + days * 86400000).toISOString();
@@ -108,16 +129,21 @@ export function unlockReport(reportKey: string, days = DEFAULT_UNLOCK_DAYS): voi
   };
   saveUnlockedReports(unlocked);
   // Write integrity signature
-  localStorage.setItem(`${UNLOCK_SIG_PREFIX}${reportKey}`, signUnlock(reportKey, expiresAt));
+  localStorage.setItem(
+    `${UNLOCK_SIG_PREFIX}${reportKey}`,
+    signUnlock(reportKey, expiresAt),
+  );
 }
 
 /** Initiate payment flow — returns checkout URL or throws error */
-export async function initiatePayment(config: PaymentConfig): Promise<{ url: string; sessionId: string } | { error: string }> {
+export async function initiatePayment(
+  config: PaymentConfig,
+): Promise<{ url: string; sessionId: string } | { error: string }> {
   if (PAYMENT_COMING_SOON) {
     return { error: "完整版报告功能即将开放，敬请期待" };
   }
 
-  const result = await createCreemCheckout({
+  const result = await createAlipayCheckout({
     amount: config.amount,
     productName: config.productName,
     productNameZh: config.productNameZh,
@@ -125,7 +151,10 @@ export async function initiatePayment(config: PaymentConfig): Promise<{ url: str
       reportType: config.reportType,
       reportKey: config.reportKey,
       returnPath: getAppPath(),
-      offerCode: config.reportType === "ziweiTarot" && config.amount === 19.9 ? "first" : "standard",
+      offerCode:
+        config.reportType === "ziweiTarot" && config.amount === 19.9
+          ? "first"
+          : "standard",
       ...config.metadata,
     },
   });
@@ -133,16 +162,19 @@ export async function initiatePayment(config: PaymentConfig): Promise<{ url: str
   if ("error" in result) return result;
 
   // Store pending payment info for callback
-  localStorage.setItem("r7_pending_report", JSON.stringify({
-    reportKey: config.reportKey,
-    reportType: config.reportType,
-    sessionId: result.sessionId,
-    amount: config.amount,
-    productName: config.productName,
-    productNameZh: config.productNameZh,
-    accessUrl: getAppPath(),
-    metadata: config.metadata || {},
-  }));
+  localStorage.setItem(
+    "r7_pending_report",
+    JSON.stringify({
+      reportKey: config.reportKey,
+      reportType: config.reportType,
+      sessionId: result.sessionId,
+      amount: config.amount,
+      productName: config.productName,
+      productNameZh: config.productNameZh,
+      accessUrl: getAppPath(),
+      metadata: config.metadata || {},
+    }),
+  );
 
   return result;
 }
@@ -163,7 +195,12 @@ export function handlePaymentSuccess(
 
   const pending = JSON.parse(localStorage.getItem("r7_pending_report") || "{}");
 
-  if (!verified?.reportKey && sessionId && pending.sessionId && pending.sessionId !== sessionId) {
+  if (
+    !verified?.reportKey &&
+    sessionId &&
+    pending.sessionId &&
+    pending.sessionId !== sessionId
+  ) {
     return { success: false };
   }
 
@@ -180,7 +217,8 @@ export function handlePaymentSuccess(
         ...(pending.metadata || {}),
         sessionId: sessionId || pending.sessionId || "",
         reportKey,
-        accessUrl: verified?.returnPath || pending.accessUrl || "/profile?tab=payments",
+        accessUrl:
+          verified?.returnPath || pending.accessUrl || "/profile?tab=payments",
         reportType: verified?.reportType || pending.reportType || "",
       },
     });
@@ -200,4 +238,7 @@ export function handlePaymentSuccess(
 //  Interface: { createCheckout, verifyPayment, grantBenefits }
 // ================================================================
 
-export { createCreemCheckout as providerCreateCheckout, verifyCreemPayment as providerVerifyPayment };
+export {
+  createAlipayCheckout as providerCreateCheckout,
+  verifyAlipayPayment as providerVerifyPayment,
+};
